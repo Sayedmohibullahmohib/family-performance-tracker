@@ -2327,11 +2327,18 @@ initDb();
 createServer(async (req, res) => {
   try {
     const path = new URL(req.url, `http://${req.headers.host}`).pathname;
-    if (path.startsWith("/api/")) return await api(req, res, path);
+
+    if (path.startsWith("/api/")) {
+      return await api(req, res, path);
+    }
+
     serveStatic(req, res);
+
   } catch (error) {
     if (!res.headersSent) {
-      send(res, error.status || 500, { error: error.message || "Server error" });
+      send(res, error.status || 500, {
+        error: error.message || "Server error"
+      });
     }
   }
 }).listen(PORT, HOST, () => {
