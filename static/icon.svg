@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Kids Tracker app icon">
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+  <circle cx="132" cy="132" r="62" fill="#fff2bd"/>
+  <circle cx="382" cy="142" r="52" fill="#dff8ea"/>
+  <circle cx="390" cy="382" r="70" fill="#ffe1da"/>
+  <rect x="116" y="194" width="280" height="196" rx="46" fill="#ffffff"/>
+  <path d="M166 294c36 48 144 48 180 0" fill="none" stroke="#16a34a" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="206" cy="254" r="20" fill="#243042"/>
+  <circle cx="306" cy="254" r="20" fill="#243042"/>
+  <path d="M256 72l28 58 64 9-46 45 11 64-57-30-57 30 11-64-46-45 64-9z" fill="#facc15"/>
+</svg>

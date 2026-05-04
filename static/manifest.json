@@ -1,0 +1,19 @@
+{
+  "name": "Kids Performance Tracker",
+  "short_name": "Kids Tracker",
+  "description": "A friendly family app for activities, points, streaks, rewards, and daily progress.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f8fb",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

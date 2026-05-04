@@ -1,0 +1,16 @@
+{
+  "name": "kids-performance-tracker",
+  "version": "1.0.0",
+  "description": "Standalone kids performance tracking system with child and parent dashboards.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "reset-db": "rm -f data/app.db && node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
