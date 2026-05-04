@@ -2333,12 +2333,3 @@ createServer(async (req, res) => {
 }).listen(PORT, HOST, () => {
   console.log(`Kids Performance Tracker running at http://${HOST}:${PORT}`);
 });
-app.get("/", (req, res) => {
-  res.send("Kids Performance Tracker is LIVE 🚀");
-});
-
-const PORT = process.env.PORT || 3002;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
