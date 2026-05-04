@@ -2319,6 +2319,8 @@ function serveStatic(req, res) {
     res.end("Not found");
   }
 }
+const PORT = process.env.PORT || 3002;
+const HOST = "0.0.0.0";
 
 initDb();
 
@@ -2328,18 +2330,9 @@ createServer(async (req, res) => {
     if (path.startsWith("/api/")) return await api(req, res, path);
     serveStatic(req, res);
   } catch (error) {
-    if (!res.headersSent) send(res, error.status || 500, { error: error.message || "Server error" });
-  }
-const PORT = process.env.PORT || 3002;
-const HOST = "0.0.0.0";
-
-createServer(async (req, res) => {
-  try {
-    const path = new URL(req.url, `http://${req.headers.host}`).pathname;
-    if (path.startsWith("/api/")) return await api(req, res, path);
-    serveStatic(req, res);
-  } catch (error) {
-    if (!res.headersSent) send(res, error.status || 500, { error: error.message || "Server error" });
+    if (!res.headersSent) {
+      send(res, error.status || 500, { error: error.message || "Server error" });
+    }
   }
 }).listen(PORT, HOST, () => {
   console.log(`Kids Performance Tracker running at http://${HOST}:${PORT}`);
