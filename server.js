@@ -10,7 +10,7 @@ const DATA_DIR = join(__dirname, "data");
 const DB_PATH = join(DATA_DIR, "app.db");
 const STATIC_DIR = join(__dirname, "static");
 const PORT = Number(process.env.PORT || 3000);
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = "0.0.0.0";
 const TOKEN_SECRET = process.env.TOKEN_SECRET || "change-this-secret-before-hosting";
 
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -2319,8 +2319,6 @@ function serveStatic(req, res) {
     res.end("Not found");
   }
 }
-const PORT = process.env.PORT || 3002;
-const HOST = "0.0.0.0";
 
 initDb();
 
