@@ -132,6 +132,18 @@ function App() {
     }
   }
 
+  async function registerParent(name, password) {
+    setError("");
+    try {
+      const data = await api("/api/register-parent", { method: "POST", body: JSON.stringify({ name, password }) });
+      localStorage.setItem("token", data.token);
+      setToken(data.token);
+      setUser(data.user);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   function logout() {
     localStorage.removeItem("token");
     setToken("");
@@ -143,28 +155,32 @@ function App() {
     api("/api/me").then((data) => setUser(data.user)).catch(logout);
   }, [token]);
 
-  if (!token || !user) return <Login onLogin={login} error={error} />;
+  if (!token || !user) return <Login onLogin={login} onRegister={registerParent} error={error} />;
   return (
     <Shell user={user} onLogout={logout}>
-      {user.role === "parent" ? <ParentDashboard api={api} /> : <ChildDashboard api={api} />}
+      {["admin", "parent"].includes(user.role) ? <ParentDashboard api={api} /> : <ChildDashboard api={api} />}
     </Shell>
   );
 }
 
-function Login({ onLogin, error }) {
+function Login({ onLogin, onRegister, error }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [registerMode, setRegisterMode] = useState(false);
   return (
     <main className="login-screen">
       <section className="login-panel">
         <div className="brand-mark">⭐</div>
         <h1>Kids Performance Tracker</h1>
         <p>Choose your name, enter your password, and start your day.</p>
-        <form onSubmit={(event) => { event.preventDefault(); onLogin(name, password); }}>
+        <form onSubmit={(event) => { event.preventDefault(); registerMode ? onRegister(name, password) : onLogin(name, password); }}>
           <label>Name<input value={name} placeholder="Type your name" onChange={(event) => setName(event.target.value)} /></label>
           <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
           {error && <div className="error">{error}</div>}
-          <button className="primary">Sign in</button>
+          <button className="primary">{registerMode ? "Register parent" : "Sign in"}</button>
+          <button type="button" className="ghost" onClick={() => setRegisterMode(!registerMode)}>
+            {registerMode ? "Back to sign in" : "Register new parent"}
+          </button>
         </form>
       </section>
     </main>
@@ -1517,6 +1533,10 @@ function ActivityCard({ activity, timerScope, onComplete }) {
   const [timerEndAt, setTimerEndAt] = useState(null);
   const [buttonBounce, setButtonBounce] = useState(false);
   const [proof, setProof] = useState("");
+  const [interactiveAnswer, setInteractiveAnswer] = useState("");
+  const taskType = activity.task_type || "standard";
+  const taskData = activity.task_data || {};
+  const hasInteractiveTask = taskType && taskType !== "standard";
   const timerRequired = durationSeconds > 0 && !activity.is_prayer;
   const timerProgress = timerRequired ? Math.max(0, Math.min(100, Math.round(((durationSeconds - secondsLeft) / durationSeconds) * 100))) : 0;
 
@@ -1611,7 +1631,7 @@ function ActivityCard({ activity, timerScope, onComplete }) {
     setButtonBounce(true);
     setTimeout(() => setButtonBounce(false), 520);
     if (!timerRequired) {
-      onComplete(activity, { proof });
+      onComplete(activity, { proof, interactiveAnswer, interactiveScore: hasInteractiveTask && interactiveAnswer ? 1 : 0 });
       return;
     }
     setTimerStarted(true);
@@ -1641,7 +1661,7 @@ function ActivityCard({ activity, timerScope, onComplete }) {
     setTimeout(() => setButtonBounce(false), 520);
     setNeedsConfirmation(false);
     clearSavedTimer();
-    onComplete(activity, { proof });
+    onComplete(activity, { proof, interactiveAnswer, interactiveScore: hasInteractiveTask && interactiveAnswer ? 1 : 0 });
   }
 
   function readProof(file) {
@@ -1669,6 +1689,7 @@ function ActivityCard({ activity, timerScope, onComplete }) {
           <span className="points-pill"><CoinIcon />{activity.points} pts</span>
         </div>
         <p>{activity.description}</p>
+        {activity.subject ? <small className="subject-chip">{activity.subject} · {taskType === "standard" ? "Daily activity" : taskType.replaceAll("_", " ")}</small> : null}
         <span className={`status-chip ${activity.status}`}>{activity.status}</span>
         {activity.proof_required ? (
           <label className="proof-upload">
@@ -1720,12 +1741,46 @@ function ActivityCard({ activity, timerScope, onComplete }) {
             })}
           </div>
         ) : (
-          <button className={buttonBounce ? "complete-button tap-bounce" : "complete-button"} disabled={isDone || timerRunning || needsConfirmation || (activity.proof_required && !proof)} onClick={beginCompletion}>
+          <>
+          <InteractiveTask type={taskType} data={taskData} value={interactiveAnswer} onChange={setInteractiveAnswer} disabled={isDone} />
+          <button className={buttonBounce ? "complete-button tap-bounce" : "complete-button"} disabled={isDone || timerRunning || needsConfirmation || (activity.proof_required && !proof) || (hasInteractiveTask && !interactiveAnswer)} onClick={beginCompletion}>
             {isDone ? activity.status : activity.proof_required && !proof ? "Add proof first" : timerRequired ? "Complete activity" : "Mark complete"}
           </button>
+          </>
         )}
       </div>
     </article>
+  );
+}
+
+function InteractiveTask({ type, data = {}, value, onChange, disabled }) {
+  if (!type || type === "standard") return null;
+  const options = Array.isArray(data.options) && data.options.length ? data.options : ["Option A", "Option B", "Option C"];
+  const pairs = Array.isArray(data.pairs) && data.pairs.length ? data.pairs : [["Word", "Meaning"], ["Picture", "Name"]];
+  return (
+    <div className="interactive-task">
+      <strong>{data.prompt || "Interactive task"}</strong>
+      {type === "multiple_choice" && options.map((option) => (
+        <label className="check" key={option}><input disabled={disabled} checked={value === option} type="radio" onChange={() => onChange(option)} /> {option}</label>
+      ))}
+      {type === "true_false" && ["True", "False"].map((option) => (
+        <label className="check" key={option}><input disabled={disabled} checked={value === option} type="radio" onChange={() => onChange(option)} /> {option}</label>
+      ))}
+      {type === "fill_blank" && <input disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} placeholder={data.placeholder || "Type the missing word"} />}
+      {type === "short_answer" && <textarea disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} placeholder="Write a short answer" />}
+      {type === "matching" && (
+        <div className="matching-task">
+          {pairs.map((pair, index) => <span key={`${pair[0]}-${index}`}>{pair[0]} → {pair[1]}</span>)}
+          <button type="button" disabled={disabled} className={value ? "" : "ghost"} onClick={() => onChange("matched")}>{value ? "Matched" : "I matched them"}</button>
+        </div>
+      )}
+      {type === "picture_vocabulary" && (
+        <div className="picture-vocab">
+          <span>{data.image || "🖼️"}</span>
+          <input disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} placeholder={data.placeholder || "What is this?"} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1873,6 +1928,10 @@ function ParentDashboard({ api }) {
 
   async function load(preferredChildId = "") {
     const adminData = await api("/api/admin");
+    adminData.activities = (adminData.activities || []).map((activity) => {
+      if (typeof activity.task_data !== "string") return activity;
+      try { return { ...activity, task_data: JSON.parse(activity.task_data || "{}") }; } catch { return { ...activity, task_data: {} }; }
+    });
     setAdmin(adminData);
     const availableIds = adminData.children.map((child) => String(child.id));
     const selected = availableIds.includes(String(preferredChildId))
@@ -1907,10 +1966,20 @@ function ParentDashboard({ api }) {
   async function saveActivity(event) {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget));
+    const taskData = {
+      prompt: form.interactive_prompt || "",
+      options: String(form.interactive_options || "").split("\n").map((item) => item.trim()).filter(Boolean),
+      pairs: String(form.interactive_pairs || "").split("\n").map((line) => line.split("=").map((item) => item.trim())).filter((pair) => pair.length === 2 && pair[0] && pair[1]),
+      image: form.interactive_image || "",
+      placeholder: form.interactive_placeholder || ""
+    };
     const payload = {
       ...form,
       points: Number(form.points),
       duration_minutes: Number(form.duration_minutes || 0),
+      subject: form.subject || "Reading",
+      task_type: form.task_type || "standard",
+      task_data: JSON.stringify(taskData),
       show_weekdays: form.show_weekdays === "on",
       show_weekends: form.show_weekends === "on",
       day_0: form.day_0 === "on",
@@ -2158,7 +2227,7 @@ function ParentDashboard({ api }) {
       {adminTab === "children" && (
         <section className="admin-grid">
           <Panel title="Children & Accounts">
-            <ParentAccountForm user={admin.users.find((account) => account.role === "parent")} onSubmit={saveParentAccount} />
+            <ParentAccountForm user={admin.users.find((account) => account.role === "admin" || account.role === "parent")} onSubmit={saveParentAccount} />
             <ChildAccountForm item={editingChild} users={admin.users} onSubmit={saveChild} />
             <div className="mini-list">
               {admin.children.map((child) => {
@@ -2549,6 +2618,25 @@ function EditorForm({ item, type, onSubmit }) {
       {!isReward && (
         <>
           <input name="duration_minutes" type="number" min="0" placeholder="Timer minutes" defaultValue={item?.duration_minutes || 0} />
+          <select name="subject" defaultValue={item?.subject || "Reading"}>
+            {["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork"].map((subject) => <option key={subject}>{subject}</option>)}
+          </select>
+          <select name="task_type" defaultValue={item?.task_type || "standard"}>
+            <option value="standard">Standard task</option>
+            <option value="multiple_choice">Multiple choice</option>
+            <option value="fill_blank">Fill in the blank</option>
+            <option value="true_false">True/false</option>
+            <option value="matching">Matching activity</option>
+            <option value="short_answer">Short answer</option>
+            <option value="picture_vocabulary">Picture vocabulary</option>
+          </select>
+          <input name="interactive_prompt" placeholder="Interactive question or prompt" defaultValue={item?.task_data?.prompt || ""} />
+          <textarea name="interactive_options" placeholder="Options, one per line" defaultValue={(item?.task_data?.options || []).join("\n")} />
+          <textarea name="interactive_pairs" placeholder="Matching pairs, one per line: word = meaning" defaultValue={(item?.task_data?.pairs || []).map((pair) => pair.join(" = ")).join("\n")} />
+          <div className="form-row">
+            <input name="interactive_image" placeholder="Picture emoji or URL" defaultValue={item?.task_data?.image || ""} />
+            <input name="interactive_placeholder" placeholder="Answer placeholder" defaultValue={item?.task_data?.placeholder || ""} />
+          </div>
           <select name="frequency" defaultValue={item?.frequency || "daily"}>
             <option>daily</option>
             <option>weekly</option>

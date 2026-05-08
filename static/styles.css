@@ -2815,6 +2815,42 @@ h1, h2, h3, p {
   font-weight: 800;
 }
 
+.subject-chip {
+  display: inline-flex;
+  width: fit-content;
+  margin: 0.15rem 0 0.45rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #24527a;
+  font-weight: 800;
+}
+
+.interactive-task {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.75rem 0;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.interactive-task input,
+.interactive-task textarea {
+  width: 100%;
+}
+
+.matching-task,
+.picture-vocab {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.picture-vocab > span {
+  font-size: 2.2rem;
+}
+
 .badge-grid {
   display: grid;
   gap: 10px;

@@ -219,7 +219,7 @@ function initDb() {
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('parent','child')),
+      role TEXT NOT NULL CHECK(role IN ('admin','parent','child')),
       child_id INTEGER,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -507,6 +507,72 @@ function initDb() {
     );
   `);
 
+  const userTableSql = db("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users';")[0]?.sql || "";
+  if (userTableSql.includes("CHECK(role IN ('parent','child'))")) {
+    exec(`
+      PRAGMA foreign_keys = OFF;
+      CREATE TABLE users_next (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('admin','parent','child')),
+        child_id INTEGER,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO users_next (id, name, email, password_hash, role, child_id, created_at)
+      SELECT id, name, email, password_hash, role, child_id, created_at FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_next RENAME TO users;
+      PRAGMA foreign_keys = ON;
+    `);
+  }
+
+  if (!columnExists("children", "parent_id")) {
+    exec("ALTER TABLE children ADD COLUMN parent_id INTEGER;");
+  }
+  if (!columnExists("activities", "parent_id")) {
+    exec("ALTER TABLE activities ADD COLUMN parent_id INTEGER;");
+  }
+  if (!columnExists("activities", "subject")) {
+    exec("ALTER TABLE activities ADD COLUMN subject TEXT DEFAULT 'Reading';");
+  }
+  if (!columnExists("activities", "task_type")) {
+    exec("ALTER TABLE activities ADD COLUMN task_type TEXT DEFAULT 'standard';");
+  }
+  if (!columnExists("activities", "task_data")) {
+    exec("ALTER TABLE activities ADD COLUMN task_data TEXT DEFAULT '{}';");
+  }
+  if (!columnExists("activity_logs", "interactive_answer")) {
+    exec("ALTER TABLE activity_logs ADD COLUMN interactive_answer TEXT DEFAULT '';");
+  }
+  if (!columnExists("activity_logs", "interactive_score")) {
+    exec("ALTER TABLE activity_logs ADD COLUMN interactive_score INTEGER DEFAULT 0;");
+  }
+  if (!columnExists("rewards", "parent_id")) {
+    exec("ALTER TABLE rewards ADD COLUMN parent_id INTEGER;");
+  }
+  if (!columnExists("parent_challenges", "parent_id")) {
+    exec("ALTER TABLE parent_challenges ADD COLUMN parent_id INTEGER;");
+  }
+  const firstParent = db("SELECT id FROM users WHERE role IN ('admin','parent') ORDER BY id LIMIT 1;")[0];
+  if (firstParent) {
+    exec(sql`
+      UPDATE users SET role = 'admin' WHERE id = ${firstParent.id} AND role = 'parent';
+      UPDATE children SET parent_id = ${firstParent.id} WHERE parent_id IS NULL;
+      UPDATE rewards SET parent_id = ${firstParent.id} WHERE parent_id IS NULL;
+      UPDATE parent_challenges SET parent_id = ${firstParent.id} WHERE parent_id IS NULL;
+    `);
+  }
+  exec(`
+    UPDATE activities SET subject = 'Quran' WHERE lower(title) LIKE '%quran%';
+    UPDATE activities SET subject = 'Math' WHERE lower(title) LIKE '%math%' OR lower(title) LIKE '%mathematics%';
+    UPDATE activities SET subject = 'Reading' WHERE lower(title) LIKE '%reading%';
+    UPDATE activities SET subject = 'Fitness' WHERE lower(title) LIKE '%sport%' OR lower(title) LIKE '%fitness%';
+    UPDATE activities SET subject = 'Housework' WHERE lower(title) LIKE '%mother%' OR lower(title) LIKE '%bedroom%' OR lower(title) LIKE '%organization%';
+    UPDATE activities SET subject = 'Teamwork' WHERE lower(title) LIKE '%teamwork%';
+  `);
+
   let addedHifzJourneyColumns = false;
   const hifzColumns = [
     ["page_in_juz", "INTEGER DEFAULT 1"],
@@ -593,6 +659,13 @@ function initDb() {
     INSERT INTO users (name, email, password_hash, role, child_id) VALUES ('Amina', 'amina@example.com', ${hashPassword("child123")}, 'child', 1);
     INSERT INTO users (name, email, password_hash, role, child_id) VALUES ('Yusuf', 'yusuf@example.com', ${hashPassword("child123")}, 'child', 2);
   `);
+  const seededParent = db("SELECT id FROM users WHERE role = 'parent' ORDER BY id LIMIT 1;")[0];
+  if (seededParent) {
+    exec(sql`
+      UPDATE users SET role = 'admin' WHERE id = ${seededParent.id};
+      UPDATE children SET parent_id = ${seededParent.id} WHERE parent_id IS NULL;
+    `);
+  }
 
   const activities = [
     ["Quran learning", "Read, memorize, or revise Quran with care.", 20, 15, "daily", 0, 0, 0],
@@ -1048,12 +1121,12 @@ function restoreBackup(backup) {
     DELETE FROM users;
     DELETE FROM children;
   `);
-  insertRows("children", backup.children, ["id", "name", "avatar", "total_points", "created_at"]);
+  insertRows("children", backup.children, ["id", "name", "avatar", "total_points", "created_at", "parent_id"]);
   insertRows("users", backup.users, ["id", "name", "email", "password_hash", "role", "child_id", "created_at"]);
-  insertRows("activities", backup.activities, ["id", "title", "description", "points", "duration_minutes", "frequency", "show_weekdays", "show_weekends", "day_0", "day_1", "day_2", "day_3", "day_4", "day_5", "day_6", "task_date", "proof_required", "requires_approval", "is_prayer", "active", "created_at"]);
-  insertRows("activity_logs", backup.activity_logs, ["id", "child_id", "activity_id", "log_date", "status", "proof", "prayer_state", "awarded_points", "created_at", "updated_at"]);
+  insertRows("activities", backup.activities, ["id", "title", "description", "points", "duration_minutes", "frequency", "show_weekdays", "show_weekends", "day_0", "day_1", "day_2", "day_3", "day_4", "day_5", "day_6", "task_date", "proof_required", "requires_approval", "is_prayer", "active", "created_at", "parent_id", "subject", "task_type", "task_data"]);
+  insertRows("activity_logs", backup.activity_logs, ["id", "child_id", "activity_id", "log_date", "status", "proof", "prayer_state", "awarded_points", "created_at", "updated_at", "interactive_answer", "interactive_score"]);
   insertRows("activity_assignments", backup.activity_assignments, ["child_id", "activity_id", "enabled"]);
-  insertRows("rewards", backup.rewards, ["id", "title", "description", "required_points", "active", "created_at"]);
+  insertRows("rewards", backup.rewards, ["id", "title", "description", "required_points", "active", "created_at", "parent_id"]);
   insertRows("reward_redemptions", backup.reward_redemptions, ["id", "child_id", "reward_id", "points_spent", "status", "redeemed_at"]);
   insertRows("point_transactions", backup.point_transactions, ["id", "child_id", "source_type", "source_id", "points", "note", "created_at"]);
   insertRows("daily_challenges", backup.daily_challenges, ["challenge_date", "activity_id", "created_at"]);
@@ -1064,7 +1137,7 @@ function restoreBackup(backup) {
   insertRows("avatar_items", backup.avatar_items, ["id", "title", "icon", "item_type", "cost", "active", "created_at"]);
   insertRows("avatar_purchases", backup.avatar_purchases, ["id", "child_id", "item_id", "equipped", "purchased_at"]);
   insertRows("treasure_chests", backup.treasure_chests, ["id", "child_id", "chest_date", "reward_type", "reward_value", "message", "opened_at"]);
-  insertRows("parent_challenges", backup.parent_challenges, ["id", "title", "description", "target_count", "bonus_points", "start_date", "end_date", "child_id", "active", "created_at"]);
+  insertRows("parent_challenges", backup.parent_challenges, ["id", "title", "description", "target_count", "bonus_points", "start_date", "end_date", "child_id", "active", "created_at", "parent_id"]);
   insertRows("parent_challenge_awards", backup.parent_challenge_awards, ["id", "challenge_id", "child_id", "points", "awarded_at"]);
   insertRows("power_ups", backup.power_ups, ["id", "child_id", "power_type", "title", "description", "value", "status", "earned_at", "used_at"]);
   insertRows("mystery_boxes", backup.mystery_boxes, ["id", "child_id", "box_date", "reward_type", "reward_value", "message", "opened_at"]);
@@ -1091,8 +1164,36 @@ function requireUser(req) {
 
 function requireParent(req) {
   const user = requireUser(req);
-  if (user.role !== "parent") throw Object.assign(new Error("Parent access required"), { status: 403 });
+  if (!["admin", "parent"].includes(user.role)) throw Object.assign(new Error("Parent access required"), { status: 403 });
   return user;
+}
+
+function isAdmin(user) {
+  return user?.role === "admin";
+}
+
+function visibleChildIds(user) {
+  if (isAdmin(user)) return db("SELECT id FROM children ORDER BY id;").map((child) => Number(child.id));
+  if (user.role === "parent") return db(sql`SELECT id FROM children WHERE parent_id = ${user.id} ORDER BY id;`).map((child) => Number(child.id));
+  return user.child_id ? [Number(user.child_id)] : [];
+}
+
+function canAccessChild(user, childId) {
+  return visibleChildIds(user).includes(Number(childId));
+}
+
+function requireChildAccess(user, childId) {
+  if (!canAccessChild(user, childId)) throw Object.assign(new Error("You can only access your own children."), { status: 403 });
+}
+
+function visibleChildWhere(user, alias = "c") {
+  const ids = visibleChildIds(user);
+  return ids.length ? `${alias}.id IN (${ids.map(Number).join(",")})` : "1 = 0";
+}
+
+function visibleActivityWhere(user, alias = "a") {
+  if (isAdmin(user)) return "1 = 1";
+  return `(${alias}.parent_id IS NULL OR ${alias}.parent_id = ${Number(user.id)})`;
 }
 
 function childIdFor(req, explicitId) {
@@ -1100,9 +1201,10 @@ function childIdFor(req, explicitId) {
   if (user.role === "child") return user.child_id;
   if (explicitId) {
     const child = db(sql`SELECT id FROM children WHERE id = ${Number(explicitId)};`)[0];
+    if (child) requireChildAccess(user, child.id);
     if (child) return child.id;
   }
-  return Number(db("SELECT id FROM children ORDER BY id LIMIT 1;")[0]?.id);
+  return Number(visibleChildIds(user)[0] || 0);
 }
 
 function dayStreakFor(childId) {
@@ -1370,6 +1472,7 @@ function localTimeString() {
 }
 
 function parentChallengesFor(childId, date = today()) {
+  const child = db(sql`SELECT parent_id FROM children WHERE id = ${childId};`)[0] || {};
   const challenges = db(sql`
     SELECT pc.*,
       (
@@ -1379,7 +1482,7 @@ function parentChallengesFor(childId, date = today()) {
           AND l.status IN ('completed','approved')
       ) AS progress
     FROM parent_challenges pc
-    WHERE pc.active = 1 AND pc.start_date <= ${date} AND pc.end_date >= ${date} AND (pc.child_id IS NULL OR pc.child_id = ${childId})
+    WHERE pc.active = 1 AND pc.start_date <= ${date} AND pc.end_date >= ${date} AND (pc.child_id IS NULL OR pc.child_id = ${childId}) AND (pc.parent_id IS NULL OR pc.parent_id = ${Number(child.parent_id || 0)})
     ORDER BY pc.end_date ASC, pc.id DESC;
   `).map((challenge) => ({
     ...challenge,
@@ -1424,13 +1527,41 @@ function dashboardFor(childId) {
   const challenge = activityOfTheDay();
   const parentChallenges = parentChallengesFor(childId, date);
   const child = db(sql`SELECT * FROM children WHERE id = ${childId};`)[0];
-  if (!child) throw Object.assign(new Error("Child not found"), { status: 404 });
+  if (!child) {
+    return {
+      child: { id: 0, name: "No child yet", avatar: "⭐", total_points: 0 },
+      date,
+      activities: [],
+      rewards: [],
+      leaderboard: [],
+      familyQuest,
+      redemptionBoard: [],
+      rewardDiscounts: [],
+      activityOfTheDay: null,
+      badges: [],
+      missions: [],
+      treasure: null,
+      mysteryBox: null,
+      powerUps: [],
+      weeklyTheme: {},
+      reflection: null,
+      earlyBird: { rows: [] },
+      quran: null,
+      hifz: null,
+      parentChallenges: [],
+      personalBest: {},
+      achievements: {},
+      summary: { completed_today: 0, daily_target: 0, earned_points: 0, redeemed_points: 0, remaining_to_reward: 0 },
+      points: { daily: 0, weekly: 0, total: 0 }
+    };
+  }
+  const familyActivityScope = `(a.parent_id IS NULL OR a.parent_id = ${Number(child.parent_id || 0)})`;
   const activities = db(`
-    SELECT a.*, COALESCE(l.status, 'pending') AS status, COALESCE(l.awarded_points, 0) AS awarded_points, COALESCE(l.prayer_state, '{}') AS prayer_state, l.id AS log_id
+    SELECT a.*, COALESCE(l.status, 'pending') AS status, COALESCE(l.awarded_points, 0) AS awarded_points, COALESCE(l.prayer_state, '{}') AS prayer_state, COALESCE(l.interactive_answer, '') AS interactive_answer, COALESCE(l.interactive_score, 0) AS interactive_score, l.id AS log_id
     FROM activities a
     LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = ${Number(childId)}
     LEFT JOIN activity_logs l ON l.activity_id = a.id AND l.child_id = ${Number(childId)} AND l.log_date = ${quote(date)}
-    WHERE a.active = 1 AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND (a.task_date IS NULL OR a.task_date = ${quote(date)})
+    WHERE a.active = 1 AND ${familyActivityScope} AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND (a.task_date IS NULL OR a.task_date = ${quote(date)})
     ORDER BY
       CASE COALESCE(l.status, 'pending')
         WHEN 'pending' THEN 0
@@ -1440,7 +1571,11 @@ function dashboardFor(childId) {
         ELSE 0
       END,
       a.id;
-  `).map((row) => ({ ...row, is_daily_challenge: challenge && Number(row.id) === Number(challenge.id) ? 1 : 0, prayer_state: JSON.parse(row.prayer_state || "{}") }));
+  `).map((row) => {
+    let taskData = {};
+    try { taskData = JSON.parse(row.task_data || "{}"); } catch { taskData = {}; }
+    return { ...row, task_data: taskData, is_daily_challenge: challenge && Number(row.id) === Number(challenge.id) ? 1 : 0, prayer_state: JSON.parse(row.prayer_state || "{}") };
+  });
   for (const activity of activities) {
     if (activity.is_prayer) {
       activity.prayer_points = PRAYER_POINTS;
@@ -1457,10 +1592,10 @@ function dashboardFor(childId) {
     SELECT COUNT(*) AS count
     FROM activities a
     LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = ${Number(childId)}
-    WHERE a.active = 1 AND a.frequency = 'daily' AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND (a.task_date IS NULL OR a.task_date = ${quote(date)});
+    WHERE a.active = 1 AND ${familyActivityScope} AND a.frequency = 'daily' AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND (a.task_date IS NULL OR a.task_date = ${quote(date)});
   `);
   const discounts = rewardDiscountsOfPeriod();
-  const rewards = db("SELECT * FROM rewards WHERE active = 1 ORDER BY required_points;").map((reward) => ({
+  const rewards = db(`SELECT * FROM rewards WHERE active = 1 AND (parent_id IS NULL OR parent_id = ${Number(child.parent_id || 0)}) ORDER BY required_points;`).map((reward) => ({
     ...reward,
     is_discounted: discounts.some((discount) => Number(discount.id) === Number(reward.id)) ? 1 : 0,
     discount_percent: discounts.find((discount) => Number(discount.id) === Number(reward.id))?.discount_percent || 0,
@@ -1480,6 +1615,7 @@ function dashboardFor(childId) {
   const leaderboard = db(`
     SELECT id, name, avatar, total_points
     FROM children
+    WHERE parent_id = ${Number(child.parent_id || 0)}
     ORDER BY total_points DESC, name ASC;
   `).map((row, index) => ({
     ...row,
@@ -1498,6 +1634,7 @@ function dashboardFor(childId) {
     FROM children c
     LEFT JOIN reward_redemptions rr ON rr.child_id = c.id
     LEFT JOIN rewards r ON r.id = rr.reward_id
+    WHERE c.parent_id = ${Number(child.parent_id || 0)}
     GROUP BY c.id
     ORDER BY redeemed_points DESC, c.name ASC;
   `).map((row, index) => ({
@@ -1572,8 +1709,10 @@ function dashboardFor(childId) {
   };
 }
 
-function parentTodayOverview(date = today()) {
+function parentTodayOverview(date = today(), user = null) {
   const scheduleColumn = dayColumn(date);
+  const childScope = user ? `WHERE ${visibleChildWhere(user, "c")}` : "";
+  const activityScope = user ? `AND ${visibleActivityWhere(user, "a")}` : "";
   return db(`
     SELECT
       c.id,
@@ -1591,14 +1730,14 @@ function parentTodayOverview(date = today()) {
         SELECT COUNT(*) FROM activities a
         LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = c.id
         LEFT JOIN activity_logs l ON l.activity_id = a.id AND l.child_id = c.id AND l.log_date = ${quote(date)}
-        WHERE a.active = 1 AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1
+        WHERE a.active = 1 AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 ${activityScope}
           AND (a.task_date IS NULL OR a.task_date = ${quote(date)})
           AND COALESCE(l.status, 'pending') IN ('pending','rejected')
       ) AS missed_today,
       (
         SELECT COUNT(*) FROM activities a
         LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = c.id
-        WHERE a.active = 1 AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1
+        WHERE a.active = 1 AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 ${activityScope}
           AND (a.task_date IS NULL OR a.task_date = ${quote(date)})
       ) AS target_today,
       (
@@ -1610,6 +1749,7 @@ function parentTodayOverview(date = today()) {
         WHERE rr.child_id = c.id AND rr.status = 'pending'
       ) AS pending_rewards
     FROM children c
+    ${childScope}
     ORDER BY c.name ASC;
   `).map((row) => {
     const target = Math.max(1, Number(row.target_today || 0));
@@ -1627,37 +1767,50 @@ function parentTodayOverview(date = today()) {
   });
 }
 
-function parentSmartInsights(date = today()) {
+function parentSmartInsights(date = today(), user = null) {
   const week = weekInfo(date);
-  const bestActivity = db(sql`
+  const childScope = user ? `AND ${visibleChildWhere(user, "c")}` : "";
+  const childJoinScope = user ? `WHERE ${visibleChildWhere(user, "c")}` : "";
+  const activityScope = user ? `AND ${visibleActivityWhere(user, "a")}` : "";
+  const bestActivity = db(`
     SELECT a.title, COUNT(*) AS count
     FROM activity_logs l JOIN activities a ON a.id = l.activity_id
-    WHERE l.log_date = ${date} AND l.status IN ('completed','approved')
+    JOIN children c ON c.id = l.child_id
+    WHERE l.log_date = ${quote(date)} AND l.status IN ('completed','approved') ${childScope} ${activityScope}
     GROUP BY a.id
     ORDER BY count DESC, a.title ASC
     LIMIT 1;
   `)[0] || null;
-  const weakestActivity = db(sql`
+  const weakestActivity = db(`
     SELECT a.title, COUNT(*) AS missed
     FROM activities a
-    LEFT JOIN activity_logs l ON l.activity_id = a.id AND l.log_date = ${date} AND l.status IN ('completed','approved')
-    WHERE a.active = 1 AND l.id IS NULL
+    LEFT JOIN activity_logs l ON l.activity_id = a.id AND l.log_date = ${quote(date)} AND l.status IN ('completed','approved')
+    WHERE a.active = 1 AND l.id IS NULL ${activityScope}
     GROUP BY a.id
     ORDER BY missed DESC, a.title ASC
     LIMIT 1;
   `)[0] || null;
-  const mostActive = db(sql`
+  const mostActive = db(`
     SELECT c.name, COUNT(l.id) AS completed
     FROM children c
-    LEFT JOIN activity_logs l ON l.child_id = c.id AND l.log_date BETWEEN ${week.start} AND ${week.end} AND l.status IN ('completed','approved')
+    LEFT JOIN activity_logs l ON l.child_id = c.id AND l.log_date BETWEEN ${quote(week.start)} AND ${quote(week.end)} AND l.status IN ('completed','approved')
+    ${childJoinScope}
     GROUP BY c.id
     ORDER BY completed DESC, c.name ASC
     LIMIT 1;
   `)[0] || null;
-  const overview = parentTodayOverview(date);
+  const overview = parentTodayOverview(date, user);
   const needsAttention = [...overview].sort((a, b) => Number(b.missed_today || 0) - Number(a.missed_today || 0))[0] || null;
-  const pendingApprovals = Number(db(sql`SELECT COUNT(*) AS count FROM activity_logs WHERE log_date = ${date} AND status = 'completed';`)[0].count || 0);
-  const rewardRequests = Number(db("SELECT COUNT(*) AS count FROM reward_redemptions WHERE status = 'pending';")[0].count || 0);
+  const pendingApprovals = Number(db(`
+    SELECT COUNT(*) AS count FROM activity_logs l
+    JOIN children c ON c.id = l.child_id
+    WHERE l.log_date = ${quote(date)} AND l.status = 'completed' ${user ? `AND ${visibleChildWhere(user, "c")}` : ""};
+  `)[0].count || 0);
+  const rewardRequests = Number(db(`
+    SELECT COUNT(*) AS count FROM reward_redemptions rr
+    JOIN children c ON c.id = rr.child_id
+    WHERE rr.status = 'pending' ${user ? `AND ${visibleChildWhere(user, "c")}` : ""};
+  `)[0].count || 0);
   return {
     best_activity_today: bestActivity?.title || "Not enough data yet",
     weakest_activity_today: weakestActivity?.title || "Not enough data yet",
@@ -1668,17 +1821,20 @@ function parentSmartInsights(date = today()) {
   };
 }
 
-function parentReflections() {
+function parentReflections(user = null) {
+  const childScope = user ? `WHERE ${visibleChildWhere(user, "c")}` : "";
   return db(`
     SELECT cr.*, c.name AS child_name, c.avatar
     FROM child_reflections cr
     JOIN children c ON c.id = cr.child_id
+    ${childScope}
     ORDER BY cr.reflection_date DESC, cr.created_at DESC
     LIMIT 30;
   `);
 }
 
 function reports(childId) {
+  if (!Number(childId)) return { completed: [], weekly: [], monthly: [], best: null, missed: [], redeemed: [] };
   const scheduleColumn = dayColumn(today());
   const completed = db(sql`
     SELECT l.log_date, a.title, l.status, l.awarded_points
@@ -1720,8 +1876,21 @@ async function api(req, res, path) {
     return send(res, 200, { token: signToken({ id: user.id, role: user.role }), user: { id: user.id, name: user.name, email: user.email, role: user.role, child_id: user.child_id } });
   }
 
+  if (method === "POST" && path === "/api/register-parent") {
+    const name = String(body.name || "").trim();
+    const password = String(body.password || "");
+    if (!name || password.length < 6) return send(res, 400, { error: "Parent name and a password with at least 6 characters are required" });
+    if (nameAlreadyUsed(name)) return send(res, 400, { error: "This login name is already used. Choose a different name." });
+    exec(sql`INSERT INTO users (name, email, password_hash, role) VALUES (${name}, ${localEmailFor(name, "parent", Date.now())}, ${hashPassword(password)}, 'parent');`);
+    const user = db("SELECT id, name, email, role, child_id FROM users ORDER BY id DESC LIMIT 1;")[0];
+    return send(res, 201, { token: signToken({ id: user.id, role: user.role }), user });
+  }
+
   if (method === "GET" && path === "/api/me") return send(res, 200, { user: requireUser(req) });
-  if (method === "GET" && path === "/api/children") return send(res, 200, { children: db("SELECT * FROM children ORDER BY id;") });
+  if (method === "GET" && path === "/api/children") {
+    const user = requireUser(req);
+    return send(res, 200, { children: db(`SELECT * FROM children c WHERE ${visibleChildWhere(user, "c")} ORDER BY id;`) });
+  }
   if (method === "GET" && path.startsWith("/api/dashboard")) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     return send(res, 200, dashboardFor(childIdFor(req, url.searchParams.get("childId"))));
@@ -1731,24 +1900,30 @@ async function api(req, res, path) {
     return send(res, 200, reports(childIdFor(req, url.searchParams.get("childId"))));
   }
   if (method === "GET" && path === "/api/admin") {
-    requireParent(req);
+    const user = requireParent(req);
     ensureActivityAssignments();
+    const childScope = visibleChildWhere(user, "c");
+    const childIds = visibleChildIds(user);
+    const childIdList = childIds.length ? childIds.join(",") : "0";
+    const activityScope = visibleActivityWhere(user, "a");
     return send(res, 200, {
-      children: db("SELECT * FROM children ORDER BY id;"),
-      users: db("SELECT id, name, email, role, child_id, created_at FROM users ORDER BY role DESC, id;"),
-      activities: db(sql`SELECT * FROM activities WHERE active = 1 AND (task_date IS NULL OR task_date >= ${today()}) ORDER BY task_date IS NOT NULL DESC, id;`),
-      activityAssignments: db("SELECT child_id, activity_id, enabled FROM activity_assignments;"),
-      todayOverview: parentTodayOverview(),
-      smartInsights: parentSmartInsights(),
-      reflections: parentReflections(),
-      parentChallenges: db("SELECT * FROM parent_challenges WHERE active = 1 ORDER BY end_date DESC, id DESC;"),
-      rewards: db("SELECT * FROM rewards WHERE active = 1 ORDER BY required_points;"),
+      children: db(`SELECT * FROM children c WHERE ${childScope} ORDER BY id;`),
+      users: isAdmin(user)
+        ? db("SELECT id, name, email, role, child_id, created_at FROM users ORDER BY role DESC, id;")
+        : db(`SELECT id, name, email, role, child_id, created_at FROM users WHERE id = ${Number(user.id)} OR child_id IN (${childIdList}) ORDER BY role DESC, id;`),
+      activities: db(`SELECT * FROM activities a WHERE active = 1 AND ${activityScope} AND (task_date IS NULL OR task_date >= ${quote(today())}) ORDER BY task_date IS NOT NULL DESC, id;`),
+      activityAssignments: db(`SELECT aa.child_id, aa.activity_id, aa.enabled FROM activity_assignments aa JOIN children c ON c.id = aa.child_id JOIN activities a ON a.id = aa.activity_id WHERE ${childScope} AND ${activityScope};`),
+      todayOverview: parentTodayOverview(today(), user),
+      smartInsights: parentSmartInsights(today(), user),
+      reflections: parentReflections(user),
+      parentChallenges: db(`SELECT pc.* FROM parent_challenges pc LEFT JOIN children c ON c.id = pc.child_id WHERE pc.active = 1 AND (pc.child_id IS NULL OR ${childScope}) ${isAdmin(user) ? "" : `AND (pc.parent_id IS NULL OR pc.parent_id = ${Number(user.id)})`} ORDER BY end_date DESC, id DESC;`),
+      rewards: db(`SELECT * FROM rewards WHERE active = 1 ${isAdmin(user) ? "" : `AND (parent_id IS NULL OR parent_id = ${Number(user.id)})`} ORDER BY required_points;`),
       approvals: db(`
         SELECT l.*, c.name AS child_name, a.title AS activity_title, a.proof_required
         FROM activity_logs l
         JOIN children c ON c.id = l.child_id
         JOIN activities a ON a.id = l.activity_id
-        WHERE l.status = 'completed'
+        WHERE l.status = 'completed' AND ${childScope} AND ${activityScope}
         ORDER BY l.updated_at DESC;
       `),
       rewardApprovals: db(`
@@ -1756,26 +1931,27 @@ async function api(req, res, path) {
         FROM reward_redemptions rr
         JOIN children c ON c.id = rr.child_id
         JOIN rewards r ON r.id = rr.reward_id
-        WHERE rr.status = 'pending'
+        WHERE rr.status = 'pending' AND ${childScope}
         ORDER BY rr.redeemed_at DESC;
       `)
     });
   }
   if (method === "POST" && path === "/api/children") {
-    requireParent(req);
+    const user = requireParent(req);
     const name = String(body.name || "").trim();
     const password = String(body.password || "");
     if (!name || password.length < 6) return send(res, 400, { error: "Name and a password with at least 6 characters are required" });
     if (nameAlreadyUsed(name)) return send(res, 400, { error: "This login name is already used. Choose a different name." });
-    exec(sql`INSERT INTO children (name, avatar, total_points) VALUES (${name}, ${body.avatar || "star"}, 0);`);
+    exec(sql`INSERT INTO children (name, avatar, total_points, parent_id) VALUES (${name}, ${body.avatar || "star"}, 0, ${user.id});`);
     const child = db("SELECT id FROM children ORDER BY id DESC LIMIT 1;")[0];
     exec(sql`INSERT INTO users (name, email, password_hash, role, child_id) VALUES (${name}, ${localEmailFor(name, "child", child.id)}, ${hashPassword(password)}, 'child', ${child.id});`);
     exec(sql`INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled) SELECT ${child.id}, id, 1 FROM activities WHERE active = 1;`);
     return send(res, 201, { ok: true });
   }
   if (method === "PUT" && path.startsWith("/api/children/")) {
-    requireParent(req);
+    const user = requireParent(req);
     const id = Number(path.split("/").pop());
+    requireChildAccess(user, id);
     const name = String(body.name || "").trim();
     if (!name) return send(res, 400, { error: "Name is required" });
     const existingUser = db(sql`SELECT id FROM users WHERE role = 'child' AND child_id = ${id};`)[0];
@@ -1791,9 +1967,10 @@ async function api(req, res, path) {
     return send(res, 200, { ok: true });
   }
   if (method === "DELETE" && path.startsWith("/api/children/")) {
-    requireParent(req);
+    const user = requireParent(req);
     const id = Number(path.split("/").pop());
-    const [{ count }] = db("SELECT COUNT(*) AS count FROM children;");
+    requireChildAccess(user, id);
+    const [{ count }] = db(`SELECT COUNT(*) AS count FROM children c WHERE ${visibleChildWhere(user, "c")};`);
     if (count <= 1) return send(res, 400, { error: "Keep at least one child account" });
     exec(sql`
       DELETE FROM activity_logs WHERE child_id = ${id};
@@ -1835,11 +2012,14 @@ async function api(req, res, path) {
     return send(res, 200, { ok: true });
   }
   if (method === "POST" && path === "/api/activity-assignments") {
-    requireParent(req);
+    const user = requireParent(req);
     const childId = Number(body.childId);
     const activityId = Number(body.activityId);
     const enabled = body.enabled ? 1 : 0;
     if (!childId || !activityId) return send(res, 400, { error: "Child and activity are required" });
+    requireChildAccess(user, childId);
+    const activity = db(sql`SELECT * FROM activities WHERE id = ${activityId};`)[0];
+    if (!activity || (!isAdmin(user) && activity.parent_id && Number(activity.parent_id) !== Number(user.id))) return send(res, 403, { error: "You can only assign activities available to your family." });
     exec(sql`
       INSERT INTO activity_assignments (child_id, activity_id, enabled) VALUES (${childId}, ${activityId}, ${enabled})
       ON CONFLICT(child_id, activity_id) DO UPDATE SET enabled = ${enabled};
@@ -1855,8 +2035,10 @@ async function api(req, res, path) {
   }
   if (method === "POST" && path === "/api/activities/complete") {
     const childId = childIdFor(req, body.childId);
+    const child = db(sql`SELECT * FROM children WHERE id = ${childId};`)[0];
     const activity = db(sql`SELECT * FROM activities WHERE id = ${body.activityId} AND active = 1;`)[0];
     if (!activity) return send(res, 404, { error: "Activity not found" });
+    if (activity.parent_id && Number(activity.parent_id) !== Number(child?.parent_id || 0)) return send(res, 403, { error: "This activity is not assigned to your family." });
     let log = ensureLog(childId, activity.id);
     let status = activity.requires_approval || activity.proof_required ? "completed" : "approved";
     let prayerState = log.prayer_state || "{}";
@@ -1879,7 +2061,9 @@ async function api(req, res, path) {
       awardStreakBadgesIfNeeded(childId);
       return send(res, 200, dashboardFor(childId));
     }
-    exec(sql`UPDATE activity_logs SET status = ${status}, proof = ${body.proof || ""}, updated_at = CURRENT_TIMESTAMP WHERE id = ${log.id};`);
+    const interactiveAnswer = body.interactiveAnswer === undefined ? log.interactive_answer || "" : JSON.stringify(body.interactiveAnswer || "");
+    const interactiveScore = body.interactiveScore === undefined ? Number(log.interactive_score || 0) : Number(body.interactiveScore || 0);
+    exec(sql`UPDATE activity_logs SET status = ${status}, proof = ${body.proof || ""}, interactive_answer = ${interactiveAnswer}, interactive_score = ${interactiveScore}, updated_at = CURRENT_TIMESTAMP WHERE id = ${log.id};`);
     log = db(sql`SELECT * FROM activity_logs WHERE id = ${log.id};`)[0];
     awardActivityIfNeeded(log, activity);
     return send(res, 200, dashboardFor(childId));
@@ -2041,25 +2225,28 @@ async function api(req, res, path) {
     return send(res, 200, { ok: true, hifz: hifzPlanFor(db(sql`SELECT * FROM children WHERE id = ${row.user_id};`)[0]) });
   }
   if (method === "POST" && path === "/api/activities") {
-    requireParent(req);
+    const user = requireParent(req);
     const days = [0, 1, 2, 3, 4, 5, 6].map((day) => body[`day_${day}`] !== undefined ? boolInt(body[`day_${day}`]) : (day === 0 || day === 6 ? boolInt(body.show_weekends) : boolInt(body.show_weekdays !== false)));
     const showWeekdays = days.slice(1, 6).some(Boolean) ? 1 : 0;
     const showWeekends = days[0] || days[6] ? 1 : 0;
-    exec(sql`INSERT INTO activities (title, description, points, duration_minutes, frequency, show_weekdays, show_weekends, day_0, day_1, day_2, day_3, day_4, day_5, day_6, task_date, proof_required, requires_approval) VALUES (${body.title}, ${body.description}, ${Number(body.points)}, ${Number(body.duration_minutes || 0)}, ${body.frequency}, ${showWeekdays}, ${showWeekends}, ${days[0]}, ${days[1]}, ${days[2]}, ${days[3]}, ${days[4]}, ${days[5]}, ${days[6]}, ${body.task_date || null}, ${body.proof_required ? 1 : 0}, ${body.requires_approval ? 1 : 0});`);
+    exec(sql`INSERT INTO activities (title, description, points, duration_minutes, frequency, show_weekdays, show_weekends, day_0, day_1, day_2, day_3, day_4, day_5, day_6, task_date, proof_required, requires_approval, parent_id, subject, task_type, task_data) VALUES (${body.title}, ${body.description}, ${Number(body.points)}, ${Number(body.duration_minutes || 0)}, ${body.frequency}, ${showWeekdays}, ${showWeekends}, ${days[0]}, ${days[1]}, ${days[2]}, ${days[3]}, ${days[4]}, ${days[5]}, ${days[6]}, ${body.task_date || null}, ${body.proof_required ? 1 : 0}, ${body.requires_approval ? 1 : 0}, ${isAdmin(user) ? null : user.id}, ${body.subject || "Reading"}, ${body.task_type || "standard"}, ${body.task_data || "{}"});`);
     return send(res, 201, { ok: true });
   }
   if (method === "PUT" && path.startsWith("/api/activities/")) {
-    requireParent(req);
+    const user = requireParent(req);
     const id = Number(path.split("/").pop());
+    const existing = db(sql`SELECT * FROM activities WHERE id = ${id};`)[0];
+    if (!existing || (!isAdmin(user) && Number(existing.parent_id || 0) !== Number(user.id))) return send(res, 403, { error: "You can only edit activities you created. You can still assign shared activities to your children." });
     const days = [0, 1, 2, 3, 4, 5, 6].map((day) => body[`day_${day}`] !== undefined ? boolInt(body[`day_${day}`]) : (day === 0 || day === 6 ? boolInt(body.show_weekends) : boolInt(body.show_weekdays)));
     const showWeekdays = days.slice(1, 6).some(Boolean) ? 1 : 0;
     const showWeekends = days[0] || days[6] ? 1 : 0;
-    exec(sql`UPDATE activities SET title = ${body.title}, description = ${body.description}, points = ${Number(body.points)}, duration_minutes = ${Number(body.duration_minutes || 0)}, frequency = ${body.frequency}, show_weekdays = ${showWeekdays}, show_weekends = ${showWeekends}, day_0 = ${days[0]}, day_1 = ${days[1]}, day_2 = ${days[2]}, day_3 = ${days[3]}, day_4 = ${days[4]}, day_5 = ${days[5]}, day_6 = ${days[6]}, task_date = ${body.task_date || null}, proof_required = ${body.proof_required ? 1 : 0}, requires_approval = ${body.requires_approval ? 1 : 0} WHERE id = ${id};`);
+    exec(sql`UPDATE activities SET title = ${body.title}, description = ${body.description}, points = ${Number(body.points)}, duration_minutes = ${Number(body.duration_minutes || 0)}, frequency = ${body.frequency}, show_weekdays = ${showWeekdays}, show_weekends = ${showWeekends}, day_0 = ${days[0]}, day_1 = ${days[1]}, day_2 = ${days[2]}, day_3 = ${days[3]}, day_4 = ${days[4]}, day_5 = ${days[5]}, day_6 = ${days[6]}, task_date = ${body.task_date || null}, proof_required = ${body.proof_required ? 1 : 0}, requires_approval = ${body.requires_approval ? 1 : 0}, subject = ${body.subject || "Reading"}, task_type = ${body.task_type || "standard"}, task_data = ${body.task_data || "{}"} WHERE id = ${id};`);
     return send(res, 200, { ok: true });
   }
   if (method === "POST" && path === "/api/today-task") {
-    requireParent(req);
+    const user = requireParent(req);
     const childId = Number(body.childId);
+    requireChildAccess(user, childId);
     const child = db(sql`SELECT id FROM children WHERE id = ${childId};`)[0];
     if (!child) return send(res, 400, { error: "Choose a child for this task" });
     const title = String(body.title || "").trim();
@@ -2068,8 +2255,8 @@ async function api(req, res, path) {
     const days = [0, 0, 0, 0, 0, 0, 0];
     days[new Date(`${date}T12:00:00`).getDay()] = 1;
     exec(sql`
-      INSERT INTO activities (title, description, points, duration_minutes, frequency, show_weekdays, show_weekends, day_0, day_1, day_2, day_3, day_4, day_5, day_6, task_date, proof_required, requires_approval)
-      VALUES (${title}, ${body.description || "Special task for today."}, ${Number(body.points || 5)}, ${Number(body.duration_minutes || 0)}, 'one-time', ${days.slice(1, 6).some(Boolean) ? 1 : 0}, ${days[0] || days[6] ? 1 : 0}, ${days[0]}, ${days[1]}, ${days[2]}, ${days[3]}, ${days[4]}, ${days[5]}, ${days[6]}, ${date}, ${body.proof_required ? 1 : 0}, ${body.requires_approval ? 1 : 0});
+      INSERT INTO activities (title, description, points, duration_minutes, frequency, show_weekdays, show_weekends, day_0, day_1, day_2, day_3, day_4, day_5, day_6, task_date, proof_required, requires_approval, parent_id, subject, task_type, task_data)
+      VALUES (${title}, ${body.description || "Special task for today."}, ${Number(body.points || 5)}, ${Number(body.duration_minutes || 0)}, 'one-time', ${days.slice(1, 6).some(Boolean) ? 1 : 0}, ${days[0] || days[6] ? 1 : 0}, ${days[0]}, ${days[1]}, ${days[2]}, ${days[3]}, ${days[4]}, ${days[5]}, ${days[6]}, ${date}, ${body.proof_required ? 1 : 0}, ${body.requires_approval ? 1 : 0}, ${isAdmin(user) ? null : user.id}, ${body.subject || "Reading"}, ${body.task_type || "standard"}, ${body.task_data || "{}"});
     `);
     const activity = db("SELECT id FROM activities ORDER BY id DESC LIMIT 1;")[0];
     exec(sql`
@@ -2175,39 +2362,50 @@ async function api(req, res, path) {
     return send(res, 200, { ...dashboardFor(childId), earlyBirdMessage: message });
   }
   if (method === "POST" && path === "/api/parent-challenges") {
-    requireParent(req);
+    const user = requireParent(req);
     const title = String(body.title || "").trim();
     if (!title) return send(res, 400, { error: "Challenge title is required" });
+    if (body.child_id) requireChildAccess(user, Number(body.child_id));
     exec(sql`
-      INSERT INTO parent_challenges (title, description, target_count, bonus_points, start_date, end_date, child_id)
-      VALUES (${title}, ${body.description || "Complete the challenge goal."}, ${Number(body.target_count || 3)}, ${Number(body.bonus_points || 10)}, ${body.start_date || today()}, ${body.end_date || today()}, ${body.child_id ? Number(body.child_id) : null});
+      INSERT INTO parent_challenges (title, description, target_count, bonus_points, start_date, end_date, child_id, parent_id)
+      VALUES (${title}, ${body.description || "Complete the challenge goal."}, ${Number(body.target_count || 3)}, ${Number(body.bonus_points || 10)}, ${body.start_date || today()}, ${body.end_date || today()}, ${body.child_id ? Number(body.child_id) : null}, ${user.id});
     `);
     return send(res, 201, { ok: true });
   }
   if (method === "DELETE" && path.startsWith("/api/activities/")) {
-    requireParent(req);
-    exec(sql`UPDATE activities SET active = 0 WHERE id = ${Number(path.split("/").pop())};`);
+    const user = requireParent(req);
+    const id = Number(path.split("/").pop());
+    const activity = db(sql`SELECT * FROM activities WHERE id = ${id};`)[0];
+    if (!activity || (!isAdmin(user) && Number(activity.parent_id || 0) !== Number(user.id))) return send(res, 403, { error: "You can only delete activities you created." });
+    exec(sql`UPDATE activities SET active = 0 WHERE id = ${id};`);
     return send(res, 200, { ok: true });
   }
   if (method === "POST" && path === "/api/rewards") {
-    requireParent(req);
-    exec(sql`INSERT INTO rewards (title, description, required_points) VALUES (${body.title}, ${body.description}, ${Number(body.required_points)});`);
+    const user = requireParent(req);
+    exec(sql`INSERT INTO rewards (title, description, required_points, parent_id) VALUES (${body.title}, ${body.description}, ${Number(body.required_points)}, ${isAdmin(user) ? null : user.id});`);
     return send(res, 201, { ok: true });
   }
   if (method === "PUT" && path.startsWith("/api/rewards/")) {
-    requireParent(req);
+    const user = requireParent(req);
     const id = Number(path.split("/").pop());
+    const reward = db(sql`SELECT * FROM rewards WHERE id = ${id};`)[0];
+    if (!reward || (!isAdmin(user) && Number(reward.parent_id || 0) !== Number(user.id))) return send(res, 403, { error: "You can only edit rewards you created." });
     exec(sql`UPDATE rewards SET title = ${body.title}, description = ${body.description}, required_points = ${Number(body.required_points)} WHERE id = ${id};`);
     return send(res, 200, { ok: true });
   }
   if (method === "DELETE" && path.startsWith("/api/rewards/")) {
-    requireParent(req);
-    exec(sql`UPDATE rewards SET active = 0 WHERE id = ${Number(path.split("/").pop())};`);
+    const user = requireParent(req);
+    const id = Number(path.split("/").pop());
+    const reward = db(sql`SELECT * FROM rewards WHERE id = ${id};`)[0];
+    if (!reward || (!isAdmin(user) && Number(reward.parent_id || 0) !== Number(user.id))) return send(res, 403, { error: "You can only delete rewards you created." });
+    exec(sql`UPDATE rewards SET active = 0 WHERE id = ${id};`);
     return send(res, 200, { ok: true });
   }
   if (method === "POST" && path === "/api/approvals") {
-    requireParent(req);
+    const user = requireParent(req);
     const log = db(sql`SELECT * FROM activity_logs WHERE id = ${body.logId};`)[0];
+    if (!log) return send(res, 404, { error: "Approval not found" });
+    requireChildAccess(user, log.child_id);
     const activity = db(sql`SELECT * FROM activities WHERE id = ${log.activity_id};`)[0];
     const status = body.approved ? "approved" : "rejected";
     exec(sql`UPDATE activity_logs SET status = ${status}, updated_at = CURRENT_TIMESTAMP WHERE id = ${log.id};`);
@@ -2215,9 +2413,10 @@ async function api(req, res, path) {
     return send(res, 200, { ok: true });
   }
   if (method === "POST" && path === "/api/reward-approvals") {
-    requireParent(req);
+    const user = requireParent(req);
     const request = db(sql`SELECT * FROM reward_redemptions WHERE id = ${body.redemptionId};`)[0];
     if (!request) return send(res, 404, { error: "Reward request not found" });
+    requireChildAccess(user, request.child_id);
     if (!body.approved) {
       exec(sql`UPDATE reward_redemptions SET status = 'rejected' WHERE id = ${request.id};`);
       return send(res, 200, { ok: true });
@@ -2233,6 +2432,7 @@ async function api(req, res, path) {
     const child = db(sql`SELECT * FROM children WHERE id = ${childId};`)[0];
     const reward = db(sql`SELECT * FROM rewards WHERE id = ${body.rewardId} AND active = 1;`)[0];
     if (!reward) return send(res, 404, { error: "Reward not found" });
+    if (reward.parent_id && Number(reward.parent_id) !== Number(child.parent_id || 0)) return send(res, 403, { error: "This reward is not available to your family." });
     const discount = rewardDiscountsOfPeriod().find((item) => Number(item.id) === Number(reward.id));
     let pointsToSpend = discount && Number(discount.id) === Number(reward.id)
       ? Math.ceil(reward.required_points * (100 - discount.discount_percent) / 100)
