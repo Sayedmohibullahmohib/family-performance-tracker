@@ -459,6 +459,26 @@ function ChildDashboard({ api }) {
     }
   }
 
+  async function submitQuiz(quiz, answer, selectedAnswers = [], timeUsedSeconds = 0, heartsLeft = 0) {
+    try {
+      const next = await api(`/api/quizzes/${quiz.id}/submit`, {
+        method: "POST",
+        body: JSON.stringify({ answer, selectedAnswers, timeUsedSeconds, heartsLeft })
+      });
+      setData(next);
+      setMessage(next.quizFeedback || "Quiz saved.");
+      if (next.quizFeedback?.startsWith("Correct")) {
+        setPointPulse(true);
+        setDiamondBurst(true);
+        celebrate("success", "Quiz complete!");
+        setTimeout(() => setPointPulse(false), 900);
+        setTimeout(() => setDiamondBurst(false), 1400);
+      }
+    } catch (err) {
+      setMessage(err.message);
+    }
+  }
+
   function maybeShowDailyComplete(nextData = data) {
     const key = `daily-complete-${nextData.child.id}-${nextData.date}`;
     if (localStorage.getItem(key) === "seen") return;
@@ -583,6 +603,8 @@ function ChildDashboard({ api }) {
         onRevise={reviseSurah}
         onFavorite={toggleFavoriteSurah}
       />
+
+      <QuizPanel quizzes={data.quizzes || []} onSubmit={submitQuiz} />
 
       <section className="dashboard-section">
         <div className="section-heading">
@@ -731,6 +753,146 @@ function CollapsibleSection({ id, title, children, defaultOpen = false }) {
       </summary>
       {children}
     </details>
+  );
+}
+
+const quizTypes = [
+  ["select_3", "Correct answer · 3 options"],
+  ["select_4", "Correct answer · 4 options"],
+  ["multiple_correct", "Multiple correct answers"],
+  ["best_sentence", "Choose the best sentence"],
+  ["picture_choice", "Picture multiple choice"],
+  ["audio_choice", "Audio multiple choice"],
+  ["timed_challenge", "Timed quiz challenge"],
+  ["level_quiz", "Level-based quiz"],
+  ["streak_quiz", "Streak quiz"],
+  ["daily_quiz_mission", "Daily quiz mission"],
+  ["survival_hearts", "Survival mode with hearts"],
+  ["wheel_spinner", "Quiz wheel spinner"],
+  ["true_false", "True/false quiz"],
+  ["fill_missing_options", "Fill missing word"],
+  ["drag_correct_answer", "Drag correct answer"],
+  ["arrange_sentence", "Arrange the sentence"],
+  ["find_mistake", "Find the mistake"],
+  ["fastest_finger", "Fastest finger challenge"],
+  ["memory_quiz", "Memory quiz"],
+  ["emoji_quiz", "Emoji quiz"],
+  ["story_quiz", "Story-based quiz"],
+  ["unlock_next_level", "Unlock next level"],
+  ["reward_box", "Reward box quiz"],
+  ["adaptive_difficulty", "Adaptive difficulty"]
+];
+
+function QuizPanel({ quizzes = [], onSubmit }) {
+  if (!quizzes.length) return null;
+  const openQuiz = quizzes.find((quiz) => !quiz.last_passed) || quizzes[0];
+  return (
+    <section className="dashboard-section quiz-panel" aria-label="Quiz missions">
+      <div className="section-heading">
+        <p className="eyebrow">Quiz Missions</p>
+        <h2>Answer one question at a time</h2>
+      </div>
+      <div className="quiz-grid">
+        <QuizCard quiz={openQuiz} onSubmit={onSubmit} featured />
+        <div className="quiz-side-list">
+          {quizzes.slice(0, 6).map((quiz) => (
+            <article className={quiz.last_passed ? "quiz-mini passed" : "quiz-mini"} key={quiz.id}>
+              <strong>{quiz.title}</strong>
+              <span>{quiz.subject} · Level {quiz.level} · {quiz.difficulty}</span>
+              <small>{quiz.attempts || 0} attempts{quiz.last_passed ? " · passed" : ""}</small>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function QuizCard({ quiz, onSubmit, featured = false }) {
+  const [answer, setAnswer] = useState("");
+  const [selected, setSelected] = useState([]);
+  const [startedAt, setStartedAt] = useState(Date.now());
+  const [remaining, setRemaining] = useState(Number(quiz.timer_seconds || 0));
+  const [submitted, setSubmitted] = useState(false);
+  const options = quiz.quiz_type === "true_false" ? ["True", "False"] : (quiz.options || []);
+  const isMultiple = quiz.quiz_type === "multiple_correct";
+  const hasTimer = Number(quiz.timer_seconds || 0) > 0;
+
+  useEffect(() => {
+    setAnswer("");
+    setSelected([]);
+    setSubmitted(false);
+    setRemaining(Number(quiz.timer_seconds || 0));
+    setStartedAt(Date.now());
+  }, [quiz.id]);
+
+  useEffect(() => {
+    if (!hasTimer || submitted) return;
+    const timer = setInterval(() => setRemaining((value) => Math.max(0, value - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [hasTimer, submitted, quiz.id]);
+
+  function toggleOption(option) {
+    if (!isMultiple) {
+      setAnswer(option);
+      return;
+    }
+    setSelected((items) => items.includes(option) ? items.filter((item) => item !== option) : [...items, option]);
+  }
+
+  function submit(event) {
+    event.preventDefault();
+    setSubmitted(true);
+    const finalAnswer = isMultiple ? selected.join(", ") : answer;
+    const timeUsed = Math.round((Date.now() - startedAt) / 1000);
+    const heartsLeft = Math.max(0, Number(quiz.hearts || 0) - (finalAnswer ? 0 : 1));
+    onSubmit(quiz, finalAnswer, selected, timeUsed, heartsLeft);
+  }
+
+  return (
+    <article className={featured ? "quiz-card featured" : "quiz-card"}>
+      <div className="quiz-card-top">
+        <span className="quiz-badge">{quiz.subject}</span>
+        <span>{quiz.difficulty} · Level {quiz.level}</span>
+      </div>
+      <h3>{quiz.title}</h3>
+      {quiz.instructions ? <p>{quiz.instructions}</p> : null}
+      {quiz.story_text ? <blockquote>{quiz.story_text}</blockquote> : null}
+      {quiz.emoji_prompt ? <div className="emoji-prompt" aria-label="Emoji quiz prompt">{quiz.emoji_prompt}</div> : null}
+      {quiz.image_url ? <img className="quiz-media" src={quiz.image_url} alt={`${quiz.title} quiz picture`} /> : null}
+      {quiz.audio_url ? <audio className="quiz-audio" controls src={quiz.audio_url} aria-label={`${quiz.title} quiz audio`} /> : null}
+      <strong className="quiz-question">{quiz.question_text}</strong>
+      <div className="quiz-status-row">
+        {hasTimer ? <span className={remaining <= 10 ? "timer warning" : "timer"}>{remaining}s</span> : <span>No timer</span>}
+        {quiz.hearts ? <span>{"❤️".repeat(Math.min(5, Number(quiz.hearts)))}</span> : null}
+        <span><CoinIcon />{quiz.coin_reward} · XP {quiz.xp_reward}</span>
+      </div>
+      <Progress value={hasTimer ? Math.round((remaining / Math.max(1, Number(quiz.timer_seconds))) * 100) : 100} />
+      <form onSubmit={submit}>
+        <div className="quiz-options" role={isMultiple ? "group" : "radiogroup"} aria-label="Quiz answer options">
+          {options.map((option) => (
+            <button
+              type="button"
+              className={(isMultiple ? selected.includes(option) : answer === option) ? "selected" : ""}
+              key={option}
+              onClick={() => toggleOption(option)}
+              aria-pressed={isMultiple ? selected.includes(option) : answer === option}
+            >
+              {isMultiple ? (selected.includes(option) ? "✓ " : "") : ""}{option}
+            </button>
+          ))}
+        </div>
+        {options.length === 0 && (
+          <input value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Type your answer" aria-label="Quiz answer" />
+        )}
+        <button disabled={submitted || (hasTimer && remaining <= 0) || (!answer && selected.length === 0)}>
+          {submitted ? "Saved" : quiz.quiz_type === "reward_box" ? "Open reward answer" : "Submit answer"}
+        </button>
+      </form>
+      {quiz.last_score !== null && quiz.last_score !== undefined ? (
+        <p className="quiz-last-result">Last score: {quiz.last_score} · {quiz.last_passed ? "Passed" : "Try again"}</p>
+      ) : null}
+    </article>
   );
 }
 
@@ -1906,6 +2068,7 @@ function ParentDashboard({ api }) {
   const [reports, setReports] = useState(null);
   const [editingActivity, setEditingActivity] = useState(null);
   const [editingReward, setEditingReward] = useState(null);
+  const [editingQuiz, setEditingQuiz] = useState(null);
   const [editingChild, setEditingChild] = useState(null);
   const [editingParent, setEditingParent] = useState(null);
   const [notice, setNotice] = useState("");
@@ -1943,6 +2106,7 @@ function ParentDashboard({ api }) {
     ["approvals", "Approvals"],
     ["children", "Children & Accounts"],
     ["activities", "Activities"],
+    ["quizzes", "Quizzes"],
     ["planner", "Weekly Planner"],
     ["rewards", "Rewards"],
     ["reports", "Reports & Backup"]
@@ -1994,6 +2158,30 @@ function ParentDashboard({ api }) {
     load();
   }
 
+  async function saveQuiz(event) {
+    event.preventDefault();
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    const payload = {
+      ...form,
+      assigned_to_kid_id: form.assigned_to_kid_id || null,
+      options: String(form.options_text || "").split("\n").map((item) => item.trim()).filter(Boolean),
+      multiple_correct_answers: String(form.multiple_correct_answers || "").split("\n").map((item) => item.trim()).filter(Boolean),
+      level: Number(form.level || 1),
+      timer_seconds: Number(form.timer_seconds || 0),
+      hearts: Number(form.hearts || 0),
+      required_score_to_pass: Number(form.required_score_to_pass || 1),
+      xp_reward: Number(form.xp_reward || 10),
+      coin_reward: Number(form.coin_reward || 5),
+      unlock_next_level: form.unlock_next_level === "on"
+    };
+    const url = editingQuiz?.id ? `/api/quizzes/${editingQuiz.id}` : "/api/quizzes";
+    await api(url, { method: editingQuiz?.id ? "PUT" : "POST", body: JSON.stringify(payload) });
+    setEditingQuiz(null);
+    event.currentTarget.reset();
+    setNotice(editingQuiz ? "Quiz updated." : "Quiz created.");
+    load(childId);
+  }
+
   async function remove(type, id) {
     setNotice("");
     if (type === "children" && !window.confirm("Delete this child and all related points, logs, and rewards?")) return;
@@ -2006,6 +2194,7 @@ function ParentDashboard({ api }) {
         setNotice("Child deleted.");
         return;
       }
+      if (type === "quizzes") setEditingQuiz(null);
       load();
     } catch (err) {
       setNotice(err.message);
@@ -2285,6 +2474,29 @@ function ParentDashboard({ api }) {
                 </div>
               ))}
             </div>
+          </Panel>
+        </section>
+      )}
+
+      {adminTab === "quizzes" && (
+        <section className="admin-grid">
+          <Panel title="Create Quiz Mission">
+            <QuizEditorForm item={editingQuiz} children={admin.children} onSubmit={saveQuiz} />
+          </Panel>
+          <Panel title="Quiz Library">
+            <div className="mini-list">
+              {(admin.quizzes || []).map((quiz) => (
+                <div key={quiz.id}>
+                  <span>{quiz.title} · {quiz.subject} · {quiz.quiz_type} · {quiz.assigned_kid_name || "All kids"} · {quiz.status}</span>
+                  <button onClick={() => setEditingQuiz(quiz)}>Edit</button>
+                  <button className="ghost" onClick={() => remove("quizzes", quiz.id)}>Delete</button>
+                </div>
+              ))}
+              {(admin.quizzes || []).length === 0 && <p className="muted">No quizzes yet. Create the first quiz above.</p>}
+            </div>
+          </Panel>
+          <Panel title="Quiz Results">
+            <QuizResults results={admin.quizResults || []} />
           </Panel>
         </section>
       )}
@@ -2610,6 +2822,81 @@ function ParentChallengeForm({ children, onSubmit }) {
       </select>
       <button>Add challenge</button>
     </form>
+  );
+}
+
+function QuizEditorForm({ item, children, onSubmit }) {
+  const optionsText = Array.isArray(item?.options) ? item.options.join("\n") : "";
+  const multipleText = Array.isArray(item?.multiple_correct_answers) ? item.multiple_correct_answers.join("\n") : "";
+  return (
+    <form className="editor quiz-editor" onSubmit={onSubmit}>
+      <h3>{item ? "Edit quiz" : "New quiz activity"}</h3>
+      <input name="title" placeholder="Quiz title" defaultValue={item?.title || ""} required />
+      <select name="subject" defaultValue={item?.subject || "Reading"}>
+        {["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork"].map((subject) => <option key={subject}>{subject}</option>)}
+      </select>
+      <select name="quiz_type" defaultValue={item?.quiz_type || "select_3"}>
+        {quizTypes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+      </select>
+      <select name="assigned_to_kid_id" defaultValue={item?.assigned_to_kid_id || ""}>
+        <option value="">All my kids</option>
+        {children.map((child) => <option value={child.id} key={child.id}>{child.name}</option>)}
+      </select>
+      <div className="form-row">
+        <select name="difficulty" defaultValue={item?.difficulty || "easy"}>
+          <option value="easy">easy</option>
+          <option value="medium">medium</option>
+          <option value="hard">hard</option>
+        </select>
+        <input name="level" type="number" min="1" defaultValue={item?.level || 1} placeholder="Level" />
+        <input name="due_date" type="date" defaultValue={item?.due_date || ""} />
+      </div>
+      <input name="instructions" placeholder="Instructions" defaultValue={item?.instructions || ""} />
+      <textarea name="question_text" placeholder="Question text" defaultValue={item?.question_text || ""} required />
+      <textarea name="story_text" placeholder="Story text, optional" defaultValue={item?.story_text || ""} />
+      <div className="form-row">
+        <input name="image_url" placeholder="Image URL, optional" defaultValue={item?.image_url || ""} />
+        <input name="audio_url" placeholder="Audio URL, optional" defaultValue={item?.audio_url || ""} />
+      </div>
+      <input name="emoji_prompt" placeholder="Emoji prompt, optional" defaultValue={item?.emoji_prompt || ""} />
+      <textarea name="options_text" placeholder="Answer options, one per line. Use 3 or 4 options for simple quizzes." defaultValue={optionsText} />
+      <input name="correct_answer" placeholder="Correct answer" defaultValue={item?.correct_answer || ""} />
+      <textarea name="multiple_correct_answers" placeholder="Multiple correct answers, one per line" defaultValue={multipleText} />
+      <textarea name="explanation" placeholder="Feedback or explanation shown after answer" defaultValue={item?.explanation || ""} />
+      <div className="form-row">
+        <input name="timer_seconds" type="number" min="0" defaultValue={item?.timer_seconds || 0} placeholder="Timer seconds" />
+        <input name="hearts" type="number" min="0" defaultValue={item?.hearts || 0} placeholder="Hearts" />
+        <input name="required_score_to_pass" type="number" min="1" defaultValue={item?.required_score_to_pass || 1} placeholder="Pass score" />
+      </div>
+      <div className="form-row">
+        <input name="xp_reward" type="number" min="0" defaultValue={item?.xp_reward || 10} placeholder="XP reward" />
+        <input name="coin_reward" type="number" min="0" defaultValue={item?.coin_reward || 5} placeholder="Coin reward" />
+        <input name="badge_reward" placeholder="Badge reward, optional" defaultValue={item?.badge_reward || ""} />
+      </div>
+      <label className="check"><input name="unlock_next_level" type="checkbox" defaultChecked={Boolean(item?.unlock_next_level)} /> Unlock next level when passed</label>
+      <select name="status" defaultValue={item?.status || "active"}>
+        <option value="active">active</option>
+        <option value="inactive">inactive</option>
+      </select>
+      <button>{item ? "Update quiz" : "Create quiz"}</button>
+    </form>
+  );
+}
+
+function QuizResults({ results = [] }) {
+  if (!results.length) return <p className="muted">No quiz attempts yet.</p>;
+  return (
+    <div className="mini-list quiz-results-list">
+      {results.map((result) => (
+        <div key={result.id}>
+          <span>
+            {result.kid_name} · {result.title}
+            <small>{result.completed_at} · score {result.score} · attempts {result.attempts} · {result.time_used_seconds}s · coins {result.coins_earned} · XP {result.xp_earned}</small>
+            {result.feedback ? <small>{result.feedback}</small> : null}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 

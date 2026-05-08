@@ -505,6 +505,60 @@ function initDb() {
       UNIQUE(user_id, plan_date),
       FOREIGN KEY(user_id) REFERENCES children(id)
     );
+    CREATE TABLE IF NOT EXISTS quizzes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      subject TEXT NOT NULL DEFAULT 'Reading',
+      quiz_type TEXT NOT NULL DEFAULT 'select_3',
+      instructions TEXT DEFAULT '',
+      difficulty TEXT DEFAULT 'easy' CHECK(difficulty IN ('easy','medium','hard')),
+      level INTEGER DEFAULT 1,
+      question_text TEXT NOT NULL,
+      story_text TEXT DEFAULT '',
+      image_url TEXT DEFAULT '',
+      audio_url TEXT DEFAULT '',
+      emoji_prompt TEXT DEFAULT '',
+      options TEXT DEFAULT '[]',
+      correct_answer TEXT DEFAULT '',
+      multiple_correct_answers TEXT DEFAULT '[]',
+      explanation TEXT DEFAULT '',
+      timer_seconds INTEGER DEFAULT 0,
+      hearts INTEGER DEFAULT 0,
+      required_score_to_pass INTEGER DEFAULT 1,
+      xp_reward INTEGER DEFAULT 0,
+      coin_reward INTEGER DEFAULT 0,
+      badge_reward TEXT DEFAULT '',
+      unlock_next_level INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'active' CHECK(status IN ('active','inactive')),
+      created_by_parent_id INTEGER NOT NULL,
+      assigned_to_kid_id INTEGER,
+      due_date TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(created_by_parent_id) REFERENCES users(id),
+      FOREIGN KEY(assigned_to_kid_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS quiz_attempts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      quiz_id INTEGER NOT NULL,
+      kid_id INTEGER NOT NULL,
+      parent_id INTEGER NOT NULL,
+      answer TEXT DEFAULT '',
+      selected_answers TEXT DEFAULT '[]',
+      score INTEGER DEFAULT 0,
+      passed INTEGER DEFAULT 0,
+      attempts INTEGER DEFAULT 1,
+      time_used_seconds INTEGER DEFAULT 0,
+      hearts_left INTEGER DEFAULT 0,
+      streak_bonus INTEGER DEFAULT 0,
+      xp_earned INTEGER DEFAULT 0,
+      coins_earned INTEGER DEFAULT 0,
+      completed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      feedback TEXT DEFAULT '',
+      FOREIGN KEY(quiz_id) REFERENCES quizzes(id),
+      FOREIGN KEY(kid_id) REFERENCES children(id),
+      FOREIGN KEY(parent_id) REFERENCES users(id)
+    );
   `);
 
   const userTableSql = db("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users';")[0]?.sql || "";
@@ -984,6 +1038,151 @@ function quranStreakFor(childId) {
   return streak;
 }
 
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function quizRow(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    options: parseJsonArray(row.options),
+    multiple_correct_answers: parseJsonArray(row.multiple_correct_answers),
+    unlock_next_level: Boolean(Number(row.unlock_next_level || 0))
+  };
+}
+
+function quizzesForKid(childId) {
+  return db(sql`
+    SELECT q.*,
+      (
+        SELECT COUNT(*) FROM quiz_attempts qa
+        WHERE qa.quiz_id = q.id AND qa.kid_id = ${childId}
+      ) AS attempts,
+      (
+        SELECT score FROM quiz_attempts qa
+        WHERE qa.quiz_id = q.id AND qa.kid_id = ${childId}
+        ORDER BY qa.completed_at DESC LIMIT 1
+      ) AS last_score,
+      (
+        SELECT passed FROM quiz_attempts qa
+        WHERE qa.quiz_id = q.id AND qa.kid_id = ${childId}
+        ORDER BY qa.completed_at DESC LIMIT 1
+      ) AS last_passed
+    FROM quizzes q
+    WHERE q.status = 'active'
+      AND (q.assigned_to_kid_id IS NULL OR q.assigned_to_kid_id = ${childId})
+      AND (q.due_date IS NULL OR q.due_date >= ${today()})
+       AND (
+         q.created_by_parent_id = (SELECT parent_id FROM children WHERE id = ${childId})
+         OR q.created_by_parent_id IN (SELECT id FROM users WHERE role = 'admin')
+       )
+    ORDER BY q.due_date IS NULL, q.due_date ASC, q.level ASC, q.id DESC;
+  `).map(quizRow);
+}
+
+function quizResultsForParent(user) {
+  const scope = visibleChildWhere(user, "c");
+  return db(`
+    SELECT qa.*, q.title, q.subject, q.quiz_type, c.name AS kid_name
+    FROM quiz_attempts qa
+    JOIN quizzes q ON q.id = qa.quiz_id
+    JOIN children c ON c.id = qa.kid_id
+    WHERE ${scope}
+    ORDER BY qa.completed_at DESC
+    LIMIT 80;
+  `);
+}
+
+function quizAnswerIsCorrect(quiz, answer, selectedAnswers = []) {
+  const type = String(quiz.quiz_type || "");
+  const correctMany = parseJsonArray(quiz.multiple_correct_answers).map((item) => String(item).trim()).filter(Boolean).sort();
+  if (type === "multiple_correct" && correctMany.length) {
+    const selected = (Array.isArray(selectedAnswers) ? selectedAnswers : parseJsonArray(selectedAnswers)).map((item) => String(item).trim()).filter(Boolean).sort();
+    return selected.length === correctMany.length && selected.every((item, index) => item === correctMany[index]);
+  }
+  return String(answer || "").trim().toLowerCase() === String(quiz.correct_answer || "").trim().toLowerCase();
+}
+
+function normalizeQuizPayload(body = {}, user) {
+  const options = Array.isArray(body.options)
+    ? body.options
+    : String(body.options_text || body.options || "").split("\n");
+  const multiple = Array.isArray(body.multiple_correct_answers)
+    ? body.multiple_correct_answers
+    : String(body.multiple_correct_answers || "").split("\n");
+  return {
+    title: String(body.title || "").trim(),
+    subject: String(body.subject || "Reading").trim(),
+    quiz_type: String(body.quiz_type || "select_3").trim(),
+    instructions: String(body.instructions || "").trim(),
+    difficulty: ["easy", "medium", "hard"].includes(body.difficulty) ? body.difficulty : "easy",
+    level: Math.max(1, Number(body.level || 1)),
+    question_text: String(body.question_text || "").trim(),
+    story_text: String(body.story_text || "").trim(),
+    image_url: String(body.image_url || "").trim(),
+    audio_url: String(body.audio_url || "").trim(),
+    emoji_prompt: String(body.emoji_prompt || "").trim(),
+    options: JSON.stringify(options.map((item) => String(item).trim()).filter(Boolean).slice(0, 8)),
+    correct_answer: String(body.correct_answer || "").trim(),
+    multiple_correct_answers: JSON.stringify(multiple.map((item) => String(item).trim()).filter(Boolean).slice(0, 8)),
+    explanation: String(body.explanation || "").trim(),
+    timer_seconds: Math.max(0, Number(body.timer_seconds || 0)),
+    hearts: Math.max(0, Number(body.hearts || 0)),
+    required_score_to_pass: Math.max(1, Number(body.required_score_to_pass || 1)),
+    xp_reward: Math.max(0, Number(body.xp_reward || 10)),
+    coin_reward: Math.max(0, Number(body.coin_reward || 5)),
+    badge_reward: String(body.badge_reward || "").trim(),
+    unlock_next_level: body.unlock_next_level === true || body.unlock_next_level === "on" || body.unlock_next_level === 1 ? 1 : 0,
+    status: body.status === "inactive" ? "inactive" : "active",
+    created_by_parent_id: Number(user.id),
+    assigned_to_kid_id: body.assigned_to_kid_id ? Number(body.assigned_to_kid_id) : null,
+    due_date: body.due_date || null
+  };
+}
+
+function ensureQuizOwner(user, quizId) {
+  const quiz = db(sql`SELECT * FROM quizzes WHERE id = ${Number(quizId)} LIMIT 1;`)[0];
+  if (!quiz) throw Object.assign(new Error("Quiz not found."), { status: 404 });
+  if (!isAdmin(user) && Number(quiz.created_by_parent_id) !== Number(user.id)) {
+    throw Object.assign(new Error("You can only manage quizzes for your family."), { status: 403 });
+  }
+  return quizRow(quiz);
+}
+
+function ensureQuizChildAssignment(user, assignedKidId) {
+  if (!assignedKidId) return;
+  requireChildAccess(user, assignedKidId);
+}
+
+function awardQuizBadges(childId, quiz, correct, passed) {
+  if (!correct) return;
+  const date = today();
+  const correctCount = Number(db(sql`
+    SELECT COUNT(*) AS count
+    FROM quiz_attempts
+    WHERE kid_id = ${childId} AND score > 0;
+  `)[0]?.count || 0);
+  const badges = [];
+  if (correctCount >= 5) badges.push({ id: -810005, title: "5 Quiz Answers", icon: "🎯" });
+  if (correctCount >= 10) badges.push({ id: -810010, title: "10 Quiz Answers", icon: "🧠" });
+  if (passed) badges.push({ id: -810100 - Number(quiz.id), title: "Perfect Quiz", icon: "⭐" });
+  if (quiz.quiz_type === "daily_quiz_mission") badges.push({ id: -810200 - Number(quiz.id), title: "Daily Quiz Mission", icon: "📅" });
+  if (quiz.badge_reward) badges.push({ id: -810300 - Number(quiz.id), title: quiz.badge_reward, icon: "🏅" });
+  for (const badge of badges) {
+    exec(sql`
+      INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon)
+      VALUES (${childId}, ${date}, ${badge.id}, ${badge.title}, ${badge.icon});
+    `);
+  }
+}
+
 function quranJuzCompleted(childId, juz) {
   const progress = new Map(db(sql`SELECT surah_id, memorized_verses FROM quran_surah_progress WHERE child_id = ${childId};`).map((row) => [Number(row.surah_id), Number(row.memorized_verses || 0)]));
   const item = QURAN_JUZ_RANGES.find((entry) => Number(entry.juz) === Number(juz));
@@ -1104,6 +1303,8 @@ function restoreBackup(backup) {
       DELETE FROM mystery_boxes;
       DELETE FROM child_reflections;
       DELETE FROM early_bird_checkins;
+      DELETE FROM quiz_attempts;
+      DELETE FROM quizzes;
       DELETE FROM quran_favorite_surahs;
       DELETE FROM quran_revision_logs;
       DELETE FROM quran_memorization_logs;
@@ -1143,6 +1344,8 @@ function restoreBackup(backup) {
   insertRows("mystery_boxes", backup.mystery_boxes, ["id", "child_id", "box_date", "reward_type", "reward_value", "message", "opened_at"]);
   insertRows("child_reflections", backup.child_reflections, ["id", "child_id", "reflection_date", "enjoyed_activity", "feeling", "note", "created_at"]);
   insertRows("early_bird_checkins", backup.early_bird_checkins, ["id", "child_id", "checkin_date", "checkin_time", "status", "awarded_points", "created_at"]);
+  insertRows("quizzes", backup.quizzes, ["id", "title", "subject", "quiz_type", "instructions", "difficulty", "level", "question_text", "story_text", "image_url", "audio_url", "emoji_prompt", "options", "correct_answer", "multiple_correct_answers", "explanation", "timer_seconds", "hearts", "required_score_to_pass", "xp_reward", "coin_reward", "badge_reward", "unlock_next_level", "status", "created_by_parent_id", "assigned_to_kid_id", "due_date", "created_at", "updated_at"]);
+  insertRows("quiz_attempts", backup.quiz_attempts, ["id", "quiz_id", "kid_id", "parent_id", "answer", "selected_answers", "score", "passed", "attempts", "time_used_seconds", "hearts_left", "streak_bonus", "xp_earned", "coins_earned", "completed_at", "feedback"]);
   insertRows("quran_favorite_surahs", backup.quran_favorite_surahs, ["child_id", "surah_id", "created_at"]);
   insertRows("quran_revision_logs", backup.quran_revision_logs, ["id", "child_id", "surah_id", "revision_date", "awarded_points", "created_at"]);
   insertRows("quran_surah_progress", backup.quran_surah_progress, ["child_id", "surah_id", "memorized_verses", "surah_bonus_awarded", "updated_at"]);
@@ -1548,6 +1751,7 @@ function dashboardFor(childId) {
       earlyBird: { rows: [] },
       quran: null,
       hifz: null,
+      quizzes: [],
       parentChallenges: [],
       personalBest: {},
       achievements: {},
@@ -1655,6 +1859,7 @@ function dashboardFor(childId) {
   const earlyBird = earlyBirdBoard(date, childId);
   const personalBest = personalBestFor(childId);
   const quran = isHifzChild(child) ? quranProgressFor(childId) : null;
+  const quizzes = quizzesForKid(childId);
   const challengeRemaining = challengeProgress % 5 === 0 ? 5 : 5 - (challengeProgress % 5);
   const streakRemaining = streak % 7 === 0 ? 7 : 7 - (streak % 7);
   return {
@@ -1677,6 +1882,7 @@ function dashboardFor(childId) {
     earlyBird,
     quran,
     hifz: null,
+    quizzes,
     parentChallenges,
     personalBest,
     achievements: {
@@ -1900,6 +2106,7 @@ async function api(req, res, path) {
     const childIds = visibleChildIds(user);
     const childIdList = childIds.length ? childIds.join(",") : "0";
     const activityScope = visibleActivityWhere(user, "a");
+    const quizScope = isAdmin(user) ? "1 = 1" : `q.created_by_parent_id = ${Number(user.id)}`;
     return send(res, 200, {
       children: db(`SELECT * FROM children c WHERE ${childScope} ORDER BY id;`),
       currentUser: { id: user.id, name: user.name, role: user.role },
@@ -1912,6 +2119,14 @@ async function api(req, res, path) {
       smartInsights: parentSmartInsights(today(), user),
       reflections: parentReflections(user),
       parentChallenges: db(`SELECT pc.* FROM parent_challenges pc LEFT JOIN children c ON c.id = pc.child_id WHERE pc.active = 1 AND (pc.child_id IS NULL OR ${childScope}) ${isAdmin(user) ? "" : `AND (pc.parent_id IS NULL OR pc.parent_id = ${Number(user.id)})`} ORDER BY end_date DESC, id DESC;`),
+      quizzes: db(`
+        SELECT q.*, c.name AS assigned_kid_name
+        FROM quizzes q
+        LEFT JOIN children c ON c.id = q.assigned_to_kid_id
+        WHERE ${quizScope}
+        ORDER BY q.created_at DESC, q.id DESC;
+      `).map(quizRow),
+      quizResults: quizResultsForParent(user),
       rewards: db(`SELECT * FROM rewards WHERE active = 1 ${isAdmin(user) ? "" : `AND (parent_id IS NULL OR parent_id = ${Number(user.id)})`} ORDER BY required_points;`),
       approvals: db(`
         SELECT l.*, c.name AS child_name, a.title AS activity_title, a.proof_required
@@ -1931,6 +2146,118 @@ async function api(req, res, path) {
       `)
     });
   }
+
+  const quizMatch = path.match(/^\/api\/quizzes\/(\d+)$/);
+  const quizSubmitMatch = path.match(/^\/api\/quizzes\/(\d+)\/submit$/);
+
+  if (method === "POST" && path === "/api/quizzes") {
+    const user = requireParent(req);
+    const payload = normalizeQuizPayload(body, user);
+    if (!payload.title || !payload.question_text) return send(res, 400, { error: "Quiz title and question are required." });
+    ensureQuizChildAssignment(user, payload.assigned_to_kid_id);
+    exec(sql`
+      INSERT INTO quizzes (
+        title, subject, quiz_type, instructions, difficulty, level, question_text, story_text, image_url, audio_url, emoji_prompt,
+        options, correct_answer, multiple_correct_answers, explanation, timer_seconds, hearts, required_score_to_pass,
+        xp_reward, coin_reward, badge_reward, unlock_next_level, status, created_by_parent_id, assigned_to_kid_id, due_date
+      ) VALUES (
+        ${payload.title}, ${payload.subject}, ${payload.quiz_type}, ${payload.instructions}, ${payload.difficulty}, ${payload.level},
+        ${payload.question_text}, ${payload.story_text}, ${payload.image_url}, ${payload.audio_url}, ${payload.emoji_prompt},
+        ${payload.options}, ${payload.correct_answer}, ${payload.multiple_correct_answers}, ${payload.explanation}, ${payload.timer_seconds},
+        ${payload.hearts}, ${payload.required_score_to_pass}, ${payload.xp_reward}, ${payload.coin_reward}, ${payload.badge_reward},
+        ${payload.unlock_next_level}, ${payload.status}, ${payload.created_by_parent_id}, ${payload.assigned_to_kid_id}, ${payload.due_date}
+      );
+    `);
+    return send(res, 201, { ok: true });
+  }
+
+  if (quizMatch && method === "PUT") {
+    const user = requireParent(req);
+    const quizId = Number(quizMatch[1]);
+    ensureQuizOwner(user, quizId);
+    const payload = normalizeQuizPayload(body, user);
+    if (!payload.title || !payload.question_text) return send(res, 400, { error: "Quiz title and question are required." });
+    ensureQuizChildAssignment(user, payload.assigned_to_kid_id);
+    exec(sql`
+      UPDATE quizzes SET
+        title = ${payload.title},
+        subject = ${payload.subject},
+        quiz_type = ${payload.quiz_type},
+        instructions = ${payload.instructions},
+        difficulty = ${payload.difficulty},
+        level = ${payload.level},
+        question_text = ${payload.question_text},
+        story_text = ${payload.story_text},
+        image_url = ${payload.image_url},
+        audio_url = ${payload.audio_url},
+        emoji_prompt = ${payload.emoji_prompt},
+        options = ${payload.options},
+        correct_answer = ${payload.correct_answer},
+        multiple_correct_answers = ${payload.multiple_correct_answers},
+        explanation = ${payload.explanation},
+        timer_seconds = ${payload.timer_seconds},
+        hearts = ${payload.hearts},
+        required_score_to_pass = ${payload.required_score_to_pass},
+        xp_reward = ${payload.xp_reward},
+        coin_reward = ${payload.coin_reward},
+        badge_reward = ${payload.badge_reward},
+        unlock_next_level = ${payload.unlock_next_level},
+        status = ${payload.status},
+        assigned_to_kid_id = ${payload.assigned_to_kid_id},
+        due_date = ${payload.due_date},
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${quizId};
+    `);
+    return send(res, 200, { ok: true });
+  }
+
+  if (quizMatch && method === "DELETE") {
+    const user = requireParent(req);
+    const quizId = Number(quizMatch[1]);
+    ensureQuizOwner(user, quizId);
+    exec(sql`UPDATE quizzes SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE id = ${quizId};`);
+    return send(res, 200, { ok: true });
+  }
+
+  if (quizSubmitMatch && method === "POST") {
+    const user = requireUser(req);
+    if (user.role !== "child") return send(res, 403, { error: "Only kids can answer quizzes." });
+    const childId = Number(user.child_id);
+    const child = db(sql`SELECT * FROM children WHERE id = ${childId};`)[0];
+    const quiz = quizRow(db(sql`SELECT * FROM quizzes WHERE id = ${Number(quizSubmitMatch[1])} AND status = 'active' LIMIT 1;`)[0]);
+    if (!quiz) return send(res, 404, { error: "Quiz not found." });
+    if (quiz.assigned_to_kid_id && Number(quiz.assigned_to_kid_id) !== childId) return send(res, 403, { error: "This quiz is assigned to another child." });
+    const quizCreator = db(sql`SELECT role FROM users WHERE id = ${quiz.created_by_parent_id};`)[0];
+    if (Number(quiz.created_by_parent_id) !== Number(child.parent_id) && quizCreator?.role !== "admin") return send(res, 403, { error: "This quiz is not assigned to your family." });
+    const selectedAnswers = Array.isArray(body.selectedAnswers) ? body.selectedAnswers : parseJsonArray(body.selectedAnswers);
+    const answer = String(body.answer || "").trim();
+    const correct = quizAnswerIsCorrect(quiz, answer, selectedAnswers);
+    const score = correct ? 1 : 0;
+    const passed = score >= Number(quiz.required_score_to_pass || 1);
+    const previousAttempts = Number(db(sql`SELECT COUNT(*) AS count FROM quiz_attempts WHERE quiz_id = ${quiz.id} AND kid_id = ${childId};`)[0]?.count || 0);
+    const streakBonus = correct && ["streak_quiz", "daily_quiz_mission", "fastest_finger"].includes(quiz.quiz_type) ? 5 : 0;
+    const xpEarned = correct ? Number(quiz.xp_reward || 0) + streakBonus : 0;
+    const coinsEarned = correct ? Number(quiz.coin_reward || 0) : 0;
+    const feedback = correct
+      ? (quiz.explanation || "Correct answer. Great job!")
+      : (quiz.explanation || "Good try. Read the hint and try again.");
+    exec(sql`
+      INSERT INTO quiz_attempts (
+        quiz_id, kid_id, parent_id, answer, selected_answers, score, passed, attempts, time_used_seconds,
+        hearts_left, streak_bonus, xp_earned, coins_earned, feedback
+      ) VALUES (
+        ${quiz.id}, ${childId}, ${child.parent_id}, ${answer}, ${JSON.stringify(selectedAnswers)}, ${score}, ${passed ? 1 : 0},
+        ${previousAttempts + 1}, ${Math.max(0, Number(body.timeUsedSeconds || 0))}, ${Math.max(0, Number(body.heartsLeft || 0))},
+        ${streakBonus}, ${xpEarned}, ${coinsEarned}, ${feedback}
+      );
+    `);
+    if (coinsEarned > 0) addPoints(childId, coinsEarned, "quiz", quiz.id, `Quiz reward: ${quiz.title}`);
+    awardQuizBadges(childId, quiz, correct, passed);
+    const next = dashboardFor(childId);
+    next.quizFeedback = `${correct ? "Correct!" : "Good try!"} ${feedback}${coinsEarned ? ` You earned ${coinsEarned} coins.` : ""}`;
+    return send(res, 200, next);
+  }
+
   if (method === "POST" && path === "/api/children") {
     const user = requireParent(req);
     const name = String(body.name || "").trim();
@@ -2507,6 +2834,8 @@ async function api(req, res, path) {
       mystery_boxes: db("SELECT * FROM mystery_boxes ORDER BY id;"),
       child_reflections: db("SELECT * FROM child_reflections ORDER BY id;"),
       early_bird_checkins: db("SELECT * FROM early_bird_checkins ORDER BY id;"),
+      quizzes: db("SELECT * FROM quizzes ORDER BY id;"),
+      quiz_attempts: db("SELECT * FROM quiz_attempts ORDER BY id;"),
       quran_favorite_surahs: db("SELECT * FROM quran_favorite_surahs ORDER BY child_id, surah_id;"),
       quran_revision_logs: db("SELECT * FROM quran_revision_logs ORDER BY id;"),
       quran_surah_progress: db("SELECT * FROM quran_surah_progress ORDER BY child_id, surah_id;"),
