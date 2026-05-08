@@ -1877,13 +1877,7 @@ async function api(req, res, path) {
   }
 
   if (method === "POST" && path === "/api/register-parent") {
-    const name = String(body.name || "").trim();
-    const password = String(body.password || "");
-    if (!name || password.length < 6) return send(res, 400, { error: "Parent name and a password with at least 6 characters are required" });
-    if (nameAlreadyUsed(name)) return send(res, 400, { error: "This login name is already used. Choose a different name." });
-    exec(sql`INSERT INTO users (name, email, password_hash, role) VALUES (${name}, ${localEmailFor(name, "parent", Date.now())}, ${hashPassword(password)}, 'parent');`);
-    const user = db("SELECT id, name, email, role, child_id FROM users ORDER BY id DESC LIMIT 1;")[0];
-    return send(res, 201, { token: signToken({ id: user.id, role: user.role }), user });
+    return send(res, 403, { error: "Parent registration is disabled. Admin must create parent accounts." });
   }
 
   if (method === "GET" && path === "/api/me") return send(res, 200, { user: requireUser(req) });
@@ -1908,6 +1902,7 @@ async function api(req, res, path) {
     const activityScope = visibleActivityWhere(user, "a");
     return send(res, 200, {
       children: db(`SELECT * FROM children c WHERE ${childScope} ORDER BY id;`),
+      currentUser: { id: user.id, name: user.name, role: user.role },
       users: isAdmin(user)
         ? db("SELECT id, name, email, role, child_id, created_at FROM users ORDER BY role DESC, id;")
         : db(`SELECT id, name, email, role, child_id, created_at FROM users WHERE id = ${Number(user.id)} OR child_id IN (${childIdList}) ORDER BY role DESC, id;`),
@@ -1948,6 +1943,35 @@ async function api(req, res, path) {
     exec(sql`INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled) SELECT ${child.id}, id, 1 FROM activities WHERE active = 1;`);
     return send(res, 201, { ok: true });
   }
+
+  if (method === "POST" && path === "/api/parents") {
+    const user = requireParent(req);
+    if (!isAdmin(user)) return send(res, 403, { error: "Only admin can create parent accounts." });
+    const name = String(body.name || "").trim();
+    const password = String(body.password || "");
+    if (!name || password.length < 6) return send(res, 400, { error: "Parent name and a password with at least 6 characters are required" });
+    if (nameAlreadyUsed(name)) return send(res, 400, { error: "This login name is already used. Choose a different name." });
+    exec(sql`INSERT INTO users (name, email, password_hash, role) VALUES (${name}, ${localEmailFor(name, "parent", Date.now())}, ${hashPassword(password)}, 'parent');`);
+    return send(res, 201, { ok: true });
+  }
+
+  if (method === "PUT" && path.startsWith("/api/parents/")) {
+    const user = requireParent(req);
+    if (!isAdmin(user)) return send(res, 403, { error: "Only admin can edit parent accounts." });
+    const id = Number(path.split("/").pop());
+    const parent = db(sql`SELECT * FROM users WHERE id = ${id} AND role = 'parent';`)[0];
+    if (!parent) return send(res, 404, { error: "Parent account not found" });
+    const name = String(body.name || "").trim();
+    if (!name) return send(res, 400, { error: "Parent name is required" });
+    if (nameAlreadyUsed(name, id)) return send(res, 400, { error: "This login name is already used. Choose a different name." });
+    exec(sql`UPDATE users SET name = ${name}, email = ${localEmailFor(name, "parent", id)} WHERE id = ${id};`);
+    if (body.password) {
+      if (String(body.password).length < 6) return send(res, 400, { error: "Password must be at least 6 characters" });
+      exec(sql`UPDATE users SET password_hash = ${hashPassword(String(body.password))} WHERE id = ${id};`);
+    }
+    return send(res, 200, { ok: true });
+  }
+
   if (method === "PUT" && path.startsWith("/api/children/")) {
     const user = requireParent(req);
     const id = Number(path.split("/").pop());

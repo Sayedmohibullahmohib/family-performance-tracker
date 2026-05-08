@@ -132,18 +132,6 @@ function App() {
     }
   }
 
-  async function registerParent(name, password) {
-    setError("");
-    try {
-      const data = await api("/api/register-parent", { method: "POST", body: JSON.stringify({ name, password }) });
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
-      setUser(data.user);
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
   function logout() {
     localStorage.removeItem("token");
     setToken("");
@@ -155,7 +143,7 @@ function App() {
     api("/api/me").then((data) => setUser(data.user)).catch(logout);
   }, [token]);
 
-  if (!token || !user) return <Login onLogin={login} onRegister={registerParent} error={error} />;
+  if (!token || !user) return <Login onLogin={login} error={error} />;
   return (
     <Shell user={user} onLogout={logout}>
       {["admin", "parent"].includes(user.role) ? <ParentDashboard api={api} /> : <ChildDashboard api={api} />}
@@ -163,24 +151,20 @@ function App() {
   );
 }
 
-function Login({ onLogin, onRegister, error }) {
+function Login({ onLogin, error }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [registerMode, setRegisterMode] = useState(false);
   return (
     <main className="login-screen">
       <section className="login-panel">
         <div className="brand-mark">⭐</div>
         <h1>Kids Performance Tracker</h1>
         <p>Choose your name, enter your password, and start your day.</p>
-        <form onSubmit={(event) => { event.preventDefault(); registerMode ? onRegister(name, password) : onLogin(name, password); }}>
+        <form onSubmit={(event) => { event.preventDefault(); onLogin(name, password); }}>
           <label>Name<input value={name} placeholder="Type your name" onChange={(event) => setName(event.target.value)} /></label>
           <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
           {error && <div className="error">{error}</div>}
-          <button className="primary">{registerMode ? "Register parent" : "Sign in"}</button>
-          <button type="button" className="ghost" onClick={() => setRegisterMode(!registerMode)}>
-            {registerMode ? "Back to sign in" : "Register new parent"}
-          </button>
+          <button className="primary">Sign in</button>
         </form>
       </section>
     </main>
@@ -1923,6 +1907,7 @@ function ParentDashboard({ api }) {
   const [editingActivity, setEditingActivity] = useState(null);
   const [editingReward, setEditingReward] = useState(null);
   const [editingChild, setEditingChild] = useState(null);
+  const [editingParent, setEditingParent] = useState(null);
   const [notice, setNotice] = useState("");
   const [adminTab, setAdminTab] = useState("overview");
 
@@ -2143,6 +2128,17 @@ function ParentDashboard({ api }) {
     load();
   }
 
+  async function saveManagedParent(event) {
+    event.preventDefault();
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    const url = editingParent?.id ? `/api/parents/${editingParent.id}` : "/api/parents";
+    await api(url, { method: editingParent?.id ? "PUT" : "POST", body: JSON.stringify(form) });
+    setEditingParent(null);
+    event.currentTarget.reset();
+    setNotice(editingParent ? "Parent account updated." : "Parent account created.");
+    load(childId);
+  }
+
   async function saveChild(event) {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget));
@@ -2228,6 +2224,19 @@ function ParentDashboard({ api }) {
         <section className="admin-grid">
           <Panel title="Children & Accounts">
             <ParentAccountForm user={admin.users.find((account) => account.role === "admin" || account.role === "parent")} onSubmit={saveParentAccount} />
+            {admin.currentUser?.role === "admin" && (
+              <>
+                <ParentCreateForm item={editingParent} onSubmit={saveManagedParent} />
+                <div className="mini-list">
+                  {admin.users.filter((account) => account.role === "parent").map((parent) => (
+                    <div key={parent.id}>
+                      <span>{parent.name} · parent login</span>
+                      <button onClick={() => setEditingParent(parent)}>Edit</button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
             <ChildAccountForm item={editingChild} users={admin.users} onSubmit={saveChild} />
             <div className="mini-list">
               {admin.children.map((child) => {
@@ -2511,6 +2520,17 @@ function ParentAccountForm({ user, onSubmit }) {
       <input name="name" placeholder="Parent name" defaultValue={user?.name || ""} required />
       <input name="password" type="password" placeholder="New password, optional" />
       <button>Update parent login</button>
+    </form>
+  );
+}
+
+function ParentCreateForm({ item, onSubmit }) {
+  return (
+    <form className="editor" onSubmit={onSubmit}>
+      <h3>{item ? "Edit parent" : "Create parent account"}</h3>
+      <input name="name" placeholder="Parent login name" defaultValue={item?.name || ""} required />
+      <input name="password" type="password" placeholder={item ? "New password, optional" : "Password"} required={!item} />
+      <button>{item ? "Update parent" : "Create parent"}</button>
     </form>
   );
 }
