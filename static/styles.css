@@ -105,6 +105,36 @@ body[data-day-theme="6"] {
   background: radial-gradient(circle at 12% 12%, rgba(254, 249, 195, 0.9), transparent 25%), radial-gradient(circle at 92% 8%, rgba(224, 242, 254, 0.8), transparent 22%), #fffdf0;
 }
 
+body[data-seasonal-theme="ramadan"] {
+  --blue: #0f766e;
+  background: radial-gradient(circle at 12% 12%, rgba(250, 204, 21, 0.32), transparent 24%), radial-gradient(circle at 92% 10%, rgba(20, 184, 166, 0.28), transparent 24%), #f0fdfa;
+}
+
+body[data-seasonal-theme="eid"] {
+  --blue: #7c3aed;
+  background: radial-gradient(circle at 12% 12%, rgba(244, 114, 182, 0.25), transparent 24%), radial-gradient(circle at 92% 10%, rgba(250, 204, 21, 0.32), transparent 24%), #fff7ed;
+}
+
+body[data-seasonal-theme="winter"] {
+  --blue: #0284c7;
+  background: radial-gradient(circle at 12% 12%, rgba(186, 230, 253, 0.55), transparent 24%), radial-gradient(circle at 92% 10%, rgba(224, 242, 254, 0.72), transparent 24%), #f8fafc;
+}
+
+body[data-seasonal-theme="football"] {
+  --blue: #16a34a;
+  background: radial-gradient(circle at 12% 12%, rgba(134, 239, 172, 0.45), transparent 24%), radial-gradient(circle at 92% 10%, rgba(251, 146, 60, 0.32), transparent 24%), #f7fee7;
+}
+
+body[data-seasonal-theme="school"] {
+  --blue: #2563eb;
+  background: radial-gradient(circle at 12% 12%, rgba(147, 197, 253, 0.42), transparent 24%), radial-gradient(circle at 92% 10%, rgba(253, 224, 71, 0.38), transparent 24%), #eff6ff;
+}
+
+body[data-seasonal-theme="summer"] {
+  --blue: #ea580c;
+  background: radial-gradient(circle at 12% 12%, rgba(253, 186, 116, 0.44), transparent 24%), radial-gradient(circle at 92% 10%, rgba(125, 211, 252, 0.48), transparent 24%), #fff7ed;
+}
+
 @keyframes confettiFall {
   0% {
     opacity: 1;
@@ -1010,6 +1040,34 @@ h1, h2, h3, p {
 
 .mega-celebration strong {
   font-size: clamp(18px, 4vw, 28px);
+}
+
+.activity-celebration-modal {
+  align-items: center;
+  background: rgba(36, 48, 66, 0.36);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 58;
+}
+
+.activity-celebration-modal > div {
+  animation: levelCeremony 1800ms ease forwards;
+  background: linear-gradient(135deg, #fffdf1, #f2fff7, #dff4ff);
+  border: 3px solid #facc15;
+  border-radius: 20px;
+  box-shadow: 0 28px 80px rgba(36, 48, 66, 0.24);
+  max-width: 420px;
+  padding: 28px;
+  text-align: center;
+  width: min(92vw, 420px);
+}
+
+.activity-celebration-modal > div > span {
+  display: block;
+  font-size: 62px;
 }
 
 .mini-fireworks {
@@ -3830,6 +3888,28 @@ h1, h2, h3, p {
   border-color: #bae6fd;
 }
 
+.boss-battle {
+  align-items: center;
+  background: linear-gradient(135deg, #f8fafc, #eef2f7);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 18px;
+}
+
+.boss-battle.ready {
+  animation: currentTaskGlow 1900ms ease-in-out infinite;
+  background: linear-gradient(135deg, #fff7ed, #fef3c7);
+  border-color: #fb923c;
+}
+
+.boss-battle > span {
+  animation: iconBounce 1400ms ease-in-out infinite;
+  font-size: 58px;
+}
+
 .quiz-grid {
   display: grid;
   gap: 16px;
@@ -3954,6 +4034,162 @@ h1, h2, h3, p {
 
 .quiz-results-list > div {
   grid-template-columns: 1fr;
+}
+
+.currency-strip {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.praise-banner {
+  align-items: center;
+  background: linear-gradient(135deg, #fff7ed, #fef3c7);
+  border: 2px solid #facc15;
+  border-radius: 16px;
+  box-shadow: 0 14px 34px rgba(250, 204, 21, 0.16);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto 1fr auto;
+  padding: 16px;
+}
+
+.praise-banner.unread {
+  animation: currentTaskGlow 1800ms ease-in-out infinite;
+}
+
+.praise-banner > span {
+  animation: iconBounce 1600ms ease-in-out infinite;
+  font-size: 44px;
+}
+
+.daily-surprise.ready .game-card-head > span,
+.daily-surprise.ready button {
+  animation: surpriseWiggle 1100ms ease-in-out infinite;
+}
+
+.pet-avatar {
+  animation: animalWalk 1800ms ease-in-out infinite !important;
+}
+
+.pet-picker,
+.mood-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pet-picker button,
+.mood-options button {
+  border-radius: 999px;
+  font-size: 24px;
+  height: 46px;
+  min-height: 46px;
+  padding: 0;
+  width: 46px;
+}
+
+.pet-picker button.selected,
+.mood-options button.selected {
+  background: #dcfce7;
+  color: #166534;
+  outline: 3px solid rgba(22, 163, 74, 0.16);
+}
+
+.story-card {
+  background: linear-gradient(135deg, #eff6ff, #faf5ff);
+}
+
+.narrate-button {
+  min-height: 34px;
+  padding: 6px 10px;
+  width: fit-content;
+}
+
+.activity.subject-quran {
+  border-color: #16a34a;
+  background: linear-gradient(135deg, #ffffff, #f0fdf4 65%, #fff7cc);
+}
+
+.activity.subject-fitness {
+  border-color: #fb923c;
+  background: linear-gradient(135deg, #ffffff, #fff7ed 65%, #fee2e2);
+}
+
+.activity.subject-german {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #ffffff, #eff6ff 65%, #fef3c7);
+}
+
+.activity.subject-english {
+  border-color: #8b5cf6;
+  background: linear-gradient(135deg, #ffffff, #f5f3ff 65%, #dbeafe);
+}
+
+.activity.subject-reading {
+  border-color: #a855f7;
+  background: linear-gradient(135deg, #ffffff, #faf5ff);
+}
+
+.activity.subject-housework {
+  border-color: #22c55e;
+  background: linear-gradient(135deg, #ffffff, #f0fdf4);
+}
+
+.activity.subject-teamwork {
+  border-color: #facc15;
+  background: linear-gradient(135deg, #ffffff, #fff7cc);
+}
+
+.activity.subject-math {
+  border-color: #38bdf8;
+  background: linear-gradient(135deg, #ffffff, #eff6ff);
+}
+
+.rarity-label {
+  background: #eef2f7;
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 950;
+  padding: 4px 8px;
+  text-transform: uppercase;
+}
+
+.reward {
+  min-height: 150px;
+}
+
+.reward-icon {
+  font-size: 42px;
+}
+
+.reward.available .reward-icon {
+  animation: iconBounce 1500ms ease-in-out infinite;
+}
+
+.kid-bottom-nav {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 18px 18px 0 0;
+  bottom: 0;
+  box-shadow: 0 -14px 34px rgba(36, 48, 66, 0.14);
+  display: none;
+  gap: 8px;
+  left: 0;
+  padding: 10px max(10px, env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-right));
+  position: fixed;
+  right: 0;
+  z-index: 50;
+}
+
+.kid-bottom-nav button {
+  flex: 1;
+  min-height: 48px;
+}
+
+.kid-bottom-nav span {
+  display: block;
+  font-size: 20px;
 }
 
 .compact-grid {
@@ -4321,6 +4557,18 @@ h1, h2, h3, p {
 
   .quiz-options {
     grid-template-columns: 1fr;
+  }
+
+  .currency-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .praise-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .kid-bottom-nav {
+    display: flex;
   }
 
   .approval, .mini-list > div {

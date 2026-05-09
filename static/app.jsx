@@ -51,7 +51,9 @@ const avatarChoices = [
   "🐸", "🐨", "🐻", "🐮", "🐷", "🐥", "🦆", "🦅",
   "🦜", "🦚", "🦩", "🦢", "🦭", "🐳", "🐠", "🐙",
   "🦀", "🦞", "🦔", "🦥", "🦦", "🦫", "🦘", "🦒",
-  "🦓", "🐘", "🦏", "🦛", "🐆", "🐅", "🐊", "🦖"
+  "🦓", "🐘", "🦏", "🦛", "🐆", "🐅", "🐊", "🦖",
+  "⚽", "🏃", "🦸", "🦸‍♀️", "🧙", "🧑‍🚀", "👩‍🏫", "👨‍🎓",
+  "📚", "🧠", "🏆", "🚀", "🛡️", "👑", "🌟", "💫"
 ];
 
 function CoinIcon() {
@@ -196,7 +198,7 @@ function ChildDashboard({ api }) {
   const [celebration, setCelebration] = useState("");
   const [pointPulse, setPointPulse] = useState(false);
   const [diamondBurst, setDiamondBurst] = useState(false);
-  const [soundOn] = useState(true);
+  const [soundOn] = useState(() => localStorage.getItem("soundOn") !== "false");
   const [surpriseOpen, setSurpriseOpen] = useState(false);
   const [levelUp, setLevelUp] = useState(null);
   const [combo, setCombo] = useState(0);
@@ -205,6 +207,7 @@ function ChildDashboard({ api }) {
   const [dailyWelcome, setDailyWelcome] = useState("");
   const [fireworks, setFireworks] = useState(false);
   const [dailyComplete, setDailyComplete] = useState(false);
+  const [activityCelebration, setActivityCelebration] = useState(null);
   const [quranFilter, setQuranFilter] = useState("all");
   const [quranSort, setQuranSort] = useState("number");
 
@@ -250,6 +253,11 @@ function ChildDashboard({ api }) {
     setDailyComplete(false);
   }, [data?.date]);
 
+  useEffect(() => {
+    if (!data?.settings?.seasonal_theme) return;
+    document.body.dataset.seasonalTheme = data.settings.seasonal_theme;
+  }, [data?.settings?.seasonal_theme]);
+
   if (!data) return <Loader />;
 
   const level = levelFor(data.points.total);
@@ -281,6 +289,14 @@ function ChildDashboard({ api }) {
     const allDoneNow = Number(next.summary?.daily_target || 0) > 0 && Number(next.summary?.completed_today || 0) >= Number(next.summary?.daily_target || 0);
     setData(next);
     setMessage(activity.requires_approval || activity.proof_required ? "Sent to parent for approval!" : encouragementFor(activity));
+    if (earnedPoints || earnedBadge || activity.requires_approval || activity.proof_required) {
+      setActivityCelebration({
+        title: activity.title,
+        points: Math.max(0, Number(next.points.total || 0) - Number(data.points.total || 0)),
+        streak: next.streak,
+        message: activity.requires_approval || activity.proof_required ? "Sent to parent for approval!" : encouragementFor(activity)
+      });
+    }
     if (!activity.is_prayer || earnedPoints) {
       celebrate(earnedBadge ? "badge" : "success", earnedBadge ? "New badge earned!" : "Great job!");
     }
@@ -344,6 +360,47 @@ function ChildDashboard({ api }) {
     const next = await api("/api/my-avatar", { method: "PUT", body: JSON.stringify({ avatar }) });
     setData(next);
     setMessage("Nice choice!");
+  }
+
+  async function openDailySurprise() {
+    try {
+      const next = await api("/api/daily-surprise/open", { method: "POST", body: JSON.stringify({}) });
+      setData(next);
+      setSurpriseOpen(true);
+      setMessage(next.dailySurpriseMessage || "Daily surprise opened!");
+      celebrate("reward", next.dailySurpriseMessage || "Daily surprise!");
+    } catch (err) {
+      setMessage(err.message);
+    }
+  }
+
+  async function saveMood(mood) {
+    try {
+      const next = await api("/api/mood", { method: "POST", body: JSON.stringify({ mood }) });
+      setData(next);
+      setMessage("Mood saved. Thank you for sharing.");
+      playSound("success", soundOn);
+    } catch (err) {
+      setMessage(err.message);
+    }
+  }
+
+  async function choosePet(pet) {
+    try {
+      const next = await api("/api/my-pet", { method: "POST", body: JSON.stringify({ pet_type: pet }) });
+      setData(next);
+      setMessage("Your pet companion is ready!");
+      playSound("reward", soundOn);
+    } catch (err) {
+      setMessage(err.message);
+    }
+  }
+
+  async function markPraiseSeen() {
+    try {
+      const next = await api("/api/praise/seen", { method: "POST", body: JSON.stringify({}) });
+      setData(next);
+    } catch {}
   }
 
   async function openMystery() {
@@ -508,6 +565,7 @@ function ChildDashboard({ api }) {
       {questBanner && <QuestBanner text={questBanner} />}
       {rewardUnlock && <RewardUnlockToast text={rewardUnlock} />}
       {dailyWelcome && <DailyWelcome text={dailyWelcome} />}
+      {activityCelebration && <ActivityCelebrationModal details={activityCelebration} onClose={() => setActivityCelebration(null)} />}
       {dailyComplete && (
         <DailyCompletionOverlay
           data={data}
@@ -557,6 +615,23 @@ function ChildDashboard({ api }) {
         </div>
       </section>
 
+      <PraiseBanner messages={data.praiseMessages || []} onSeen={markPraiseSeen} />
+
+      <section className="stats currency-strip" aria-label="Game currencies">
+        <Stat label="XP" value={data.wallet?.xp || data.points.total} icon="⚡" />
+        <Stat label="Coins" value={data.wallet?.coins || data.points.total} icon={<CoinIcon />} />
+        <Stat label="Gems" value={data.wallet?.gems || 0} icon="💠" />
+        <Stat label="Keys" value={data.wallet?.keys || 0} icon="🗝️" />
+        <Stat label="Tickets" value={data.wallet?.treasure_tickets || 0} icon="🎟️" />
+      </section>
+
+      <section className="game-grid compact-grid">
+        <DailySurpriseBox surprise={data.dailySurprise} onOpen={openDailySurprise} />
+        <PetCompanion pet={data.pet} onChoose={choosePet} />
+        <MoodCheckIn mood={data.mood} onMood={saveMood} />
+        <StorylineCard completed={completedToday} total={totalToday} />
+      </section>
+
       <EarlyBirdCard earlyBird={data.earlyBird} onCheckIn={checkEarlyBird} />
 
       <section className="today-progress-card" aria-label="Today’s progress">
@@ -604,9 +679,10 @@ function ChildDashboard({ api }) {
         onFavorite={toggleFavoriteSurah}
       />
 
+      <BossBattlePanel completed={completedToday} quizzes={data.quizzes || []} />
       <QuizPanel quizzes={data.quizzes || []} onSubmit={submitQuiz} />
 
-      <section className="dashboard-section">
+      <section className="dashboard-section" id="today-tasks">
         <div className="section-heading">
           <p className="eyebrow">Today’s Tasks</p>
           <h2>Learning Journey</h2>
@@ -656,7 +732,7 @@ function ChildDashboard({ api }) {
               <article className={`reward ${reward.status}`} key={reward.id}>
                 <div className="reward-icon">{rewardIcons[reward.title] || rewardIcons.default}</div>
                 <div>
-                  <h3>{reward.title} {reward.is_discounted ? <span className="discount-badge">{reward.discount_percent}% off</span> : null}</h3>
+                  <h3>{reward.title} <span className="rarity-label">{reward.required_points >= 150 ? "legendary" : reward.required_points >= 90 ? "rare" : "common"}</span> {reward.is_discounted ? <span className="discount-badge">{reward.discount_percent}% off</span> : null}</h3>
                   <p>{reward.description}</p>
                   {reward.is_discounted ? (
                     <strong><span className="old-price">{reward.required_points}</span><CoinIcon />{reward.discounted_points} points · {reward.status}</strong>
@@ -672,6 +748,7 @@ function ChildDashboard({ api }) {
         </div>
       </section>
       </CollapsibleSection>
+      <KidBottomNav />
     </main>
   );
 }
@@ -683,6 +760,25 @@ function MegaCelebration({ text }) {
         <span>✨</span>
         <strong>{text}</strong>
         <span>💎</span>
+      </div>
+    </div>
+  );
+}
+
+function ActivityCelebrationModal({ details, onClose }) {
+  return (
+    <div className="activity-celebration-modal" role="dialog" aria-modal="true" aria-label="Activity completed">
+      <div>
+        <span>🎉</span>
+        <p className="eyebrow">Mission update</p>
+        <h2>{details.title}</h2>
+        <p>{details.message}</p>
+        <div className="complete-stats">
+          <span><strong>{details.points}</strong> coins</span>
+          <span><strong>{details.streak}</strong> streak</span>
+          <span><strong>XP</strong> growing</span>
+        </div>
+        <button onClick={onClose}>Continue</button>
       </div>
     </div>
   );
@@ -756,6 +852,134 @@ function CollapsibleSection({ id, title, children, defaultOpen = false }) {
   );
 }
 
+function PraiseBanner({ messages = [], onSeen }) {
+  const latest = messages.find((message) => message.status === "unread") || messages[0];
+  if (!latest) return null;
+  return (
+    <section className={latest.status === "unread" ? "praise-banner unread" : "praise-banner"}>
+      <span>💌</span>
+      <div>
+        <p className="eyebrow">Parent praise</p>
+        <h2>{latest.message}</h2>
+        <small>From {latest.parent_name}</small>
+      </div>
+      {latest.status === "unread" ? <button onClick={onSeen}>Thank you</button> : null}
+    </section>
+  );
+}
+
+function DailySurpriseBox({ surprise, onOpen }) {
+  const opened = surprise?.opened;
+  return (
+    <section className={opened ? "game-card daily-surprise opened" : "game-card daily-surprise ready"}>
+      <div className="game-card-head">
+        <span>{opened ? "🎊" : "🎁"}</span>
+        <div>
+          <p className="eyebrow">Daily surprise</p>
+          <h2>{opened ? "Opened today" : "Open today’s box"}</h2>
+        </div>
+      </div>
+      <p>{opened ? surprise.box?.message : "Login reward: coins, gems, keys, tickets, or a power-up."}</p>
+      <button disabled={opened} onClick={onOpen}>{opened ? "Opened" : "Open surprise"}</button>
+    </section>
+  );
+}
+
+const petIcons = {
+  cat: "🐱",
+  lion: "🦁",
+  bird: "🦜",
+  dolphin: "🐬",
+  dragon: "🐉",
+  puppy: "🐶"
+};
+
+function PetCompanion({ pet, onChoose }) {
+  const current = pet || { pet_type: "puppy", pet_name: "Buddy", happiness: 40, pet_level: 1 };
+  return (
+    <section className="game-card pet-card">
+      <div className="game-card-head">
+        <span className="pet-avatar">{petIcons[current.pet_type] || "🐶"}</span>
+        <div>
+          <p className="eyebrow">Pet companion</p>
+          <h2>{current.pet_name || "Buddy"} · Level {current.pet_level || 1}</h2>
+        </div>
+      </div>
+      <Progress value={Number(current.happiness || 0)} />
+      <p>{Number(current.happiness || 0) >= 80 ? "Your pet is super happy!" : "Complete activities to make your pet happier."}</p>
+      <div className="pet-picker">
+        {Object.entries(petIcons).map(([key, icon]) => (
+          <button className={current.pet_type === key ? "selected" : "ghost"} key={key} onClick={() => onChoose(key)}>{icon}</button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MoodCheckIn({ mood, onMood }) {
+  const moods = [
+    ["happy", "😊"],
+    ["tired", "😴"],
+    ["excited", "🤩"],
+    ["sad", "😔"],
+    ["angry", "😠"],
+    ["calm", "😌"]
+  ];
+  return (
+    <section className="game-card mood-card">
+      <div className="game-card-head">
+        <span>💭</span>
+        <div>
+          <p className="eyebrow">Mood check-in</p>
+          <h2>{mood ? `Feeling ${mood.mood}` : "How do you feel?"}</h2>
+        </div>
+      </div>
+      <div className="mood-options">
+        {moods.map(([key, icon]) => (
+          <button className={mood?.mood === key ? "selected" : "ghost"} key={key} onClick={() => onMood(key)} aria-label={`I feel ${key}`}>{icon}</button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StorylineCard({ completed, total }) {
+  const percent = Math.min(100, Math.round((completed / Math.max(1, total)) * 100));
+  return (
+    <section className="game-card story-card">
+      <div className="game-card-head">
+        <span>🏰</span>
+        <div>
+          <p className="eyebrow">Storyline</p>
+          <h2>TT Heroes Kingdom</h2>
+        </div>
+      </div>
+      <p>Help the TT Heroes complete learning missions and unlock the Kingdom of Learning.</p>
+      <Progress value={percent} />
+    </section>
+  );
+}
+
+function KidBottomNav() {
+  const items = [
+    ["Tasks", "today-tasks", "🧭"],
+    ["Rewards", "badges-rewards-panel", "🎁"],
+    ["Top", "", "⬆️"]
+  ];
+  return (
+    <nav className="kid-bottom-nav" aria-label="Kid dashboard quick navigation">
+      {items.map(([label, id, icon]) => (
+        <button
+          key={label}
+          onClick={() => id ? document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }) : window.scrollTo({ top: 0, behavior: "smooth" })}
+        >
+          <span>{icon}</span>{label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 const quizTypes = [
   ["select_3", "Correct answer · 3 options"],
   ["select_4", "Correct answer · 4 options"],
@@ -804,6 +1028,20 @@ function QuizPanel({ quizzes = [], onSubmit }) {
           ))}
         </div>
       </div>
+    </section>
+  );
+}
+
+function BossBattlePanel({ completed, quizzes = [] }) {
+  const ready = Number(completed || 0) >= 3 && quizzes.length > 0;
+  return (
+    <section className={ready ? "boss-battle ready" : "boss-battle"} aria-label="Boss battle quiz">
+      <div>
+        <p className="eyebrow">Boss Battle Quiz</p>
+        <h2>{ready ? "Boss battle unlocked!" : `${Math.max(0, 3 - Number(completed || 0))} tasks to unlock boss battle`}</h2>
+        <p>{ready ? "Answer a quiz mission to defeat the challenge and win rewards." : "Complete 3 activities, then try a quiz challenge."}</p>
+      </div>
+      <span>{ready ? "🐲" : "🔒"}</span>
     </section>
   );
 }
@@ -1443,7 +1681,14 @@ function XPBar({ level }) {
 }
 
 function AdventureMap({ level, totalPoints }) {
-  const steps = ["Start", "Quran", "Books", "Helping", "Sports", "Reward"];
+  const steps = [
+    ["Learning Village", "🏡"],
+    ["Quran Garden", "🌙"],
+    ["Reading Castle", "🏰"],
+    ["Math Mountain", "⛰️"],
+    ["Fitness Arena", "🏟️"],
+    ["Reward Island", "🏝️"]
+  ];
   const activeStep = Math.min(steps.length - 1, Math.floor(Number(totalPoints || 0) / 80));
   const walkerPosition = Math.min(92, Math.max(8, 8 + activeStep * 16.8));
   return (
@@ -1456,10 +1701,10 @@ function AdventureMap({ level, totalPoints }) {
         </div>
       </div>
       <div className="map-path">
-        <div className="map-walker" style={{ "--walker-left": `${walkerPosition}%` }}>{level.level >= 5 ? "🏆" : "🚀"}</div>
-        {steps.map((step, index) => (
+        <div className="map-walker" style={{ "--walker-left": `${walkerPosition}%` }}>{level.level >= 5 ? "🦸" : "🚶"}</div>
+        {steps.map(([step, icon], index) => (
           <div className={index <= activeStep ? "map-step reached" : "map-step"} key={step}>
-            <span>{index < activeStep ? "✓" : index === activeStep ? "🚩" : "•"}</span>
+            <span>{index < activeStep ? "✓" : index === activeStep ? icon : "•"}</span>
             <small>{step}</small>
           </div>
         ))}
@@ -1817,6 +2062,16 @@ function ActivityCard({ activity, timerScope, onComplete }) {
     reader.readAsDataURL(file);
   }
 
+  function narrateTask() {
+    try {
+      window.speechSynthesis.cancel();
+      const text = `${activity.title}. ${activity.description}`;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    } catch {}
+  }
+
   function confirmNotDone() {
     setNeedsConfirmation(false);
     setTimerStarted(false);
@@ -1827,7 +2082,7 @@ function ActivityCard({ activity, timerScope, onComplete }) {
   }
 
   return (
-    <article className={`activity ${activity.status} ${activity.is_daily_challenge ? "daily-pick" : ""}`}>
+    <article className={`activity ${activity.status} subject-${String(activity.subject || "general").toLowerCase()} ${activity.is_daily_challenge ? "daily-pick" : ""}`}>
       <ActivityMotionIcon activity={activity} />
       <div className="activity-body">
         <div className="row">
@@ -1835,6 +2090,7 @@ function ActivityCard({ activity, timerScope, onComplete }) {
           <span className="points-pill"><CoinIcon />{activity.points} pts</span>
         </div>
         <p>{activity.description}</p>
+        <button className="narrate-button ghost" type="button" onClick={narrateTask} aria-label={`Read ${activity.title} instructions aloud`}>Read task</button>
         {activity.subject ? <small className="subject-chip">{activity.subject} · {taskType === "standard" ? "Daily activity" : taskType.replaceAll("_", " ")}</small> : null}
         <span className={`status-chip ${activity.status}`}>{activity.status}</span>
         {activity.proof_required ? (
@@ -2107,6 +2363,7 @@ function ParentDashboard({ api }) {
     ["children", "Children & Accounts"],
     ["activities", "Activities"],
     ["quizzes", "Quizzes"],
+    ["game", "Game Controls"],
     ["planner", "Weekly Planner"],
     ["rewards", "Rewards"],
     ["reports", "Reports & Backup"]
@@ -2345,6 +2602,23 @@ function ParentDashboard({ api }) {
     load(childId);
   }
 
+  async function sendPraise(event) {
+    event.preventDefault();
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    await api("/api/praise", { method: "POST", body: JSON.stringify({ ...form, child_id: childId }) });
+    event.currentTarget.reset();
+    setNotice("Praise message sent.");
+    load(childId);
+  }
+
+  async function saveGameSettings(event) {
+    event.preventDefault();
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    await api("/api/settings", { method: "POST", body: JSON.stringify(form) });
+    setNotice("Game settings saved.");
+    load(childId);
+  }
+
   return (
     <main className="dashboard">
       <section className="admin-top">
@@ -2497,6 +2771,21 @@ function ParentDashboard({ api }) {
           </Panel>
           <Panel title="Quiz Results">
             <QuizResults results={admin.quizResults || []} />
+          </Panel>
+        </section>
+      )}
+
+      {adminTab === "game" && (
+        <section className="admin-grid">
+          <Panel title="Seasonal Theme & Sound">
+            <GameSettingsForm settings={admin.settings || {}} onSubmit={saveGameSettings} />
+          </Panel>
+          <Panel title="Send Praise Message">
+            <PraiseForm childName={selectedChildName} onSubmit={sendPraise} />
+            <PraiseList messages={admin.praiseMessages || []} />
+          </Panel>
+          <Panel title="Mood Check-ins">
+            <MoodReport moods={admin.moods || []} />
           </Panel>
         </section>
       )}
@@ -2894,6 +3183,61 @@ function QuizResults({ results = [] }) {
             <small>{result.completed_at} · score {result.score} · attempts {result.attempts} · {result.time_used_seconds}s · coins {result.coins_earned} · XP {result.xp_earned}</small>
             {result.feedback ? <small>{result.feedback}</small> : null}
           </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GameSettingsForm({ settings = {}, onSubmit }) {
+  return (
+    <form className="editor" onSubmit={onSubmit}>
+      <select name="seasonal_theme" defaultValue={settings.seasonal_theme || "learning"}>
+        <option value="learning">Learning</option>
+        <option value="ramadan">Ramadan</option>
+        <option value="eid">Eid</option>
+        <option value="winter">Winter</option>
+        <option value="football">Football Cup</option>
+        <option value="school">School Challenge</option>
+        <option value="summer">Summer Learning</option>
+      </select>
+      <label className="check"><input name="sound_enabled" type="checkbox" defaultChecked={settings.sound_enabled !== "false"} /> Sound effects enabled by default</label>
+      <button>Save game settings</button>
+    </form>
+  );
+}
+
+function PraiseForm({ childName, onSubmit }) {
+  return (
+    <form className="editor" onSubmit={onSubmit}>
+      <p className="muted">Send a short warm message to {childName || "the selected child"}.</p>
+      <input name="message" maxLength="160" placeholder="Great work today! I am proud of you." required />
+      <button>Send praise</button>
+    </form>
+  );
+}
+
+function PraiseList({ messages = [] }) {
+  if (!messages.length) return <p className="muted">No praise messages yet.</p>;
+  return (
+    <div className="mini-list">
+      {messages.slice(0, 8).map((item) => (
+        <div key={item.id}>
+          <span>{item.child_name} · {item.message}<small>{item.status} · {item.created_at}</small></span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MoodReport({ moods = [] }) {
+  if (!moods.length) return <p className="muted">No mood check-ins yet.</p>;
+  const icon = { happy: "😊", tired: "😴", excited: "🤩", sad: "😔", angry: "😠", calm: "😌" };
+  return (
+    <div className="mini-list">
+      {moods.slice(0, 12).map((item) => (
+        <div key={item.id}>
+          <span>{avatarFor(item.avatar)} {item.child_name} · {icon[item.mood] || "💭"} {item.mood}<small>{item.mood_date}</small></span>
         </div>
       ))}
     </div>

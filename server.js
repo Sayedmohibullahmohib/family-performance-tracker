@@ -559,6 +559,62 @@ function initDb() {
       FOREIGN KEY(kid_id) REFERENCES children(id),
       FOREIGN KEY(parent_id) REFERENCES users(id)
     );
+    CREATE TABLE IF NOT EXISTS child_wallets (
+      child_id INTEGER PRIMARY KEY,
+      xp INTEGER DEFAULT 0,
+      coins INTEGER DEFAULT 0,
+      gems INTEGER DEFAULT 0,
+      keys INTEGER DEFAULT 0,
+      treasure_tickets INTEGER DEFAULT 0,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS daily_surprises (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      child_id INTEGER NOT NULL,
+      surprise_date TEXT NOT NULL,
+      reward_type TEXT NOT NULL,
+      reward_value INTEGER DEFAULT 0,
+      message TEXT NOT NULL,
+      opened_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(child_id, surprise_date),
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS child_pets (
+      child_id INTEGER PRIMARY KEY,
+      pet_type TEXT DEFAULT 'puppy',
+      pet_name TEXT DEFAULT 'Buddy',
+      happiness INTEGER DEFAULT 40,
+      pet_level INTEGER DEFAULT 1,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS child_moods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      child_id INTEGER NOT NULL,
+      mood_date TEXT NOT NULL,
+      mood TEXT NOT NULL,
+      note TEXT DEFAULT '',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(child_id, mood_date),
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS parent_praise_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      parent_id INTEGER NOT NULL,
+      child_id INTEGER NOT NULL,
+      message TEXT NOT NULL,
+      status TEXT DEFAULT 'unread' CHECK(status IN ('unread','seen')),
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      seen_at TEXT,
+      FOREIGN KEY(parent_id) REFERENCES users(id),
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS app_settings (
+      setting_key TEXT PRIMARY KEY,
+      setting_value TEXT NOT NULL,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   const userTableSql = db("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users';")[0]?.sql || "";
@@ -685,6 +741,15 @@ function initDb() {
     }
   }
 
+  exec(`
+    INSERT OR IGNORE INTO child_wallets (child_id, xp, coins)
+    SELECT id, total_points, total_points FROM children;
+    INSERT OR IGNORE INTO child_pets (child_id)
+    SELECT id FROM children;
+    INSERT OR IGNORE INTO app_settings (setting_key, setting_value) VALUES ('seasonal_theme', 'learning');
+    INSERT OR IGNORE INTO app_settings (setting_key, setting_value) VALUES ('sound_enabled', 'true');
+  `);
+
   const [{ count }] = db("SELECT COUNT(*) AS count FROM users;");
   if (count > 0) {
     exec(`
@@ -758,7 +823,68 @@ function addPoints(childId, points, sourceType, sourceId, note) {
   exec(sql`
     INSERT INTO point_transactions (child_id, source_type, source_id, points, note) VALUES (${childId}, ${sourceType}, ${sourceId}, ${points}, ${note});
     UPDATE children SET total_points = total_points + ${points} WHERE id = ${childId};
+    INSERT OR IGNORE INTO child_wallets (child_id, xp, coins) VALUES (${childId}, 0, 0);
+    UPDATE child_wallets
+      SET xp = xp + ${Math.max(0, Number(points || 0))},
+          coins = coins + ${Number(points || 0)},
+          updated_at = CURRENT_TIMESTAMP
+      WHERE child_id = ${childId};
   `);
+  if (Number(points || 0) > 0) addPetJoy(childId, Math.min(8, Math.max(2, Math.floor(Number(points) / 5))));
+}
+
+function addPetJoy(childId, amount = 3) {
+  exec(sql`
+    INSERT OR IGNORE INTO child_pets (child_id) VALUES (${childId});
+    UPDATE child_pets
+      SET happiness = MIN(100, happiness + ${Number(amount)}),
+          pet_level = MAX(pet_level, CAST((happiness + ${Number(amount)}) / 25 AS INTEGER) + 1),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE child_id = ${childId};
+  `);
+}
+
+function walletFor(childId) {
+  exec(sql`INSERT OR IGNORE INTO child_wallets (child_id, xp, coins) SELECT id, total_points, total_points FROM children WHERE id = ${childId};`);
+  const wallet = db(sql`SELECT * FROM child_wallets WHERE child_id = ${childId};`)[0] || {};
+  const child = db(sql`SELECT total_points FROM children WHERE id = ${childId};`)[0] || { total_points: 0 };
+  return {
+    xp: Math.max(Number(wallet.xp || 0), Number(child.total_points || 0)),
+    coins: Number(child.total_points || wallet.coins || 0),
+    gems: Number(wallet.gems || 0),
+    keys: Number(wallet.keys || 0),
+    treasure_tickets: Number(wallet.treasure_tickets || 0)
+  };
+}
+
+function petFor(childId) {
+  exec(sql`INSERT OR IGNORE INTO child_pets (child_id) VALUES (${childId});`);
+  return db(sql`SELECT * FROM child_pets WHERE child_id = ${childId};`)[0] || { pet_type: "puppy", pet_name: "Buddy", happiness: 40, pet_level: 1 };
+}
+
+function settingsMap() {
+  const rows = db("SELECT setting_key, setting_value FROM app_settings;");
+  return Object.fromEntries(rows.map((row) => [row.setting_key, row.setting_value]));
+}
+
+function moodFor(childId, date = today()) {
+  return db(sql`SELECT * FROM child_moods WHERE child_id = ${childId} AND mood_date = ${date} LIMIT 1;`)[0] || null;
+}
+
+function praiseFor(childId) {
+  return db(sql`
+    SELECT pm.*, u.name AS parent_name
+    FROM parent_praise_messages pm
+    JOIN users u ON u.id = pm.parent_id
+    WHERE pm.child_id = ${childId}
+    ORDER BY pm.created_at DESC
+    LIMIT 5;
+  `);
+}
+
+function dailySurpriseFor(childId, date = today()) {
+  const existing = db(sql`SELECT * FROM daily_surprises WHERE child_id = ${childId} AND surprise_date = ${date} LIMIT 1;`)[0] || null;
+  return { ready: !existing, opened: Boolean(existing), box: existing };
 }
 
 function isHifzChild(child) {
@@ -1305,6 +1431,12 @@ function restoreBackup(backup) {
       DELETE FROM early_bird_checkins;
       DELETE FROM quiz_attempts;
       DELETE FROM quizzes;
+      DELETE FROM daily_surprises;
+      DELETE FROM child_pets;
+      DELETE FROM child_wallets;
+      DELETE FROM child_moods;
+      DELETE FROM parent_praise_messages;
+      DELETE FROM app_settings;
       DELETE FROM quran_favorite_surahs;
       DELETE FROM quran_revision_logs;
       DELETE FROM quran_memorization_logs;
@@ -1346,6 +1478,12 @@ function restoreBackup(backup) {
   insertRows("early_bird_checkins", backup.early_bird_checkins, ["id", "child_id", "checkin_date", "checkin_time", "status", "awarded_points", "created_at"]);
   insertRows("quizzes", backup.quizzes, ["id", "title", "subject", "quiz_type", "instructions", "difficulty", "level", "question_text", "story_text", "image_url", "audio_url", "emoji_prompt", "options", "correct_answer", "multiple_correct_answers", "explanation", "timer_seconds", "hearts", "required_score_to_pass", "xp_reward", "coin_reward", "badge_reward", "unlock_next_level", "status", "created_by_parent_id", "assigned_to_kid_id", "due_date", "created_at", "updated_at"]);
   insertRows("quiz_attempts", backup.quiz_attempts, ["id", "quiz_id", "kid_id", "parent_id", "answer", "selected_answers", "score", "passed", "attempts", "time_used_seconds", "hearts_left", "streak_bonus", "xp_earned", "coins_earned", "completed_at", "feedback"]);
+  insertRows("child_wallets", backup.child_wallets, ["child_id", "xp", "coins", "gems", "keys", "treasure_tickets", "updated_at"]);
+  insertRows("daily_surprises", backup.daily_surprises, ["id", "child_id", "surprise_date", "reward_type", "reward_value", "message", "opened_at"]);
+  insertRows("child_pets", backup.child_pets, ["child_id", "pet_type", "pet_name", "happiness", "pet_level", "updated_at"]);
+  insertRows("child_moods", backup.child_moods, ["id", "child_id", "mood_date", "mood", "note", "created_at"]);
+  insertRows("parent_praise_messages", backup.parent_praise_messages, ["id", "parent_id", "child_id", "message", "status", "created_at", "seen_at"]);
+  insertRows("app_settings", backup.app_settings, ["setting_key", "setting_value", "updated_at"]);
   insertRows("quran_favorite_surahs", backup.quran_favorite_surahs, ["child_id", "surah_id", "created_at"]);
   insertRows("quran_revision_logs", backup.quran_revision_logs, ["id", "child_id", "surah_id", "revision_date", "awarded_points", "created_at"]);
   insertRows("quran_surah_progress", backup.quran_surah_progress, ["child_id", "surah_id", "memorized_verses", "surah_bonus_awarded", "updated_at"]);
@@ -1752,6 +1890,12 @@ function dashboardFor(childId) {
       quran: null,
       hifz: null,
       quizzes: [],
+      wallet: { xp: 0, coins: 0, gems: 0, keys: 0, treasure_tickets: 0 },
+      pet: null,
+      dailySurprise: { ready: false, opened: false, box: null },
+      praiseMessages: [],
+      mood: null,
+      settings: settingsMap(),
       parentChallenges: [],
       personalBest: {},
       achievements: {},
@@ -1860,6 +2004,12 @@ function dashboardFor(childId) {
   const personalBest = personalBestFor(childId);
   const quran = isHifzChild(child) ? quranProgressFor(childId) : null;
   const quizzes = quizzesForKid(childId);
+  const wallet = walletFor(childId);
+  const pet = petFor(childId);
+  const dailySurprise = dailySurpriseFor(childId, date);
+  const praiseMessages = praiseFor(childId);
+  const mood = moodFor(childId, date);
+  const settings = settingsMap();
   const challengeRemaining = challengeProgress % 5 === 0 ? 5 : 5 - (challengeProgress % 5);
   const streakRemaining = streak % 7 === 0 ? 7 : 7 - (streak % 7);
   return {
@@ -1883,6 +2033,12 @@ function dashboardFor(childId) {
     quran,
     hifz: null,
     quizzes,
+    wallet,
+    pet,
+    dailySurprise,
+    praiseMessages,
+    mood,
+    settings,
     parentChallenges,
     personalBest,
     achievements: {
@@ -2127,6 +2283,24 @@ async function api(req, res, path) {
         ORDER BY q.created_at DESC, q.id DESC;
       `).map(quizRow),
       quizResults: quizResultsForParent(user),
+      settings: settingsMap(),
+      moods: db(`
+        SELECT cm.*, c.name AS child_name, c.avatar
+        FROM child_moods cm
+        JOIN children c ON c.id = cm.child_id
+        WHERE ${childScope}
+        ORDER BY cm.mood_date DESC, cm.created_at DESC
+        LIMIT 60;
+      `),
+      praiseMessages: db(`
+        SELECT pm.*, c.name AS child_name, u.name AS parent_name
+        FROM parent_praise_messages pm
+        JOIN children c ON c.id = pm.child_id
+        JOIN users u ON u.id = pm.parent_id
+        WHERE ${childScope}
+        ORDER BY pm.created_at DESC
+        LIMIT 60;
+      `),
       rewards: db(`SELECT * FROM rewards WHERE active = 1 ${isAdmin(user) ? "" : `AND (parent_id IS NULL OR parent_id = ${Number(user.id)})`} ORDER BY required_points;`),
       approvals: db(`
         SELECT l.*, c.name AS child_name, a.title AS activity_title, a.proof_required
@@ -2657,6 +2831,35 @@ async function api(req, res, path) {
     if (selected.reward_type === "power_up") awardPowerUp(childId, selected.power_type);
     return send(res, 200, dashboardFor(childId));
   }
+  if (method === "POST" && path === "/api/daily-surprise/open") {
+    const childId = childIdFor(req, body.childId);
+    const date = today();
+    const existing = db(sql`SELECT * FROM daily_surprises WHERE child_id = ${childId} AND surprise_date = ${date} LIMIT 1;`)[0];
+    if (existing) return send(res, 200, dashboardFor(childId));
+    const rewards = [
+      { reward_type: "coins", reward_value: 8, message: "Daily surprise: 8 coins!" },
+      { reward_type: "coins", reward_value: 12, message: "Daily surprise: 12 coins!" },
+      { reward_type: "gems", reward_value: 2, message: "Daily surprise: 2 gems!" },
+      { reward_type: "keys", reward_value: 1, message: "Daily surprise: 1 treasure key!" },
+      { reward_type: "treasure_tickets", reward_value: 1, message: "Daily surprise: 1 treasure ticket!" },
+      { reward_type: "power_up", reward_value: 0, message: "Daily surprise: streak protection power-up!" }
+    ];
+    const selected = rewards[(Number(date.replaceAll("-", "")) + childId * 7) % rewards.length];
+    exec(sql`
+      INSERT INTO daily_surprises (child_id, surprise_date, reward_type, reward_value, message)
+      VALUES (${childId}, ${date}, ${selected.reward_type}, ${selected.reward_value}, ${selected.message});
+      INSERT OR IGNORE INTO child_wallets (child_id, xp, coins) VALUES (${childId}, 0, 0);
+    `);
+    if (selected.reward_type === "coins") addPoints(childId, selected.reward_value, "daily_surprise", 0, selected.message);
+    if (["gems", "keys", "treasure_tickets"].includes(selected.reward_type)) {
+      exec(`UPDATE child_wallets SET ${selected.reward_type} = ${selected.reward_type} + ${Number(selected.reward_value)}, updated_at = CURRENT_TIMESTAMP WHERE child_id = ${Number(childId)};`);
+      addPetJoy(childId, 4);
+    }
+    if (selected.reward_type === "power_up") awardPowerUp(childId, "point_bonus");
+    const next = dashboardFor(childId);
+    next.dailySurpriseMessage = selected.message;
+    return send(res, 200, next);
+  }
   if (method === "POST" && path === "/api/power-ups/use") {
     const childId = childIdFor(req, body.childId);
     const power = db(sql`SELECT * FROM power_ups WHERE id = ${Number(body.powerUpId)} AND child_id = ${childId} AND status IN ('owned','active') LIMIT 1;`)[0];
@@ -2669,6 +2872,22 @@ async function api(req, res, path) {
     exec(sql`
       UPDATE power_ups SET status = 'owned' WHERE child_id = ${childId} AND power_type = ${power.power_type} AND status = 'active';
       UPDATE power_ups SET status = 'active' WHERE id = ${power.id};
+    `);
+    return send(res, 200, dashboardFor(childId));
+  }
+  if (method === "POST" && path === "/api/mood") {
+    const childId = childIdFor(req, body.childId);
+    const mood = String(body.mood || "").trim();
+    const note = String(body.note || "").trim().slice(0, 300);
+    const allowed = ["happy", "tired", "excited", "sad", "angry", "calm"];
+    if (!allowed.includes(mood)) return send(res, 400, { error: "Choose one mood." });
+    exec(sql`
+      INSERT INTO child_moods (child_id, mood_date, mood, note)
+      VALUES (${childId}, ${today()}, ${mood}, ${note})
+      ON CONFLICT(child_id, mood_date) DO UPDATE SET
+        mood = ${mood},
+        note = ${note},
+        created_at = CURRENT_TIMESTAMP;
     `);
     return send(res, 200, dashboardFor(childId));
   }
@@ -2688,6 +2907,50 @@ async function api(req, res, path) {
         created_at = CURRENT_TIMESTAMP;
     `);
     return send(res, 200, dashboardFor(childId));
+  }
+  if (method === "POST" && path === "/api/my-pet") {
+    const childId = childIdFor(req, body.childId);
+    const petType = String(body.pet_type || "puppy").trim();
+    const petName = String(body.pet_name || "Buddy").trim().slice(0, 24) || "Buddy";
+    const allowed = ["cat", "lion", "bird", "dolphin", "dragon", "puppy"];
+    if (!allowed.includes(petType)) return send(res, 400, { error: "Choose a pet from the list." });
+    exec(sql`
+      INSERT INTO child_pets (child_id, pet_type, pet_name)
+      VALUES (${childId}, ${petType}, ${petName})
+      ON CONFLICT(child_id) DO UPDATE SET
+        pet_type = ${petType},
+        pet_name = ${petName},
+        updated_at = CURRENT_TIMESTAMP;
+    `);
+    return send(res, 200, dashboardFor(childId));
+  }
+  if (method === "POST" && path === "/api/praise") {
+    const user = requireParent(req);
+    const childId = Number(body.child_id || body.childId);
+    requireChildAccess(user, childId);
+    const message = String(body.message || "").trim().slice(0, 160);
+    if (!message) return send(res, 400, { error: "Write a short praise message." });
+    exec(sql`INSERT INTO parent_praise_messages (parent_id, child_id, message) VALUES (${user.id}, ${childId}, ${message});`);
+    return send(res, 201, { ok: true });
+  }
+  if (method === "POST" && path === "/api/praise/seen") {
+    const childId = childIdFor(req, body.childId);
+    exec(sql`UPDATE parent_praise_messages SET status = 'seen', seen_at = CURRENT_TIMESTAMP WHERE child_id = ${childId} AND status = 'unread';`);
+    return send(res, 200, dashboardFor(childId));
+  }
+  if (method === "POST" && path === "/api/settings") {
+    requireParent(req);
+    const seasonalTheme = String(body.seasonal_theme || "learning").trim();
+    const soundEnabled = body.sound_enabled === true || body.sound_enabled === "true" || body.sound_enabled === "on" ? "true" : "false";
+    const allowedThemes = ["learning", "ramadan", "eid", "winter", "football", "school", "summer"];
+    if (!allowedThemes.includes(seasonalTheme)) return send(res, 400, { error: "Choose a valid seasonal theme." });
+    exec(sql`
+      INSERT INTO app_settings (setting_key, setting_value) VALUES ('seasonal_theme', ${seasonalTheme})
+      ON CONFLICT(setting_key) DO UPDATE SET setting_value = ${seasonalTheme}, updated_at = CURRENT_TIMESTAMP;
+      INSERT INTO app_settings (setting_key, setting_value) VALUES ('sound_enabled', ${soundEnabled})
+      ON CONFLICT(setting_key) DO UPDATE SET setting_value = ${soundEnabled}, updated_at = CURRENT_TIMESTAMP;
+    `);
+    return send(res, 200, { ok: true, settings: settingsMap() });
   }
   if (method === "POST" && path === "/api/early-bird") {
     const childId = childIdFor(req, body.childId);
@@ -2836,6 +3099,12 @@ async function api(req, res, path) {
       early_bird_checkins: db("SELECT * FROM early_bird_checkins ORDER BY id;"),
       quizzes: db("SELECT * FROM quizzes ORDER BY id;"),
       quiz_attempts: db("SELECT * FROM quiz_attempts ORDER BY id;"),
+      child_wallets: db("SELECT * FROM child_wallets ORDER BY child_id;"),
+      daily_surprises: db("SELECT * FROM daily_surprises ORDER BY id;"),
+      child_pets: db("SELECT * FROM child_pets ORDER BY child_id;"),
+      child_moods: db("SELECT * FROM child_moods ORDER BY id;"),
+      parent_praise_messages: db("SELECT * FROM parent_praise_messages ORDER BY id;"),
+      app_settings: db("SELECT * FROM app_settings ORDER BY setting_key;"),
       quran_favorite_surahs: db("SELECT * FROM quran_favorite_surahs ORDER BY child_id, surah_id;"),
       quran_revision_logs: db("SELECT * FROM quran_revision_logs ORDER BY id;"),
       quran_surah_progress: db("SELECT * FROM quran_surah_progress ORDER BY child_id, surah_id;"),
