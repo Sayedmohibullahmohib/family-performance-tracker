@@ -61,7 +61,17 @@ function CoinIcon() {
 }
 
 function avatarFor(value) {
+  if (String(value || "").startsWith("data:image")) return "Photo";
   return avatarIcons[value] || value || "🐱";
+}
+
+function isPhotoAvatar(value) {
+  return String(value || "").startsWith("data:image");
+}
+
+function AvatarDisplay({ value, className = "", label = "Avatar" }) {
+  if (isPhotoAvatar(value)) return <img className={`avatar-photo ${className}`} src={value} alt={label} />;
+  return <span className={className}>{avatarFor(value)}</span>;
 }
 
 function playSound(type = "success", enabled = true) {
@@ -362,6 +372,19 @@ function ChildDashboard({ api }) {
     setMessage("Nice choice!");
   }
 
+  function uploadAvatarPhoto(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        await chooseAvatar(String(reader.result || ""));
+      } catch (err) {
+        setMessage(err.message);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function openDailySurprise() {
     try {
       const next = await api("/api/daily-surprise/open", { method: "POST", body: JSON.stringify({}) });
@@ -588,13 +611,17 @@ function ChildDashboard({ api }) {
           <div className="child-title-row">
             <details className="avatar-menu">
               <summary aria-label="Choose your icon">
-                <span className={`hero-avatar level-${Math.min(5, level.level)}`}>{avatarFor(data.child.avatar)}</span>
+                <AvatarDisplay value={data.child.avatar} className={`hero-avatar level-${Math.min(5, level.level)}`} label={`${data.child.name} avatar`} />
                 <small>Choose your icon</small>
               </summary>
               <div className="avatar-picker">
+                <label className="photo-upload-button">
+                  Add real picture
+                  <input type="file" accept="image/*" onChange={(event) => uploadAvatarPhoto(event.target.files?.[0])} />
+                </label>
                 {avatarChoices.map((avatar) => (
                   <button
-                    className={avatarFor(data.child.avatar) === avatar ? "selected" : ""}
+                    className={!isPhotoAvatar(data.child.avatar) && avatarFor(data.child.avatar) === avatar ? "selected" : ""}
                     key={avatar}
                     onClick={() => chooseAvatar(avatar)}
                     title={`Choose ${avatar}`}
@@ -613,6 +640,10 @@ function ChildDashboard({ api }) {
           <strong className={pointPulse ? "point-bounce" : ""}><CoinIcon />{data.points.total}</strong>
           <Progress value={progressToReward} />
         </div>
+      </section>
+
+      <section className="top-ranking-board">
+        <Leaderboard children={data.leaderboard} currentChildId={data.child.id} />
       </section>
 
       <PraiseBanner messages={data.praiseMessages || []} onSeen={markPraiseSeen} />
@@ -712,7 +743,6 @@ function ChildDashboard({ api }) {
             <ParentChallengeBoard challenges={data.parentChallenges} />
           </div>
           <div>
-            <Leaderboard children={data.leaderboard} currentChildId={data.child.id} />
             <ProgressRace children={data.leaderboard} currentChildId={data.child.id} />
             <RedemptionBoard children={data.redemptionBoard} currentChildId={data.child.id} />
           </div>
@@ -748,7 +778,6 @@ function ChildDashboard({ api }) {
         </div>
       </section>
       </CollapsibleSection>
-      <KidBottomNav />
     </main>
   );
 }
@@ -766,9 +795,14 @@ function MegaCelebration({ text }) {
 }
 
 function ActivityCelebrationModal({ details, onClose }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 2200);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
   return (
-    <div className="activity-celebration-modal" role="dialog" aria-modal="true" aria-label="Activity completed">
-      <div>
+    <div className="activity-celebration-modal" role="dialog" aria-modal="true" aria-label="Activity completed" onClick={onClose}>
+      <div onClick={(event) => event.stopPropagation()}>
         <span>🎉</span>
         <p className="eyebrow">Mission update</p>
         <h2>{details.title}</h2>
@@ -951,32 +985,12 @@ function StorylineCard({ completed, total }) {
         <span>🏰</span>
         <div>
           <p className="eyebrow">Storyline</p>
-          <h2>TT Heroes Kingdom</h2>
+          <h2>Sadat Heroes Kingdom</h2>
         </div>
       </div>
-      <p>Help the TT Heroes complete learning missions and unlock the Kingdom of Learning.</p>
+      <p>Help the Sadat Heroes complete learning missions and unlock the Kingdom of Learning.</p>
       <Progress value={percent} />
     </section>
-  );
-}
-
-function KidBottomNav() {
-  const items = [
-    ["Tasks", "today-tasks", "🧭"],
-    ["Rewards", "badges-rewards-panel", "🎁"],
-    ["Top", "", "⬆️"]
-  ];
-  return (
-    <nav className="kid-bottom-nav" aria-label="Kid dashboard quick navigation">
-      {items.map(([label, id, icon]) => (
-        <button
-          key={label}
-          onClick={() => id ? document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }) : window.scrollTo({ top: 0, behavior: "smooth" })}
-        >
-          <span>{icon}</span>{label}
-        </button>
-      ))}
-    </nav>
   );
 }
 
@@ -2232,7 +2246,7 @@ function Leaderboard({ children, currentChildId }) {
         {children.map((child) => (
           <article className={child.id === currentChildId ? "leader current" : "leader"} key={child.id}>
             <strong>#{child.rank}</strong>
-            <span className="leader-avatar">{avatarFor(child.avatar)}</span>
+            <AvatarDisplay value={child.avatar} className="leader-avatar" label={`${child.name} avatar`} />
             <div>
               <h3>{child.name}</h3>
               <p>Level {child.level}</p>
@@ -2253,7 +2267,7 @@ function ProgressRace({ children, currentChildId }) {
       <div className="race-list">
         {children.map((child) => (
           <article className={child.id === currentChildId ? "race-row current" : "race-row"} key={child.id}>
-            <span>{avatarFor(child.avatar)}</span>
+            <AvatarDisplay value={child.avatar} className="race-avatar" label={`${child.name} avatar`} />
             <div className="race-track">
               <i className={child.rank === 1 ? "race-animal winner" : "race-animal"} style={{ left: `${Math.min(92, Math.max(4, (Number(child.total_points || 0) / maxPoints) * 92))}%` }}>{avatarFor(child.avatar)}</i>
             </div>
@@ -2273,7 +2287,7 @@ function RedemptionBoard({ children, currentChildId }) {
         {children.map((child) => (
           <article className={child.id === currentChildId ? "leader current" : "leader"} key={child.id}>
             <strong>#{child.rank}</strong>
-            <span className="leader-avatar">{avatarFor(child.avatar)}</span>
+            <AvatarDisplay value={child.avatar} className="leader-avatar" label={`${child.name} avatar`} />
             <div>
               <h3>{child.name}</h3>
               <p>{child.redeemed_count} rewards · €{Number(child.pocket_euros || 0).toFixed(2)} pocket money</p>

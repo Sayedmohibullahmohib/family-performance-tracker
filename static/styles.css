@@ -78,31 +78,73 @@ body::after {
 }
 
 body[data-day-theme="0"] {
-  background: radial-gradient(circle at 12% 12%, rgba(255, 226, 226, 0.8), transparent 25%), radial-gradient(circle at 92% 8%, rgba(255, 242, 189, 0.8), transparent 22%), #fff8f0;
+  --blue: #f97316;
+  --green: #16a34a;
+  background:
+    linear-gradient(135deg, rgba(255, 237, 213, 0.96), rgba(255, 247, 237, 0.84) 42%, rgba(254, 226, 226, 0.92)),
+    radial-gradient(circle at 12% 18%, rgba(249, 115, 22, 0.72), transparent 28%),
+    radial-gradient(circle at 88% 12%, rgba(250, 204, 21, 0.72), transparent 26%),
+    #fff7ed;
 }
 
 body[data-day-theme="1"] {
-  background: radial-gradient(circle at 12% 12%, rgba(223, 244, 255, 0.9), transparent 25%), radial-gradient(circle at 92% 8%, rgba(223, 248, 234, 0.8), transparent 22%), #f6fbff;
+  --blue: #2563eb;
+  --green: #0891b2;
+  background:
+    linear-gradient(135deg, rgba(219, 234, 254, 0.98), rgba(239, 246, 255, 0.82) 44%, rgba(224, 242, 254, 0.96)),
+    radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.68), transparent 30%),
+    radial-gradient(circle at 86% 14%, rgba(56, 189, 248, 0.78), transparent 26%),
+    #eff6ff;
 }
 
 body[data-day-theme="2"] {
-  background: radial-gradient(circle at 12% 12%, rgba(232, 245, 216, 0.9), transparent 25%), radial-gradient(circle at 92% 8%, rgba(255, 242, 189, 0.8), transparent 22%), #f8fff4;
+  --blue: #16a34a;
+  --green: #15803d;
+  background:
+    linear-gradient(135deg, rgba(220, 252, 231, 0.98), rgba(240, 253, 244, 0.82) 42%, rgba(236, 252, 203, 0.96)),
+    radial-gradient(circle at 12% 16%, rgba(22, 163, 74, 0.72), transparent 30%),
+    radial-gradient(circle at 90% 10%, rgba(132, 204, 22, 0.76), transparent 26%),
+    #f0fdf4;
 }
 
 body[data-day-theme="3"] {
-  background: radial-gradient(circle at 12% 12%, rgba(237, 233, 254, 0.9), transparent 25%), radial-gradient(circle at 92% 8%, rgba(223, 244, 255, 0.8), transparent 22%), #fbf8ff;
+  --blue: #7c3aed;
+  --green: #0891b2;
+  background:
+    linear-gradient(135deg, rgba(237, 233, 254, 0.98), rgba(250, 245, 255, 0.82) 44%, rgba(219, 234, 254, 0.96)),
+    radial-gradient(circle at 12% 18%, rgba(124, 58, 237, 0.7), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(14, 165, 233, 0.72), transparent 26%),
+    #faf5ff;
 }
 
 body[data-day-theme="4"] {
-  background: radial-gradient(circle at 12% 12%, rgba(255, 237, 213, 0.9), transparent 25%), radial-gradient(circle at 92% 8%, rgba(255, 226, 226, 0.8), transparent 22%), #fffaf5;
+  --blue: #dc2626;
+  --green: #ea580c;
+  background:
+    linear-gradient(135deg, rgba(254, 226, 226, 0.98), rgba(255, 247, 237, 0.82) 42%, rgba(254, 215, 170, 0.96)),
+    radial-gradient(circle at 10% 16%, rgba(220, 38, 38, 0.64), transparent 29%),
+    radial-gradient(circle at 90% 12%, rgba(251, 146, 60, 0.78), transparent 26%),
+    #fff1f2;
 }
 
 body[data-day-theme="5"] {
-  background: radial-gradient(circle at 12% 12%, rgba(220, 252, 231, 0.9), transparent 25%), radial-gradient(circle at 92% 8%, rgba(204, 251, 241, 0.8), transparent 22%), #f4fffb;
+  --blue: #0f766e;
+  --green: #14b8a6;
+  background:
+    linear-gradient(135deg, rgba(204, 251, 241, 0.98), rgba(240, 253, 250, 0.82) 42%, rgba(207, 250, 254, 0.96)),
+    radial-gradient(circle at 12% 18%, rgba(15, 118, 110, 0.7), transparent 30%),
+    radial-gradient(circle at 88% 10%, rgba(45, 212, 191, 0.76), transparent 27%),
+    #f0fdfa;
 }
 
 body[data-day-theme="6"] {
-  background: radial-gradient(circle at 12% 12%, rgba(254, 249, 195, 0.9), transparent 25%), radial-gradient(circle at 92% 8%, rgba(224, 242, 254, 0.8), transparent 22%), #fffdf0;
+  --blue: #ca8a04;
+  --green: #65a30d;
+  background:
+    linear-gradient(135deg, rgba(254, 249, 195, 0.98), rgba(255, 251, 235, 0.84) 42%, rgba(254, 240, 138, 0.94)),
+    radial-gradient(circle at 12% 18%, rgba(202, 138, 4, 0.7), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(250, 204, 21, 0.84), transparent 27%),
+    #fefce8;
 }
 
 body[data-seasonal-theme="ramadan"] {
@@ -852,6 +894,17 @@ h1, h2, h3, p {
   width: 64px;
 }
 
+.avatar-photo {
+  object-fit: cover;
+  overflow: hidden;
+}
+
+img.hero-avatar,
+img.leader-avatar,
+img.race-avatar {
+  display: block;
+}
+
 .hero-avatar::before,
 .avatar-panel summary span::before,
 .avatar-menu summary span::before,
@@ -934,6 +987,26 @@ h1, h2, h3, p {
   padding: 12px;
   position: absolute;
   top: 100%;
+}
+
+.photo-upload-button {
+  align-items: center;
+  background: linear-gradient(135deg, #dff4ff, #fffdf1);
+  border: 1px solid #38bdf8;
+  border-radius: 10px;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-weight: 950;
+  justify-content: center;
+  margin-bottom: 10px;
+  min-height: 44px;
+  padding: 10px;
+  width: 100%;
+}
+
+.photo-upload-button input {
+  display: none;
 }
 
 .section-title {
@@ -1054,7 +1127,7 @@ h1, h2, h3, p {
 }
 
 .activity-celebration-modal > div {
-  animation: levelCeremony 1800ms ease forwards;
+  animation: celebrationPop 520ms ease both;
   background: linear-gradient(135deg, #fffdf1, #f2fff7, #dff4ff);
   border: 3px solid #facc15;
   border-radius: 20px;
@@ -1842,7 +1915,8 @@ h1, h2, h3, p {
   grid-template-columns: 38px 1fr auto;
 }
 
-.race-row > span {
+.race-row > span,
+.race-avatar {
   align-items: center;
   animation: animalWalk 2200ms ease-in-out infinite;
   background: var(--lemon);
@@ -1854,7 +1928,8 @@ h1, h2, h3, p {
   width: 38px;
 }
 
-.race-row.current > span {
+.race-row.current > span,
+.race-row.current .race-avatar {
   background: linear-gradient(135deg, var(--lemon), var(--sky));
   border: 2px solid #facc15;
 }
@@ -4167,31 +4242,6 @@ h1, h2, h3, p {
   animation: iconBounce 1500ms ease-in-out infinite;
 }
 
-.kid-bottom-nav {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--line);
-  border-radius: 18px 18px 0 0;
-  bottom: 0;
-  box-shadow: 0 -14px 34px rgba(36, 48, 66, 0.14);
-  display: none;
-  gap: 8px;
-  left: 0;
-  padding: 10px max(10px, env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-right));
-  position: fixed;
-  right: 0;
-  z-index: 50;
-}
-
-.kid-bottom-nav button {
-  flex: 1;
-  min-height: 48px;
-}
-
-.kid-bottom-nav span {
-  display: block;
-  font-size: 20px;
-}
-
 .compact-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -4565,10 +4615,6 @@ h1, h2, h3, p {
 
   .praise-banner {
     grid-template-columns: 1fr;
-  }
-
-  .kid-bottom-nav {
-    display: flex;
   }
 
   .approval, .mini-list > div {

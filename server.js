@@ -1578,8 +1578,13 @@ function activityOfTheDay() {
 
   const activities = db(`SELECT id FROM activities WHERE active = 1 AND is_prayer = 0 AND ${scheduleColumn} = 1 AND (task_date IS NULL OR task_date = ${quote(date)}) ORDER BY id;`);
   if (activities.length === 0) return null;
-  const seed = Number(date.replaceAll("-", ""));
-  const selected = activities[Math.floor((Math.sin(seed) * 10000 % 1 + 1) % 1 * activities.length)] || activities[0];
+  const dayNumber = Math.floor((dateFromLocal(date) - dateFromLocal("2026-01-01")) / 86400000);
+  const yesterday = addDays(date, -1);
+  const yesterdayChallenge = db(sql`SELECT activity_id FROM daily_challenges WHERE challenge_date = ${yesterday} LIMIT 1;`)[0];
+  let selected = activities[((dayNumber % activities.length) + activities.length) % activities.length] || activities[0];
+  if (activities.length > 1 && yesterdayChallenge && Number(selected.id) === Number(yesterdayChallenge.activity_id)) {
+    selected = activities[(activities.findIndex((activity) => Number(activity.id) === Number(selected.id)) + 1) % activities.length];
+  }
   exec(sql`INSERT OR REPLACE INTO daily_challenges (challenge_date, activity_id) VALUES (${date}, ${selected.id});`);
   return db(sql`
     SELECT dc.challenge_date, a.*
@@ -2554,7 +2559,8 @@ async function api(req, res, path) {
   if (method === "PUT" && path === "/api/my-avatar") {
     const user = requireUser(req);
     if (user.role !== "child") return send(res, 403, { error: "Child access required" });
-    const avatar = String(body.avatar || "⭐").trim().slice(0, 16);
+    const rawAvatar = String(body.avatar || "⭐").trim();
+    const avatar = rawAvatar.startsWith("data:image/") ? rawAvatar.slice(0, 500000) : rawAvatar.slice(0, 32);
     exec(sql`UPDATE children SET avatar = ${avatar} WHERE id = ${user.child_id};`);
     return send(res, 200, dashboardFor(user.child_id));
   }
