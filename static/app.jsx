@@ -168,9 +168,28 @@ function Login({ onLogin, error }) {
   const [password, setPassword] = useState("");
   return (
     <main className="login-screen">
-      <section className="login-panel">
+      <section className="login-welcome">
+        <img className="login-logo-image" src="/train-the-teachers.jpg" alt="Train the Teachers logo" />
+        <div className="login-copy">
+          <p className="eyebrow">Family learning platform</p>
+          <h1>Welcome to Family Performance Tracker 🌟</h1>
+          <p>
+            A smart and engaging platform designed to help families build positive habits, learning routines,
+            and daily achievements. Children can complete activities, earn Hasanat, unlock rewards, and grow
+            through fun learning experiences, while parents can easily track progress, encourage responsibility,
+            and celebrate success together.
+          </p>
+          <strong>Learn • Grow • Achieve • Celebrate Together 🚀</strong>
+          <div className="login-links" aria-label="Train the Teachers contact links">
+            <a href="mailto:admin@traintheteachers.com">admin@traintheteachers.com</a>
+            <a href="https://www.traintheteachers.com" target="_blank" rel="noreferrer">www.traintheteachers.com</a>
+            <a href="https://www.courses.traintheteachers.com" target="_blank" rel="noreferrer">www.courses.traintheteachers.com</a>
+          </div>
+        </div>
+      </section>
+      <section className="login-panel" aria-label="Sign in">
         <div className="brand-mark">⭐</div>
-        <h1>Kids Performance Tracker</h1>
+        <h2>Sign in</h2>
         <p>Choose your name, enter your password, and start your day.</p>
         <form onSubmit={(event) => { event.preventDefault(); onLogin(name, password); }}>
           <label>Name<input value={name} placeholder="Type your name" onChange={(event) => setName(event.target.value)} /></label>
@@ -374,6 +393,7 @@ function ChildDashboard({ api }) {
 
   function uploadAvatarPhoto(file) {
     if (!file) return;
+    setMessage("Uploading your picture...");
     const reader = new FileReader();
     reader.onload = async () => {
       try {
@@ -382,6 +402,7 @@ function ChildDashboard({ api }) {
         setMessage(err.message);
       }
     };
+    reader.onerror = () => setMessage("This picture could not be opened. Please try another one.");
     reader.readAsDataURL(file);
   }
 
@@ -464,7 +485,7 @@ function ChildDashboard({ api }) {
       const next = await api("/api/early-bird", { method: "POST", body: JSON.stringify({}) });
       setData(next);
       setMessage(next.earlyBirdMessage || "Early Bird checked!");
-      if (next.earlyBirdMessage?.includes("20 points")) {
+      if (next.earlyBirdMessage?.includes("20")) {
         setPointPulse(true);
         setDiamondBurst(true);
         celebrate("success", "Early Bird bonus!");
@@ -616,8 +637,15 @@ function ChildDashboard({ api }) {
               </summary>
               <div className="avatar-picker">
                 <label className="photo-upload-button">
-                  Add real picture
-                  <input type="file" accept="image/*" onChange={(event) => uploadAvatarPhoto(event.target.files?.[0])} />
+                  Add original picture
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      uploadAvatarPhoto(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
                 </label>
                 {avatarChoices.map((avatar) => (
                   <button
@@ -636,7 +664,7 @@ function ChildDashboard({ api }) {
           <p>You are close to your reward!</p>
         </div>
         <div className="score-card">
-          <span>Total points · Level {level.level}</span>
+          <span>Total Hasanat · Level {level.level}</span>
           <strong className={pointPulse ? "point-bounce" : ""}><CoinIcon />{data.points.total}</strong>
           <Progress value={progressToReward} />
         </div>
@@ -650,7 +678,7 @@ function ChildDashboard({ api }) {
 
       <section className="stats currency-strip" aria-label="Game currencies">
         <Stat label="XP" value={data.wallet?.xp || data.points.total} icon="⚡" />
-        <Stat label="Coins" value={data.wallet?.coins || data.points.total} icon={<CoinIcon />} />
+        <Stat label="Hasanat" value={data.wallet?.coins || data.points.total} icon={<CoinIcon />} />
         <Stat label="Gems" value={data.wallet?.gems || 0} icon="💠" />
         <Stat label="Keys" value={data.wallet?.keys || 0} icon="🗝️" />
         <Stat label="Tickets" value={data.wallet?.treasure_tickets || 0} icon="🎟️" />
@@ -658,8 +686,6 @@ function ChildDashboard({ api }) {
 
       <section className="game-grid compact-grid">
         <DailySurpriseBox surprise={data.dailySurprise} onOpen={openDailySurprise} />
-        <PetCompanion pet={data.pet} onChoose={choosePet} />
-        <MoodCheckIn mood={data.mood} onMood={saveMood} />
         <StorylineCard completed={completedToday} total={totalToday} />
       </section>
 
@@ -681,8 +707,8 @@ function ChildDashboard({ api }) {
       </section>
 
       <section className="stats progress-summary" aria-label="My progress">
-        <Stat label="Daily points" value={data.points.daily} icon={<CoinIcon />} />
-        <Stat label="Weekly points" value={data.points.weekly} icon={<CoinIcon />} />
+        <Stat label="Daily Hasanat" value={data.points.daily} icon={<CoinIcon />} />
+        <Stat label="Weekly Hasanat" value={data.points.weekly} icon={<CoinIcon />} />
         <Stat label="Day streak" value={`${data.streak} ${data.streak === 1 ? "day" : "days"}`} icon="🔥" pulse={data.streak > 0} power={Math.min(3, Math.floor(data.streak / 3) + 1)} />
         <Stat label="Level" value={level.level} icon="🏆" />
       </section>
@@ -723,8 +749,7 @@ function ChildDashboard({ api }) {
 
       <CollapsibleSection title="My Progress" defaultOpen>
         <section className="game-grid compact-grid">
-        <MissionBoard missions={data.missions} />
-          <AdventureMap level={level} totalPoints={data.points.total} />
+          <MissionBoard missions={data.missions} />
         </section>
       </CollapsibleSection>
 
@@ -739,7 +764,6 @@ function ChildDashboard({ api }) {
       <CollapsibleSection title="Family & Ranking">
         <section className="split secondary-split">
           <div>
-        <FamilyQuest quest={data.familyQuest} />
             <ParentChallengeBoard challenges={data.parentChallenges} />
           </div>
           <div>
@@ -753,7 +777,7 @@ function ChildDashboard({ api }) {
         <section className="split secondary-split">
           <div id="rewards-section">
           <AchievementsPanel achievements={data.achievements} badges={data.badges} futureBadges={data.futureBadges} />
-          <BadgeCollection badges={data.badges} futureBadges={data.futureBadges} />
+          <BadgeCollection childName={data.child.name} badges={data.badges} futureBadges={data.futureBadges} />
           </div>
           <div>
           <h2 className="section-title">🎁 Reward Shop</h2>
@@ -765,9 +789,9 @@ function ChildDashboard({ api }) {
                   <h3>{reward.title} <span className="rarity-label">{reward.required_points >= 150 ? "legendary" : reward.required_points >= 90 ? "rare" : "common"}</span> {reward.is_discounted ? <span className="discount-badge">{reward.discount_percent}% off</span> : null}</h3>
                   <p>{reward.description}</p>
                   {reward.is_discounted ? (
-                    <strong><span className="old-price">{reward.required_points}</span><CoinIcon />{reward.discounted_points} points · {reward.status}</strong>
+                    <strong><span className="old-price">{reward.required_points}</span><CoinIcon />{reward.discounted_points} Hasanat · {reward.status}</strong>
                   ) : (
-                    <strong><CoinIcon />{reward.required_points} points · {reward.status}</strong>
+                    <strong><CoinIcon />{reward.required_points} Hasanat · {reward.status}</strong>
                   )}
                   <RewardProgress reward={reward} points={data.points.total} />
                 </div>
@@ -808,7 +832,7 @@ function ActivityCelebrationModal({ details, onClose }) {
         <h2>{details.title}</h2>
         <p>{details.message}</p>
         <div className="complete-stats">
-          <span><strong>{details.points}</strong> coins</span>
+          <span><strong>{details.points}</strong> Hasanat</span>
           <span><strong>{details.streak}</strong> streak</span>
           <span><strong>XP</strong> growing</span>
         </div>
@@ -1256,7 +1280,7 @@ function PrayerStepCard({ entry, onComplete }) {
       <div className="activity-body">
         <div className="row">
           <h3>{prayerIcons[entry.prayer]} {entry.title}</h3>
-          <span className="points-pill"><CoinIcon />{points} pts</span>
+          <span className="points-pill"><CoinIcon />{points} Hasanat</span>
         </div>
         <p>{windowInfo.message || `Mark ${entry.prayer} when it is completed.`}</p>
         <span className={`status-chip ${done ? "approved" : "pending"}`}>{done ? "completed" : "pending"}</span>
@@ -1283,8 +1307,8 @@ function RewardProgress({ reward, points }) {
   return (
     <div className="reward-progress" aria-label={`${reward.title} reward progress`}>
       <Progress value={percent} />
-      <small>{reward.status === "available" ? "Unlocked" : `Almost there. ${remaining} more points needed.`}</small>
-      <span>{current} / {cost} points</span>
+      <small>{reward.status === "available" ? "Unlocked" : `Almost there. ${remaining} more Hasanat needed.`}</small>
+      <span>{current} / {cost} Hasanat</span>
     </div>
   );
 }
@@ -1306,7 +1330,7 @@ function buildNudges(data, nextActivity, nextReward) {
   if (nextReward && nextReward.status !== "available") {
     const cost = Number(nextReward.discounted_points || nextReward.required_points || 0);
     const remaining = cost - Number(data.points.total || 0);
-    if (remaining > 0 && remaining <= 25) nudges.push(`Only ${remaining} points needed for ${nextReward.title}.`);
+    if (remaining > 0 && remaining <= 25) nudges.push(`Only ${remaining} Hasanat needed for ${nextReward.title}.`);
   }
   if (Number(data.streak || 0) > 0 && nextActivity) nudges.push("Keep your streak alive today.");
   const evening = new Date().getHours() >= 17;
@@ -1342,7 +1366,7 @@ function EarlyBirdCard({ earlyBird, onCheckIn }) {
         <div>
           <p className="eyebrow">Early Bird</p>
           <h2>Wake up before {earlyBird?.cutoff || "07:00"}</h2>
-          <p>{checked ? checked.status === "early" ? `You checked in at ${checked.checkin_time} and earned ${checked.awarded_points} points.` : `You checked in at ${checked.checkin_time}. Tomorrow is a new chance.` : `Press before ${earlyBird?.cutoff || "07:00"} to earn ${earlyBird?.bonus_points || 20} points.`}</p>
+          <p>{checked ? checked.status === "early" ? `You checked in at ${checked.checkin_time} and earned ${checked.awarded_points} Hasanat.` : `You checked in at ${checked.checkin_time}. Tomorrow is a new chance.` : `Press before ${earlyBird?.cutoff || "07:00"} to earn ${earlyBird?.bonus_points || 20} Hasanat.`}</p>
         </div>
         <button disabled={Boolean(checked)} onClick={onCheckIn}>{checked ? "Checked today" : "I am awake"}</button>
       </div>
@@ -1353,7 +1377,7 @@ function EarlyBirdCard({ earlyBird, onCheckIn }) {
             <span>#{child.rank}</span>
             <span>{avatarFor(child.avatar)}</span>
             <strong>{child.name}</strong>
-            <small>{child.checkin_time} · {child.status === "early" ? `+${child.awarded_points} pts` : "late"}</small>
+            <small>{child.checkin_time} · {child.status === "early" ? `+${child.awarded_points} Hasanat` : "late"}</small>
           </div>
         ))}
       </div>
@@ -1383,7 +1407,7 @@ function QuranMemorizationPanel({ quran, filter, sort, onFilter, onSort, onMemor
         <div>
           <p className="eyebrow">Quran Memorization</p>
           <h2>Continue memorizing {next?.surah_name || "Quran"}</h2>
-          <p>Earn 1 point for every verse, 20 bonus points for a Surah, and 100 bonus points for a Juz.</p>
+          <p>Earn 1 Hasanat for every verse, 20 bonus Hasanat for a Surah, and 100 bonus Hasanat for a Juz.</p>
         </div>
         <button
           onClick={() => next && onMemorize(next, Math.min(next.total_verses, next.memorized_verses + 1))}
@@ -1442,7 +1466,7 @@ function QuranMemorizationPanel({ quran, filter, sort, onFilter, onSort, onMemor
       <div className="quran-rewards">
         {(quran.rewards || []).map((reward) => (
           <span className={reward.unlocked ? "unlocked" : ""} key={reward.title}>
-            {reward.unlocked ? "🔓" : "🔒"} {reward.title} · {reward.points} pts
+            {reward.unlocked ? "🔓" : "🔒"} {reward.title} · {reward.points} Hasanat
           </span>
         ))}
       </div>
@@ -1473,7 +1497,7 @@ function QuranMemorizationPanel({ quran, filter, sort, onFilter, onSort, onMemor
               <span>{surah.id}</span>
               <div>
                 <h3>{surah.surah_name}</h3>
-                <small>{surah.revelation_place} · {surah.total_verses} verses · {surah.total_verses} points {surah.is_juz_amma ? "· Juz Amma" : ""}</small>
+                <small>{surah.revelation_place} · {surah.total_verses} verses · {surah.total_verses} Hasanat {surah.is_juz_amma ? "· Juz Amma" : ""}</small>
               </div>
               <button
                 className={surah.favorite ? "favorite-button active" : "favorite-button"}
@@ -1578,7 +1602,7 @@ function HifzTracker({ hifz, onUpdate }) {
       <div className="hifz-task-text">
         <p><strong>Memorization:</strong> {todayPage.memorization_task}</p>
         <p><strong>Revision:</strong> {todayPage.revision_task}</p>
-        <p><strong>Points earned today:</strong> {todayPage.points_earned || 0}</p>
+        <p><strong>Hasanat earned today:</strong> {todayPage.points_earned || 0}</p>
         {todayPage.parent_reviewed ? <p><strong>Parent reviewed:</strong> Yes</p> : null}
         {todayPage.parent_notes ? <p><strong>Parent note:</strong> {todayPage.parent_notes}</p> : null}
       </div>
@@ -1612,7 +1636,7 @@ function HifzTracker({ hifz, onUpdate }) {
         <Stat label="Surahs completed" value={hifz.completed_surahs} icon="⭐" />
         <Stat label="Juz completed" value={hifz.completed_juz?.length || 0} icon="📖" />
         <Stat label="Streak" value={`${hifz.current_streak} days`} icon="🔥" pulse={hifz.current_streak > 0} />
-        <Stat label="Qur’an points" value={hifz.total_quran_points} icon={<CoinIcon />} />
+        <Stat label="Qur’an Hasanat" value={hifz.total_quran_points} icon={<CoinIcon />} />
         <Stat label="Finish date" value={hifz.estimated_completion_date} icon="📅" />
       </div>
 
@@ -1651,7 +1675,7 @@ function DailyCompletionOverlay({ data, avatar, reward, progress, onRewards, onC
         <p className="eyebrow">Daily complete</p>
         <h2>Amazing! You completed all your missions today!</h2>
         <div className="complete-stats">
-          <span><strong>{data.points.daily}</strong> points today</span>
+          <span><strong>{data.points.daily}</strong> Hasanat today</span>
           <span><strong>{data.streak}</strong> day streak</span>
           <span><strong>{progress}%</strong> reward progress</span>
         </div>
@@ -1740,7 +1764,7 @@ function MysteryBox({ box, openedNow, onOpen }) {
           <h2>{opened ? "Opened today" : box.ready ? "Ready to open" : `${box.completed || 0}/3 activities`}</h2>
         </div>
       </div>
-      <p>{opened ? box.box?.message : box.ready ? "Open it to find points or a power-up." : `Complete ${box.needed || 3} more to unlock a surprise.`}</p>
+      <p>{opened ? box.box?.message : box.ready ? "Open it to find Hasanat or a power-up." : `Complete ${box.needed || 3} more to unlock a surprise.`}</p>
       <button disabled={!box.ready || opened} onClick={onOpen}>{opened ? "Opened" : "Open box"}</button>
     </section>
   );
@@ -1851,7 +1875,7 @@ function ParentChallengeBoard({ challenges = [] }) {
           <strong>{challenge.title}</strong>
           <p>{challenge.description}</p>
           <Progress value={Math.min(100, Math.round((challenge.progress / Math.max(1, challenge.target_count)) * 100))} />
-          <small>{challenge.progress}/{challenge.target_count} · bonus {challenge.bonus_points} points</small>
+          <small>{challenge.progress}/{challenge.target_count} · bonus {challenge.bonus_points} Hasanat</small>
         </article>
       ))}
     </section>
@@ -2101,7 +2125,7 @@ function ActivityCard({ activity, timerScope, onComplete }) {
       <div className="activity-body">
         <div className="row">
           <h3>{activity.title} {activity.is_daily_challenge ? <span className="daily-badge">Activity of the day</span> : null}</h3>
-          <span className="points-pill"><CoinIcon />{activity.points} pts</span>
+          <span className="points-pill"><CoinIcon />{activity.points} Hasanat</span>
         </div>
         <p>{activity.description}</p>
         <button className="narrate-button ghost" type="button" onClick={narrateTask} aria-label={`Read ${activity.title} instructions aloud`}>Read task</button>
@@ -2150,7 +2174,7 @@ function ActivityCard({ activity, timerScope, onComplete }) {
                   disabled={locked}
                   onChange={(event) => onComplete(activity, { prayer, checked: event.target.checked })}
                 />
-                <span>{prayerIcons[prayer]} {prayer} · {activity.prayer_points || 10} pts</span>
+                <span>{prayerIcons[prayer]} {prayer} · {activity.prayer_points || 10} Hasanat</span>
                 {windowInfo.window ? <small>{windowInfo.window.start}-{windowInfo.window.end}</small> : null}
               </label>
               );
@@ -2300,7 +2324,8 @@ function RedemptionBoard({ children, currentChildId }) {
   );
 }
 
-function BadgeCollection({ badges, futureBadges }) {
+function BadgeCollection({ childName, badges, futureBadges }) {
+  const namedBadge = (title) => `${childName || "Child"}'s ${title}`;
   return (
     <section className="leaderboard badges-board">
       <h2 className="section-title">🏅 Badge Collection</h2>
@@ -2308,10 +2333,10 @@ function BadgeCollection({ badges, futureBadges }) {
         <p className="muted">No badges yet. Complete special challenges to collect them.</p>
       ) : (
         <div className="badge-grid">
-          {badges.slice(0, 8).map((badge) => (
+          {badges.map((badge) => (
             <article className="badge-card" key={badge.id}>
               <span>{badge.icon}</span>
-              <strong>{badge.title}</strong>
+              <strong>{namedBadge(badge.title)}</strong>
               <small>{badge.badge_date}</small>
             </article>
           ))}
@@ -2322,7 +2347,7 @@ function BadgeCollection({ badges, futureBadges }) {
         {futureBadges.map((badge) => (
           <article className="badge-card locked-badge" key={badge.title}>
             <span>{badge.icon}</span>
-            <strong>{badge.title}</strong>
+            <strong>{namedBadge(badge.title)}</strong>
             <small>{badge.requirement}</small>
           </article>
         ))}
@@ -2648,9 +2673,9 @@ function ParentDashboard({ api }) {
       </section>
 
       <section className="stats">
-        <Stat label={`${selectedChildName || "Child"} daily`} value={dashboard.points.daily} />
-        <Stat label="Weekly" value={dashboard.points.weekly} />
-        <Stat label="Total" value={dashboard.points.total} />
+        <Stat label={`${selectedChildName || "Child"} daily Hasanat`} value={dashboard.points.daily} />
+        <Stat label="Weekly Hasanat" value={dashboard.points.weekly} />
+        <Stat label="Total Hasanat" value={dashboard.points.total} />
       </section>
 
       <nav className="admin-tabs" aria-label="Parent dashboard sections">
@@ -2688,7 +2713,7 @@ function ParentDashboard({ api }) {
             {admin.rewardApprovals.map((item) => (
               <div className="approval" key={item.id}>
                 <strong>{item.child_name}</strong>
-                <span>{item.reward_title} · {item.points_spent} pts</span>
+                <span>{item.reward_title} · {item.points_spent} Hasanat</span>
                 <button onClick={() => approveReward(item.id, true)}>Approve</button>
                 <button className="ghost" onClick={() => approveReward(item.id, false)}>Reject</button>
               </div>
@@ -2756,7 +2781,7 @@ function ParentDashboard({ api }) {
             <div className="mini-list">
               {admin.activities.map((activity) => (
                 <div key={activity.id}>
-                  <span>{activity.title} · {activity.points} pts · {activity.show_weekdays ? "weekdays" : ""}{activity.show_weekdays && activity.show_weekends ? " + " : ""}{activity.show_weekends ? "weekends" : ""}</span>
+                  <span>{activity.title} · {activity.points} Hasanat · {activity.show_weekdays ? "weekdays" : ""}{activity.show_weekdays && activity.show_weekends ? " + " : ""}{activity.show_weekends ? "weekends" : ""}</span>
                   <button onClick={() => setEditingActivity(activity)}>Edit</button>
                   <button className="ghost" onClick={() => remove("activities", activity.id)}>Delete</button>
                 </div>
@@ -2798,9 +2823,6 @@ function ParentDashboard({ api }) {
             <PraiseForm childName={selectedChildName} onSubmit={sendPraise} />
             <PraiseList messages={admin.praiseMessages || []} />
           </Panel>
-          <Panel title="Mood Check-ins">
-            <MoodReport moods={admin.moods || []} />
-          </Panel>
         </section>
       )}
 
@@ -2815,7 +2837,7 @@ function ParentDashboard({ api }) {
             <div className="mini-list">
               {(admin.parentChallenges || []).map((challenge) => (
                 <div key={challenge.id}>
-                  <span>{challenge.title} · {challenge.target_count} activities · {challenge.bonus_points} bonus</span>
+                  <span>{challenge.title} · {challenge.target_count} activities · {challenge.bonus_points} Hasanat bonus</span>
                 </div>
               ))}
             </div>
@@ -2830,7 +2852,7 @@ function ParentDashboard({ api }) {
             <div className="mini-list">
               {admin.rewards.map((reward) => (
                 <div key={reward.id}>
-                  <span>{reward.title} · {reward.required_points} pts</span>
+                  <span>{reward.title} · {reward.required_points} Hasanat</span>
                   <button onClick={() => setEditingReward(reward)}>Edit</button>
                   <button className="ghost" onClick={() => remove("rewards", reward.id)}>Delete</button>
                 </div>
@@ -2876,7 +2898,7 @@ function TodayOverview({ rows = [] }) {
               </div>
             </div>
             <div className="overview-stats">
-              <span><strong>{row.daily_points}</strong> daily points</span>
+              <span><strong>{row.daily_points}</strong> daily Hasanat</span>
               <span><strong>{row.completed_today}</strong> completed</span>
               <span><strong>{row.missed_today}</strong> missed</span>
               <span><strong>{row.pending_approvals}</strong> approvals</span>
@@ -2958,7 +2980,7 @@ function ParentHifzPanel({ hifz, onUpdate }) {
           <Stat label="Surahs completed" value={hifz.completed_surahs} />
           <Stat label="Juz completed" value={hifz.completed_juz?.length || 0} />
           <Stat label="Streak" value={`${hifz.current_streak} days`} />
-          <Stat label="Qur’an points" value={hifz.total_quran_points} />
+          <Stat label="Qur’an Hasanat" value={hifz.total_quran_points} />
           <Stat label="Missed days" value={hifz.missed_days} />
         </div>
         <Progress value={hifz.completion_percentage} />
@@ -3056,7 +3078,7 @@ function TodayTaskForm({ childName, onSubmit }) {
       <p className="muted">Add a special task only for {childName || "the selected child"} today.</p>
       <input name="title" placeholder="Task title, for example: Clean desk" required />
       <input name="description" placeholder="Short description" defaultValue="Special task for today." />
-      <input name="points" type="number" min="1" placeholder="Points" defaultValue="5" required />
+      <input name="points" type="number" min="1" placeholder="Hasanat" defaultValue="5" required />
       <input name="duration_minutes" type="number" min="0" placeholder="Timer minutes" defaultValue="0" />
       <label className="check"><input name="proof_required" type="checkbox" /> Proof photo</label>
       <label className="check"><input name="requires_approval" type="checkbox" /> Parent approval</label>
@@ -3081,7 +3103,7 @@ function WeeklyPlanner({ activities, onToggleDay, onToggleGroup }) {
         <article className={activity.task_date ? "planner-row today-only" : "planner-row"} key={activity.id}>
           <div>
             <strong>{activity.title}</strong>
-            <span>{activity.task_date ? `Today-only: ${activity.task_date}` : `${activity.points} pts · ${activity.frequency}`}</span>
+            <span>{activity.task_date ? `Today-only: ${activity.task_date}` : `${activity.points} Hasanat · ${activity.frequency}`}</span>
           </div>
           <div className="day-buttons">
             {days.map(([label, day]) => (
@@ -3113,7 +3135,7 @@ function ParentChallengeForm({ children, onSubmit }) {
       <input name="description" placeholder="Description" defaultValue="Complete the challenge goal." />
       <div className="form-row">
         <input name="target_count" type="number" min="1" defaultValue="3" placeholder="Target activities" />
-        <input name="bonus_points" type="number" min="0" defaultValue="10" placeholder="Bonus points" />
+        <input name="bonus_points" type="number" min="0" defaultValue="10" placeholder="Bonus Hasanat" />
       </div>
       <div className="form-row">
         <input name="start_date" type="date" defaultValue={todayValue} />
@@ -3279,7 +3301,7 @@ function EditorForm({ item, type, onSubmit }) {
     <form className="editor" onSubmit={onSubmit}>
       <input name="title" placeholder="Title" defaultValue={item?.title || ""} required />
       <input name="description" placeholder="Description" defaultValue={item?.description || ""} required />
-      <input name={isReward ? "required_points" : "points"} type="number" min="1" placeholder="Points" defaultValue={item?.required_points || item?.points || ""} required />
+      <input name={isReward ? "required_points" : "points"} type="number" min="1" placeholder="Hasanat" defaultValue={item?.required_points || item?.points || ""} required />
       {!isReward && (
         <>
           <input name="duration_minutes" type="number" min="0" placeholder="Timer minutes" defaultValue={item?.duration_minutes || 0} />
@@ -3331,12 +3353,12 @@ function ReportView({ reports }) {
     <div className="reports">
       <p><strong>Best activity:</strong> {reports.best?.title || "Not enough data yet"}</p>
       <p><strong>Missed today:</strong> {reports.missed.map((item) => item.title).join(", ") || "None"}</p>
-      <h3>Weekly points</h3>
+      <h3>Weekly Hasanat</h3>
       {reports.weekly.map((row) => <Bar key={row.week} label={row.week} value={row.points} />)}
-      <h3>Monthly points</h3>
+      <h3>Monthly Hasanat</h3>
       {reports.monthly.map((row) => <Bar key={row.month} label={row.month} value={row.points} />)}
       <h3>Redeemed rewards</h3>
-      {reports.redeemed.length === 0 ? <p className="muted">No rewards redeemed yet.</p> : reports.redeemed.map((row) => <p key={row.redeemed_at}>{row.title} · {row.points_spent} points</p>)}
+      {reports.redeemed.length === 0 ? <p className="muted">No rewards redeemed yet.</p> : reports.redeemed.map((row) => <p key={row.redeemed_at}>{row.title} · {row.points_spent} Hasanat</p>)}
     </div>
   );
 }

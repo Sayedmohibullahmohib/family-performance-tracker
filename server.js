@@ -12,6 +12,7 @@ const STATIC_DIR = join(__dirname, "static");
 const PORT = Number(process.env.PORT || 3000);
 const HOST = "0.0.0.0";
 const TOKEN_SECRET = process.env.TOKEN_SECRET || "change-this-secret-before-hosting";
+const SQLITE_MAX_BUFFER = 200 * 1024 * 1024;
 
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 
@@ -41,13 +42,13 @@ function nameAlreadyUsed(name, exceptUserId = 0) {
 }
 
 function db(query) {
-  const result = spawnSync("sqlite3", ["-json", DB_PATH, query], { encoding: "utf8" });
+  const result = spawnSync("sqlite3", ["-json", DB_PATH, query], { encoding: "utf8", maxBuffer: SQLITE_MAX_BUFFER });
   if (result.status !== 0) throw new Error(result.stderr || "SQLite command failed");
   return result.stdout.trim() ? JSON.parse(result.stdout) : [];
 }
 
 function exec(query) {
-  const result = spawnSync("sqlite3", [DB_PATH, query], { encoding: "utf8" });
+  const result = spawnSync("sqlite3", [DB_PATH], { input: query, encoding: "utf8", maxBuffer: SQLITE_MAX_BUFFER });
   if (result.status !== 0) throw new Error(result.stderr || "SQLite command failed");
 }
 
@@ -103,11 +104,7 @@ function dayColumn(dateString = today()) {
 }
 
 const PRAYER_POINTS = 10;
-const PRAYER_WINDOWS = {
-  Dhuhr: { start: "13:30", end: "15:00" },
-  Asr: { start: "17:30", end: "18:30" },
-  Maghrib: { start: "21:00", end: "21:30" }
-};
+const PRAYER_WINDOWS = {};
 
 function currentLocalTime() {
   const now = new Date();
@@ -1636,7 +1633,7 @@ function rewardDiscountsOfPeriod() {
   const start = new Date("2026-01-01T12:00:00");
   const now = new Date(`${today()}T12:00:00`);
   const days = Math.floor((now - start) / 86400000);
-  const period = Math.floor(days / 2);
+  const period = days;
   const rewards = db("SELECT id FROM rewards WHERE active = 1 ORDER BY id;");
   if (rewards.length === 0) return [];
 
@@ -1869,7 +1866,7 @@ function dashboardFor(childId) {
   const date = today();
   const scheduleColumn = dayColumn(date);
   ensureActivityAssignments();
-  const familyQuest = awardFamilyQuestIfNeeded(date);
+  const familyQuest = null;
   const challenge = activityOfTheDay();
   const parentChallenges = parentChallengesFor(childId, date);
   const child = db(sql`SELECT * FROM children WHERE id = ${childId};`)[0];
@@ -2058,7 +2055,7 @@ function dashboardFor(childId) {
       { icon: "🏆", title: "Badge of the Week", requirement: `${challengeRemaining} Activity of the Day completions to go` },
       { icon: weeklyTheme.icon, title: weeklyTheme.badge, requirement: weeklyTheme.complete ? "Unlocked this week" : `${Math.max(0, weeklyTheme.goal - weeklyTheme.progress)} theme tasks to go` },
       { icon: "🔥", title: "7-Day Streak", requirement: `${streakRemaining} streak days to go` },
-      { icon: "💎", title: "Point Collector", requirement: "Reach 500 total points" },
+      { icon: "💎", title: "Hasanat Collector", requirement: "Reach 500 total Hasanat" },
       { icon: "🎁", title: "Reward Master", requirement: "Redeem 3 rewards" }
     ],
     streak,
@@ -2560,7 +2557,7 @@ async function api(req, res, path) {
     const user = requireUser(req);
     if (user.role !== "child") return send(res, 403, { error: "Child access required" });
     const rawAvatar = String(body.avatar || "⭐").trim();
-    const avatar = rawAvatar.startsWith("data:image/") ? rawAvatar.slice(0, 500000) : rawAvatar.slice(0, 32);
+    const avatar = rawAvatar.startsWith("data:image/") ? rawAvatar : rawAvatar.slice(0, 32);
     exec(sql`UPDATE children SET avatar = ${avatar} WHERE id = ${user.child_id};`);
     return send(res, 200, dashboardFor(user.child_id));
   }
@@ -2577,7 +2574,7 @@ async function api(req, res, path) {
       const prayer = String(body.prayer || "");
       const windowStatus = prayerWindowStatus(prayer);
       if (Boolean(body.checked) && !windowStatus.allowed) {
-        return send(res, 400, { error: windowStatus.tooEarly ? windowStatus.message : `${prayer} cannot be completed after ${windowStatus.window?.end || "its time"}. No points added.` });
+        return send(res, 400, { error: windowStatus.tooEarly ? windowStatus.message : `${prayer} cannot be completed after ${windowStatus.window?.end || "its time"}. No Hasanat added.` });
       }
       const current = JSON.parse(prayerState || "{}");
       prayerState = JSON.stringify({ ...current, [prayer]: Boolean(body.checked) });
@@ -2803,8 +2800,8 @@ async function api(req, res, path) {
     if (state.opened) return send(res, 200, dashboardFor(childId));
     const date = today();
     const rewards = [
-      { reward_type: "points", reward_value: 10, message: "You found 10 bonus points!" },
-      { reward_type: "points", reward_value: 15, message: "Amazing! You found 15 bonus points!" },
+      { reward_type: "points", reward_value: 10, message: "You found 10 bonus Hasanat!" },
+      { reward_type: "points", reward_value: 15, message: "Amazing! You found 15 bonus Hasanat!" },
       { reward_type: "badge", reward_value: 0, message: "You found a treasure badge!" }
     ];
     const selected = rewards[(Number(date.replaceAll("-", "")) + childId) % rewards.length];
@@ -2822,8 +2819,8 @@ async function api(req, res, path) {
     if (state.opened) return send(res, 200, dashboardFor(childId));
     const date = today();
     const rewards = [
-      { reward_type: "points", reward_value: 10, message: "Mystery box: 10 bonus points!" },
-      { reward_type: "points", reward_value: 15, message: "Mystery box: 15 bonus points!" },
+      { reward_type: "points", reward_value: 10, message: "Mystery box: 10 bonus Hasanat!" },
+      { reward_type: "points", reward_value: 15, message: "Mystery box: 15 bonus Hasanat!" },
       { reward_type: "power_up", reward_value: 0, power_type: "point_bonus", message: "Mystery box: Double Points power-up!" },
       { reward_type: "power_up", reward_value: 0, power_type: "reward_discount", message: "Mystery box: 10% Reward Discount power-up!" },
       { reward_type: "power_up", reward_value: 0, power_type: "instant_points", message: "Mystery box: Bonus Coins power-up!" }
@@ -2977,7 +2974,7 @@ async function api(req, res, path) {
     `);
     if (isEarly) addPoints(childId, points, "early_bird", 0, "Early Bird bonus");
     const message = isEarly
-      ? "Early Bird! You earned 20 points for waking up before 7:00 AM."
+      ? "Early Bird! You earned 20 Hasanat for waking up before 7:00 AM."
       : "You got up late this morning. Tomorrow is a new chance.";
     return send(res, 200, { ...dashboardFor(childId), earlyBirdMessage: message });
   }
@@ -3137,7 +3134,16 @@ function serveStatic(req, res) {
     return res.end("Forbidden");
   }
   try {
-    const mime = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".jsx": "text/babel" }[extname(filePath)] || "text/plain";
+    const mime = {
+      ".html": "text/html",
+      ".css": "text/css",
+      ".js": "text/javascript",
+      ".jsx": "text/babel",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".svg": "image/svg+xml"
+    }[extname(filePath)] || "text/plain";
     const file = readFileSync(filePath);
     res.writeHead(200, { "Content-Type": mime });
     res.end(file);
