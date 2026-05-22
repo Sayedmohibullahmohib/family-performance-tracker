@@ -69,6 +69,33 @@ function isPhotoAvatar(value) {
   return String(value || "").startsWith("data:image");
 }
 
+function dailyQuranicMotivation() {
+  const motivations = window.quranicMotivations || [];
+  if (!motivations.length) return null;
+  const dayIndex = Math.floor(new Date().setHours(0, 0, 0, 0) / 86400000) % motivations.length;
+  return motivations[dayIndex];
+}
+
+function QuranicMotivationCard({ compact = false }) {
+  const motivation = dailyQuranicMotivation();
+  if (!motivation) return null;
+  return (
+    <section className={compact ? "quranic-motivation-card compact" : "quranic-motivation-card"} aria-label="Quranic Motivation of the Day">
+      <div className="quranic-icon" aria-hidden="true">{motivation.icon}</div>
+      <div className="quranic-content">
+        <p className="eyebrow">Quranic Motivation of the Day</p>
+        <p className="quranic-arabic" dir="rtl" lang="ar">{motivation.arabic}</p>
+        <h2>{motivation.english}</h2>
+        <div className="quranic-reference">
+          <span dir="rtl" lang="ar">{motivation.surahArabic}</span>
+          <span>{motivation.surahEnglish}</span>
+          <strong>{motivation.verse}</strong>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function AvatarDisplay({ value, className = "", label = "Avatar" }) {
   if (isPhotoAvatar(value)) return <img className={`avatar-photo ${className}`} src={value} alt={label} />;
   return <span className={className}>{avatarFor(value)}</span>;
@@ -185,6 +212,7 @@ function Login({ onLogin, error }) {
             <a href="https://www.traintheteachers.com" target="_blank" rel="noreferrer">www.traintheteachers.com</a>
             <a href="https://www.courses.traintheteachers.com" target="_blank" rel="noreferrer">www.courses.traintheteachers.com</a>
           </div>
+          <QuranicMotivationCard compact />
         </div>
       </section>
       <section className="login-panel" aria-label="Sign in">
@@ -673,6 +701,8 @@ function ChildDashboard({ api }) {
       <section className="top-ranking-board">
         <Leaderboard children={data.leaderboard} currentChildId={data.child.id} />
       </section>
+
+      <QuranicMotivationCard />
 
       <PraiseBanner messages={data.praiseMessages || []} onSeen={markPraiseSeen} />
 

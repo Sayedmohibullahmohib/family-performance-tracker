@@ -549,6 +549,39 @@ body[data-seasonal-theme="summer"] {
   }
 }
 
+@keyframes quranicEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes quranicGlow {
+  0%, 100% {
+    box-shadow: 0 20px 42px rgba(22, 163, 74, 0.16), inset 0 0 0 1px rgba(234, 179, 8, 0.3);
+  }
+  50% {
+    box-shadow: 0 24px 58px rgba(234, 179, 8, 0.24), inset 0 0 0 1px rgba(22, 163, 74, 0.34);
+  }
+}
+
+@keyframes quranicIconPulse {
+  0%, 100% {
+    transform: translateY(0) rotate(-3deg) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) rotate(3deg) scale(1.08);
+  }
+}
+
 @keyframes starDrift {
   0% {
     transform: translateX(-12%);
@@ -807,6 +840,113 @@ h1, h2, h3, p {
   max-width: 440px;
   padding: 28px;
   width: 100%;
+}
+
+.quranic-motivation-card {
+  animation: quranicEntrance 720ms ease both, quranicGlow 3600ms ease-in-out infinite;
+  background:
+    radial-gradient(circle at 12% 15%, rgba(250, 204, 21, 0.28), transparent 28%),
+    linear-gradient(135deg, rgba(236, 253, 245, 0.96), rgba(255, 251, 235, 0.98));
+  border: 1px solid rgba(22, 163, 74, 0.28);
+  border-radius: 8px;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 72px 1fr;
+  overflow: hidden;
+  padding: 22px;
+  position: relative;
+}
+
+.quranic-motivation-card::after {
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  content: "";
+  height: 180%;
+  left: -35%;
+  position: absolute;
+  top: -40%;
+  transform: rotate(18deg);
+  width: 90px;
+}
+
+.quranic-motivation-card.compact {
+  animation-duration: 620ms, 4200ms;
+  grid-template-columns: 56px 1fr;
+  padding: 16px;
+}
+
+.quranic-icon {
+  align-items: center;
+  animation: quranicIconPulse 2400ms ease-in-out infinite;
+  background: white;
+  border: 2px solid rgba(234, 179, 8, 0.45);
+  border-radius: 8px;
+  display: inline-flex;
+  font-size: 34px;
+  height: 62px;
+  justify-content: center;
+  position: relative;
+  width: 62px;
+  z-index: 1;
+}
+
+.quranic-motivation-card.compact .quranic-icon {
+  font-size: 28px;
+  height: 48px;
+  width: 48px;
+}
+
+.quranic-content {
+  display: grid;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.quranic-content .eyebrow {
+  color: #15803d;
+  margin: 0;
+}
+
+.quranic-arabic {
+  color: #14532d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 800;
+  line-height: 1.65;
+  margin: 0;
+  text-align: right;
+}
+
+.quranic-motivation-card.compact .quranic-arabic {
+  font-size: clamp(24px, 3vw, 34px);
+}
+
+.quranic-content h2 {
+  color: var(--ink);
+  font-size: clamp(22px, 2.4vw, 32px);
+  line-height: 1.15;
+  margin: 0;
+}
+
+.quranic-motivation-card.compact .quranic-content h2 {
+  font-size: 20px;
+}
+
+.quranic-reference {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quranic-reference span,
+.quranic-reference strong {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(22, 163, 74, 0.22);
+  border-radius: 999px;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 7px 10px;
 }
 
 .brand-mark, .logo {
@@ -4521,6 +4661,20 @@ img.race-avatar {
 
   .login-links {
     display: grid;
+  }
+
+  .quranic-motivation-card,
+  .quranic-motivation-card.compact {
+    grid-template-columns: 1fr;
+  }
+
+  .quranic-icon {
+    height: 54px;
+    width: 54px;
+  }
+
+  .quranic-arabic {
+    font-size: 28px;
   }
 
   .app-shell > header, .hero, .admin-top {

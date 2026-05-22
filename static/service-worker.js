@@ -1,12 +1,14 @@
-const CACHE_NAME = "kids-tracker-shell-v1";
+const CACHE_NAME = "kids-tracker-shell-v2";
 const SHELL_FILES = [
   "/",
   "/index.html",
   "/styles.css",
   "/app.jsx",
+  "/quranicMotivations.js",
   "/manifest.json",
   "/app.webmanifest",
-  "/icon.svg"
+  "/icon.svg",
+  "/train-the-teachers.jpg"
 ];
 
 self.addEventListener("install", (event) => {
