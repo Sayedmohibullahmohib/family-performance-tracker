@@ -1,5 +1,5 @@
 import { createHmac, pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
@@ -9,12 +9,14 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const DATA_DIR = join(__dirname, "data");
 const DB_PATH = join(DATA_DIR, "app.db");
 const STATIC_DIR = join(__dirname, "static");
+const SPORTS_VIDEO_DIR = join(STATIC_DIR, "media", "sports-videos");
 const PORT = Number(process.env.PORT || 3000);
 const HOST = "0.0.0.0";
 const TOKEN_SECRET = process.env.TOKEN_SECRET || "change-this-secret-before-hosting";
 const SQLITE_MAX_BUFFER = 200 * 1024 * 1024;
 
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+if (!existsSync(SPORTS_VIDEO_DIR)) mkdirSync(SPORTS_VIDEO_DIR, { recursive: true });
 
 function sql(strings, ...values) {
   return strings.reduce((query, part, index) => {
@@ -105,6 +107,43 @@ function dayColumn(dateString = today()) {
 
 const PRAYER_POINTS = 10;
 const PRAYER_WINDOWS = {};
+const SPORTS_SUBJECT = "Sports & Physical Development";
+const SPORTS_BADGES = [
+  { title: "Strong Legs Hero", icon: "🦵", description: "Complete 5 leg strength activities.", category: "Leg Strength", target: 5 },
+  { title: "Speed Star", icon: "⚡", description: "Complete 5 speed and agility activities.", category: "Speed & Agility", target: 5 },
+  { title: "Balance Champion", icon: "⚖️", description: "Complete 5 balance and coordination activities.", category: "Balance & Coordination", target: 5 },
+  { title: "Fitness Explorer", icon: "🏃", description: "Complete 10 sports activities.", target: 10 },
+  { title: "Daily Mover", icon: "🌟", description: "Complete a full daily sports session.", dailySession: true, target: 1 },
+  { title: "Weekly Sports Winner", icon: "🏅", description: "Complete 5 sports activities this week.", weekly: true, target: 5 },
+  { title: "Sports Master", icon: "🏆", description: "Complete 30 sports activities.", target: 30 },
+  { title: "Healthy Lifestyle Champion", icon: "💚", description: "Complete 60 sports activities.", target: 60 }
+];
+
+const SPORTS_ACTIVITIES = [
+  ["Marching in place", "Warm up by marching gently and lifting your knees.", "1 minute", "Easy", 5, "Warm-up", "march", 1, [1, 2, 3, 4, 5]],
+  ["Light jogging in place", "Jog softly in one spot and keep breathing calmly.", "1 minute", "Easy", 5, "Warm-up", "jog", 1, [1, 2, 3, 4, 5]],
+  ["Jumping jacks", "Jump out, clap up, jump back in, and smile.", "15 reps", "Medium", 10, "Warm-up", "jumping-jacks", 1, [1, 3, 5]],
+  ["Arm circles", "Make small and big circles with both arms.", "30 seconds each way", "Easy", 5, "Warm-up", "arm-circles", 1, [2, 4]],
+  ["Squats", "Bend your knees like sitting on a chair, then stand tall.", "10 reps", "Medium", 10, "Leg Strength", "squats", 2, [1, 3, 5]],
+  ["Wall sit", "Lean on a wall and sit like an invisible chair.", "30 seconds", "Hard", 15, "Leg Strength", "wall-sit", 2, [2, 4]],
+  ["Lunges", "Step forward, bend both knees, then switch legs.", "8 each leg", "Hard", 15, "Leg Strength", "lunges", 3, [1, 4]],
+  ["Calf raises", "Stand tall and lift your heels up and down.", "15 reps", "Easy", 5, "Leg Strength", "calf-raises", 1, [2, 5]],
+  ["Step-ups on stairs", "Step up and down safely on a low stair.", "10 each leg", "Medium", 10, "Leg Strength", "step-ups", 2, [3, 6]],
+  ["Glute bridges", "Lie down, bend knees, and lift your hips gently.", "12 reps", "Medium", 10, "Leg Strength", "glute-bridges", 2, [0, 4]],
+  ["Fast feet running in place", "Move your feet quickly like a football player.", "20 seconds", "Medium", 10, "Speed & Agility", "fast-feet", 1, [1, 3, 5]],
+  ["Shuttle run", "Run to a marker, come back, and repeat safely.", "4 rounds", "Hard", 15, "Speed & Agility", "shuttle-run", 3, [2, 5]],
+  ["Side-to-side jumps", "Jump gently from side to side with soft knees.", "20 jumps", "Medium", 10, "Speed & Agility", "side-jumps", 2, [1, 4]],
+  ["High knees", "Run in place while lifting knees high.", "30 seconds", "Medium", 10, "Speed & Agility", "high-knees", 1, [2, 4, 6]],
+  ["Zigzag run using bottles or cones", "Run around safe markers in a zigzag path.", "3 rounds", "Hard", 15, "Speed & Agility", "zigzag-run", 3, [3, 6]],
+  ["Short sprint challenge", "Sprint a short safe distance and walk back.", "5 sprints", "Hard", 15, "Speed & Agility", "sprint", 3, [0, 5]],
+  ["Stand on one leg", "Balance on one leg, then switch sides.", "20 seconds each leg", "Easy", 5, "Balance & Coordination", "one-leg-balance", 1, [1, 3, 5]],
+  ["Heel-to-toe walking", "Walk in a straight line, heel touching toe.", "10 steps", "Easy", 5, "Balance & Coordination", "heel-to-toe", 1, [2, 4]],
+  ["Jump and freeze", "Jump once and freeze like a statue.", "10 jumps", "Easy", 5, "Balance & Coordination", "jump-freeze", 1, [1, 5]],
+  ["Single-leg jumps", "Hop gently on one foot, then switch.", "8 each leg", "Medium", 10, "Balance & Coordination", "single-leg-jumps", 2, [3, 6]],
+  ["Bear walk", "Walk on hands and feet like a strong bear.", "20 seconds", "Hard", 15, "Balance & Coordination", "bear-walk", 3, [2, 5]],
+  ["Frog jump", "Squat low and jump forward like a frog.", "10 jumps", "Medium", 10, "Balance & Coordination", "frog-jump", 2, [0, 4]],
+  ["Crab walk", "Sit, lift your body, and walk carefully.", "20 seconds", "Hard", 15, "Balance & Coordination", "crab-walk", 3, [1, 6]]
+];
 
 function currentLocalTime() {
   const now = new Date();
@@ -612,6 +651,30 @@ function initDb() {
       setting_value TEXT NOT NULL,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS child_quranic_settings (
+      child_id INTEGER PRIMARY KEY,
+      visible INTEGER DEFAULT 1,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS sports_videos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      exercise_key TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      source_type TEXT NOT NULL DEFAULT 'url',
+      video_url TEXT NOT NULL DEFAULT '',
+      thumbnail_url TEXT DEFAULT '',
+      explanation TEXT DEFAULT '',
+      safety_tips TEXT DEFAULT '',
+      difficulty TEXT DEFAULT 'Easy',
+      duration_seconds INTEGER DEFAULT 20,
+      enabled INTEGER DEFAULT 1,
+      ai_analysis_ready INTEGER DEFAULT 0,
+      ai_feedback_prompt TEXT DEFAULT '',
+      created_by_parent_id INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   const userTableSql = db("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users';")[0]?.sql || "";
@@ -745,7 +808,10 @@ function initDb() {
     SELECT id FROM children;
     INSERT OR IGNORE INTO app_settings (setting_key, setting_value) VALUES ('seasonal_theme', 'learning');
     INSERT OR IGNORE INTO app_settings (setting_key, setting_value) VALUES ('sound_enabled', 'true');
+    INSERT OR IGNORE INTO child_quranic_settings (child_id, visible)
+    SELECT id, 1 FROM children;
   `);
+  seedSportsActivities();
 
   const [{ count }] = db("SELECT COUNT(*) AS count FROM users;");
   if (count > 0) {
@@ -813,6 +879,7 @@ function initDb() {
   for (const reward of rewards) {
     exec(sql`INSERT INTO rewards (title, description, required_points) VALUES (${reward[0]}, ${reward[1]}, ${reward[2]});`);
   }
+  seedSportsActivities();
   exec("INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled) SELECT c.id, a.id, 1 FROM children c CROSS JOIN activities a WHERE a.active = 1;");
 }
 
@@ -841,6 +908,177 @@ function addPetJoy(childId, amount = 3) {
   `);
 }
 
+function seedSportsActivities() {
+  const firstParent = db("SELECT id FROM users WHERE role IN ('admin','parent') ORDER BY id LIMIT 1;")[0];
+  const parentId = firstParent?.id || null;
+  for (const [title, description, recommendation, difficulty, points, category, exerciseKey, level, days] of SPORTS_ACTIVITIES) {
+    const taskData = JSON.stringify({
+      category,
+      recommendation,
+      difficulty,
+      exerciseKey,
+      level,
+      instructions: sportsInstructions(exerciseKey),
+      safety: "Move in a safe space, keep breathing, and stop if anything hurts."
+    });
+    const dayValues = [0, 0, 0, 0, 0, 0, 0].map((_, index) => days.includes(index) ? 1 : 0);
+    exec(sql`
+      INSERT INTO activities (
+        title, description, points, duration_minutes, frequency, show_weekdays, show_weekends,
+        day_0, day_1, day_2, day_3, day_4, day_5, day_6,
+        proof_required, requires_approval, parent_id, subject, task_type, task_data
+      )
+      SELECT ${title}, ${description}, ${points}, ${level}, 'weekly', 1, 1,
+        ${dayValues[0]}, ${dayValues[1]}, ${dayValues[2]}, ${dayValues[3]}, ${dayValues[4]}, ${dayValues[5]}, ${dayValues[6]},
+        0, 0, ${parentId}, ${SPORTS_SUBJECT}, 'sports', ${taskData}
+      WHERE NOT EXISTS (
+        SELECT 1 FROM activities WHERE lower(title) = lower(${title}) AND subject = ${SPORTS_SUBJECT}
+      );
+    `);
+    exec(sql`
+      INSERT INTO sports_videos (
+        exercise_key, title, source_type, explanation, safety_tips, difficulty, duration_seconds, enabled, ai_feedback_prompt, created_by_parent_id
+      )
+      SELECT ${exerciseKey}, ${title}, 'url', ${description}, 'Warm up first. Drink water. Stop if you feel pain. Ask a parent for help.', ${difficulty}, 20, 0, 'Future AI posture feedback placeholder for this exercise.', ${parentId}
+      WHERE NOT EXISTS (SELECT 1 FROM sports_videos WHERE exercise_key = ${exerciseKey});
+    `);
+  }
+  exec(sql`
+    INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled)
+    SELECT c.id, a.id, 1 FROM children c CROSS JOIN activities a WHERE a.active = 1 AND a.subject = ${SPORTS_SUBJECT};
+    INSERT OR IGNORE INTO child_quranic_settings (child_id, visible)
+    SELECT id, 1 FROM children;
+  `);
+}
+
+function sportsInstructions(exerciseKey) {
+  const map = {
+    squats: ["Stand tall with feet apart.", "Bend knees like sitting on a chair.", "Stand back up slowly."],
+    "wall-sit": ["Put your back on the wall.", "Slide down into a chair shape.", "Hold and breathe."],
+    lunges: ["Step forward carefully.", "Bend both knees gently.", "Push back and switch legs."],
+    "calf-raises": ["Stand tall.", "Lift your heels.", "Lower slowly."],
+    "step-ups": ["Use a safe low step.", "Step up with one foot.", "Step down and switch."],
+    "glute-bridges": ["Lie on your back.", "Bend your knees.", "Lift hips and lower slowly."],
+    "high-knees": ["Run in place.", "Lift knees high.", "Keep arms moving."],
+    "fast-feet": ["Stand ready.", "Move feet quickly.", "Stay light and balanced."],
+    "side-jumps": ["Stand with soft knees.", "Jump side to side.", "Land gently."],
+    "shuttle-run": ["Run to the marker.", "Touch and turn.", "Run back safely."],
+    "zigzag-run": ["Place safe markers.", "Run around them.", "Keep control."],
+    "one-leg-balance": ["Stand tall.", "Lift one foot.", "Hold, then switch."],
+    "bear-walk": ["Hands and feet on floor.", "Walk forward slowly.", "Keep your back steady."],
+    "frog-jump": ["Squat low.", "Jump forward.", "Land softly."],
+    "crab-walk": ["Sit down.", "Lift your body.", "Walk carefully."]
+  };
+  return map[exerciseKey] || ["Start slowly.", "Keep control.", "Finish with a smile."];
+}
+
+function sportsStatsFor(childId, date = today()) {
+  const logs = db(sql`
+    SELECT l.*, a.title, a.points, a.duration_minutes, a.task_data
+    FROM activity_logs l
+    JOIN activities a ON a.id = l.activity_id
+    WHERE l.child_id = ${childId} AND a.subject = ${SPORTS_SUBJECT}
+    ORDER BY l.log_date DESC, l.updated_at DESC;
+  `).map((row) => {
+    let taskData = {};
+    try { taskData = JSON.parse(row.task_data || "{}"); } catch {}
+    return { ...row, task_data: taskData };
+  });
+  const todayLogs = logs.filter((row) => row.log_date === date);
+  const completedToday = todayLogs.filter((row) => ["completed", "approved"].includes(row.status));
+  const weekStart = addDays(date, -6);
+  const monthStart = date.slice(0, 8) + "01";
+  const weeklyLogs = logs.filter((row) => row.log_date >= weekStart && ["completed", "approved"].includes(row.status));
+  const monthlyLogs = logs.filter((row) => row.log_date >= monthStart && ["completed", "approved"].includes(row.status));
+  const todayActivities = db(sql`
+    SELECT a.*, COALESCE(l.status, 'pending') AS status
+    FROM activities a
+    LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = ${childId}
+    LEFT JOIN activity_logs l ON l.activity_id = a.id AND l.child_id = ${childId} AND l.log_date = ${date}
+    WHERE a.active = 1 AND a.subject = ${SPORTS_SUBJECT} AND a.${dayColumn(date)} = 1 AND COALESCE(aa.enabled, 1) = 1;
+  `);
+  const totalHasanat = db(sql`
+    SELECT COALESCE(SUM(pt.points), 0) AS total
+    FROM point_transactions pt
+    LEFT JOIN activity_logs l ON l.id = pt.source_id AND pt.source_type = 'activity'
+    LEFT JOIN activities a ON a.id = l.activity_id
+    WHERE pt.child_id = ${childId} AND (a.subject = ${SPORTS_SUBJECT} OR pt.source_type LIKE 'sports_%');
+  `)[0].total;
+  const categoryCounts = {};
+  for (const row of logs.filter((item) => ["completed", "approved"].includes(item.status))) {
+    const category = row.task_data.category || "Sports";
+    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+  }
+  const badges = SPORTS_BADGES.map((badge) => {
+    const progress = badge.category ? Number(categoryCounts[badge.category] || 0)
+      : badge.dailySession ? (todayActivities.length && completedToday.length >= todayActivities.length ? 1 : 0)
+        : badge.weekly ? weeklyLogs.length
+          : logs.filter((row) => ["completed", "approved"].includes(row.status)).length;
+    return { ...badge, progress: Math.min(progress, badge.target), earned: progress >= badge.target };
+  });
+  return {
+    title: SPORTS_SUBJECT,
+    today_total: todayActivities.length,
+    today_completed: completedToday.length,
+    today_remaining: Math.max(0, todayActivities.length - completedToday.length),
+    weekly_completed: weeklyLogs.length,
+    monthly_completed: monthlyLogs.length,
+    completion_rate: todayActivities.length ? Math.round((completedToday.length / todayActivities.length) * 100) : 0,
+    sports_streak: sportsStreakFor(childId),
+    total_hasnat: Number(totalHasanat || 0),
+    total_time: logs.filter((row) => ["completed", "approved"].includes(row.status)).reduce((sum, row) => sum + Number(row.duration_minutes || 1), 0),
+    badges
+  };
+}
+
+function sportsStreakFor(childId) {
+  const rows = db(sql`
+    SELECT DISTINCT l.log_date
+    FROM activity_logs l
+    JOIN activities a ON a.id = l.activity_id
+    WHERE l.child_id = ${childId} AND a.subject = ${SPORTS_SUBJECT} AND l.status IN ('completed','approved')
+    ORDER BY l.log_date DESC;
+  `);
+  const days = new Set(rows.map((row) => row.log_date));
+  let streak = 0;
+  const cursor = dateFromLocal(today());
+  while (days.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function awardSportsBonusesIfNeeded(childId, date = today()) {
+  const stats = sportsStatsFor(childId, date);
+  if (stats.today_total && stats.today_completed >= stats.today_total) {
+    const note = `Daily sports session bonus ${date}`;
+    if (!db(sql`SELECT id FROM point_transactions WHERE child_id = ${childId} AND source_type = 'sports_daily' AND note = ${note} LIMIT 1;`)[0]) {
+      addPoints(childId, 25, "sports_daily", 0, note);
+      exec(sql`INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon) VALUES (${childId}, ${date}, -810001, 'Daily Mover', '🌟');`);
+    }
+  }
+  const week = new Date(`${date}T12:00:00`).toISOString().slice(0, 10).slice(0, 7) + `-${Math.ceil(Number(date.slice(8, 10)) / 7)}`;
+  if (stats.weekly_completed >= 5) {
+    const note = `Weekly sports goal bonus ${week}`;
+    if (!db(sql`SELECT id FROM point_transactions WHERE child_id = ${childId} AND source_type = 'sports_weekly' AND note = ${note} LIMIT 1;`)[0]) {
+      addPoints(childId, 100, "sports_weekly", 0, note);
+      exec(sql`INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon) VALUES (${childId}, ${date}, -810002, 'Weekly Sports Winner', '🏅');`);
+    }
+  }
+  const month = date.slice(0, 7);
+  if (stats.monthly_completed >= 20) {
+    const note = `Monthly sports champion bonus ${month}`;
+    if (!db(sql`SELECT id FROM point_transactions WHERE child_id = ${childId} AND source_type = 'sports_monthly' AND note = ${note} LIMIT 1;`)[0]) {
+      addPoints(childId, 300, "sports_monthly", 0, note);
+      exec(sql`INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon) VALUES (${childId}, ${date}, -810003, 'Sports Master', '🏆');`);
+    }
+  }
+  for (const badge of sportsStatsFor(childId, date).badges.filter((item) => item.earned)) {
+    exec(sql`INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon) VALUES (${childId}, ${date}, ${-820000 - SPORTS_BADGES.findIndex((item) => item.title === badge.title)}, ${badge.title}, ${badge.icon});`);
+  }
+}
+
 function walletFor(childId) {
   exec(sql`INSERT OR IGNORE INTO child_wallets (child_id, xp, coins) SELECT id, total_points, total_points FROM children WHERE id = ${childId};`);
   const wallet = db(sql`SELECT * FROM child_wallets WHERE child_id = ${childId};`)[0] || {};
@@ -862,6 +1100,53 @@ function petFor(childId) {
 function settingsMap() {
   const rows = db("SELECT setting_key, setting_value FROM app_settings;");
   return Object.fromEntries(rows.map((row) => [row.setting_key, row.setting_value]));
+}
+
+function quranicMotivationVisible(childId) {
+  exec(sql`INSERT OR IGNORE INTO child_quranic_settings (child_id, visible) VALUES (${childId}, 1);`);
+  const row = db(sql`SELECT visible FROM child_quranic_settings WHERE child_id = ${childId};`)[0];
+  return !row || Number(row.visible) === 1;
+}
+
+function sportsVideoMap() {
+  const rows = db("SELECT * FROM sports_videos WHERE enabled = 1 ORDER BY exercise_key;");
+  return Object.fromEntries(rows.map((row) => [row.exercise_key, row]));
+}
+
+function normalizeVideoPayload(body, user) {
+  const exerciseKey = String(body.exercise_key || body.exerciseKey || "").trim();
+  const title = String(body.title || exerciseKey || "Sports demo").trim();
+  const sourceType = String(body.source_type || body.sourceType || "url").trim();
+  const allowed = ["upload", "url", "youtube", "self_hosted"];
+  return {
+    exerciseKey,
+    title,
+    sourceType: allowed.includes(sourceType) ? sourceType : "url",
+    videoUrl: String(body.video_url || body.videoUrl || "").trim(),
+    thumbnailUrl: String(body.thumbnail_url || body.thumbnailUrl || "").trim(),
+    explanation: String(body.explanation || "").trim().slice(0, 800),
+    safetyTips: String(body.safety_tips || body.safetyTips || "Warm up first. Drink water. Stop if you feel pain. Ask a parent for help.").trim().slice(0, 800),
+    difficulty: String(body.difficulty || "Easy").trim(),
+    durationSeconds: Math.max(5, Math.min(180, Number(body.duration_seconds || body.durationSeconds || 20))),
+    enabled: body.enabled === undefined ? 1 : boolInt(body.enabled),
+    aiFeedbackPrompt: String(body.ai_feedback_prompt || body.aiFeedbackPrompt || "Future AI posture feedback for safe child-friendly exercise guidance.").trim().slice(0, 800),
+    parentId: user?.id || null
+  };
+}
+
+function safeMediaName(value) {
+  return String(value || "exercise").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "exercise";
+}
+
+function storeSportsVideoUpload(payload) {
+  if (payload.sourceType !== "upload" || !String(payload.videoUrl || "").startsWith("data:video/")) return payload;
+  const match = String(payload.videoUrl).match(/^data:(video\/[a-z0-9.+-]+);base64,(.+)$/i);
+  if (!match) return payload;
+  const mime = match[1].toLowerCase();
+  const extension = mime.includes("webm") ? "webm" : mime.includes("quicktime") || mime.includes("mov") ? "mov" : "mp4";
+  const fileName = `${safeMediaName(payload.exerciseKey)}-${Date.now()}.${extension}`;
+  writeFileSync(join(SPORTS_VIDEO_DIR, fileName), Buffer.from(match[2], "base64"));
+  return { ...payload, sourceType: "self_hosted", videoUrl: `/media/sports-videos/${fileName}` };
 }
 
 function moodFor(childId, date = today()) {
@@ -1434,6 +1719,7 @@ function restoreBackup(backup) {
       DELETE FROM child_moods;
       DELETE FROM parent_praise_messages;
       DELETE FROM app_settings;
+      DELETE FROM sports_videos;
       DELETE FROM quran_favorite_surahs;
       DELETE FROM quran_revision_logs;
       DELETE FROM quran_memorization_logs;
@@ -1481,6 +1767,7 @@ function restoreBackup(backup) {
   insertRows("child_moods", backup.child_moods, ["id", "child_id", "mood_date", "mood", "note", "created_at"]);
   insertRows("parent_praise_messages", backup.parent_praise_messages, ["id", "parent_id", "child_id", "message", "status", "created_at", "seen_at"]);
   insertRows("app_settings", backup.app_settings, ["setting_key", "setting_value", "updated_at"]);
+  insertRows("sports_videos", backup.sports_videos, ["id", "exercise_key", "title", "source_type", "video_url", "thumbnail_url", "explanation", "safety_tips", "difficulty", "duration_seconds", "enabled", "ai_analysis_ready", "ai_feedback_prompt", "created_by_parent_id", "created_at", "updated_at"]);
   insertRows("quran_favorite_surahs", backup.quran_favorite_surahs, ["child_id", "surah_id", "created_at"]);
   insertRows("quran_revision_logs", backup.quran_revision_logs, ["id", "child_id", "surah_id", "revision_date", "awarded_points", "created_at"]);
   insertRows("quran_surah_progress", backup.quran_surah_progress, ["child_id", "surah_id", "memorized_verses", "surah_bonus_awarded", "updated_at"]);
@@ -1898,6 +2185,7 @@ function dashboardFor(childId) {
       praiseMessages: [],
       mood: null,
       settings: settingsMap(),
+      quranicMotivationVisible: false,
       parentChallenges: [],
       personalBest: {},
       achievements: {},
@@ -1926,6 +2214,12 @@ function dashboardFor(childId) {
     try { taskData = JSON.parse(row.task_data || "{}"); } catch { taskData = {}; }
     return { ...row, task_data: taskData, is_daily_challenge: challenge && Number(row.id) === Number(challenge.id) ? 1 : 0, prayer_state: JSON.parse(row.prayer_state || "{}") };
   });
+  const videoMap = sportsVideoMap();
+  for (const activity of activities) {
+    if (activity.subject === SPORTS_SUBJECT && activity.task_data?.exerciseKey) {
+      activity.sports_video = videoMap[activity.task_data.exerciseKey] || null;
+    }
+  }
   for (const activity of activities) {
     if (activity.is_prayer) {
       activity.prayer_points = PRAYER_POINTS;
@@ -2012,6 +2306,7 @@ function dashboardFor(childId) {
   const praiseMessages = praiseFor(childId);
   const mood = moodFor(childId, date);
   const settings = settingsMap();
+  const quranicVisible = quranicMotivationVisible(childId);
   const challengeRemaining = challengeProgress % 5 === 0 ? 5 : 5 - (challengeProgress % 5);
   const streakRemaining = streak % 7 === 0 ? 7 : 7 - (streak % 7);
   return {
@@ -2041,6 +2336,8 @@ function dashboardFor(childId) {
     praiseMessages,
     mood,
     settings,
+    quranicMotivationVisible: quranicVisible,
+    sports: sportsStatsFor(childId, date),
     parentChallenges,
     personalBest,
     achievements: {
@@ -2226,7 +2523,16 @@ function reports(childId) {
     WHERE rr.child_id = ${childId} AND rr.status = 'redeemed'
     ORDER BY rr.redeemed_at DESC LIMIT 20;
   `);
-  return { completed, weekly, monthly, best, missed, redeemed };
+  const sports = sportsStatsFor(childId);
+  const sportsTrends = db(sql`
+    SELECT l.log_date AS date, COUNT(*) AS completed, COALESCE(SUM(a.duration_minutes), 0) AS duration
+    FROM activity_logs l
+    JOIN activities a ON a.id = l.activity_id
+    WHERE l.child_id = ${childId} AND a.subject = ${SPORTS_SUBJECT} AND l.status IN ('completed','approved')
+    GROUP BY l.log_date
+    ORDER BY l.log_date DESC LIMIT 14;
+  `);
+  return { completed, weekly, monthly, best, missed, redeemed, sports, sportsTrends };
 }
 
 async function api(req, res, path) {
@@ -2267,6 +2573,28 @@ async function api(req, res, path) {
     const quizScope = isAdmin(user) ? "1 = 1" : `q.created_by_parent_id = ${Number(user.id)}`;
     return send(res, 200, {
       children: db(`SELECT * FROM children c WHERE ${childScope} ORDER BY id;`),
+      quranicVisibility: db(`SELECT c.id AS child_id, c.name, COALESCE(q.visible, 1) AS visible FROM children c LEFT JOIN child_quranic_settings q ON q.child_id = c.id WHERE ${childScope} ORDER BY c.name;`),
+      sportsVideos: db("SELECT * FROM sports_videos ORDER BY exercise_key;"),
+      sportsReports: db(`
+        SELECT
+          c.id AS child_id,
+          c.name AS child_name,
+          COUNT(CASE WHEN a.id IS NOT NULL AND l.status IN ('completed','approved') THEN 1 END) AS completed,
+          COALESCE(SUM(CASE WHEN a.id IS NOT NULL AND l.status IN ('completed','approved') THEN a.duration_minutes ELSE 0 END), 0) AS duration,
+          COALESCE((
+            SELECT SUM(pt.points)
+            FROM point_transactions pt
+            LEFT JOIN activity_logs sl ON sl.id = pt.source_id AND pt.source_type = 'activity'
+            LEFT JOIN activities sa ON sa.id = sl.activity_id
+            WHERE pt.child_id = c.id AND (sa.subject = ${quote(SPORTS_SUBJECT)} OR pt.source_type LIKE 'sports_%')
+          ), 0) AS hasnat
+        FROM children c
+        LEFT JOIN activity_logs l ON l.child_id = c.id
+        LEFT JOIN activities a ON a.id = l.activity_id AND a.subject = ${quote(SPORTS_SUBJECT)}
+        WHERE ${childScope}
+        GROUP BY c.id
+        ORDER BY hasnat DESC, completed DESC;
+      `),
       currentUser: { id: user.id, name: user.name, role: user.role },
       users: isAdmin(user)
         ? db("SELECT id, name, email, role, child_id, created_at FROM users ORDER BY role DESC, id;")
@@ -2594,6 +2922,7 @@ async function api(req, res, path) {
     exec(sql`UPDATE activity_logs SET status = ${status}, proof = ${body.proof || ""}, interactive_answer = ${interactiveAnswer}, interactive_score = ${interactiveScore}, updated_at = CURRENT_TIMESTAMP WHERE id = ${log.id};`);
     log = db(sql`SELECT * FROM activity_logs WHERE id = ${log.id};`)[0];
     awardActivityIfNeeded(log, activity);
+    if (activity.subject === SPORTS_SUBJECT && log.status === "approved") awardSportsBonusesIfNeeded(childId);
     return send(res, 200, dashboardFor(childId));
   }
   if (method === "POST" && path === "/api/quran/memorize") {
@@ -2955,6 +3284,81 @@ async function api(req, res, path) {
     `);
     return send(res, 200, { ok: true, settings: settingsMap() });
   }
+  if (method === "POST" && path === "/api/quranic-visibility") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    requireChildAccess(user, childId);
+    exec(sql`
+      INSERT INTO child_quranic_settings (child_id, visible)
+      VALUES (${childId}, ${body.visible ? 1 : 0})
+      ON CONFLICT(child_id) DO UPDATE SET visible = ${body.visible ? 1 : 0}, updated_at = CURRENT_TIMESTAMP;
+    `);
+    return send(res, 200, { ok: true });
+  }
+  if (method === "POST" && path === "/api/bonus-hasnat") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    requireChildAccess(user, childId);
+    const amount = Math.max(1, Math.min(1000, Number(body.amount || 0)));
+    const note = String(body.note || "Parent bonus Hasanat").trim().slice(0, 120);
+    addPoints(childId, amount, "parent_bonus", user.id, note);
+    return send(res, 200, { ok: true });
+  }
+  if (method === "POST" && path === "/api/sports-videos") {
+    const user = requireParent(req);
+    const payload = storeSportsVideoUpload(normalizeVideoPayload(body, user));
+    if (!payload.exerciseKey || !payload.title) return send(res, 400, { error: "Exercise type and title are required." });
+    exec(sql`
+      INSERT INTO sports_videos (
+        exercise_key, title, source_type, video_url, thumbnail_url, explanation, safety_tips, difficulty, duration_seconds, enabled, ai_feedback_prompt, created_by_parent_id
+      )
+      VALUES (${payload.exerciseKey}, ${payload.title}, ${payload.sourceType}, ${payload.videoUrl}, ${payload.thumbnailUrl}, ${payload.explanation}, ${payload.safetyTips}, ${payload.difficulty}, ${payload.durationSeconds}, ${payload.enabled}, ${payload.aiFeedbackPrompt}, ${payload.parentId})
+      ON CONFLICT(exercise_key) DO UPDATE SET
+        title = ${payload.title},
+        source_type = ${payload.sourceType},
+        video_url = ${payload.videoUrl},
+        thumbnail_url = ${payload.thumbnailUrl},
+        explanation = ${payload.explanation},
+        safety_tips = ${payload.safetyTips},
+        difficulty = ${payload.difficulty},
+        duration_seconds = ${payload.durationSeconds},
+        enabled = ${payload.enabled},
+        ai_feedback_prompt = ${payload.aiFeedbackPrompt},
+        created_by_parent_id = ${payload.parentId},
+        updated_at = CURRENT_TIMESTAMP;
+    `);
+    return send(res, 200, { ok: true });
+  }
+  if (method === "PUT" && path.startsWith("/api/sports-videos/")) {
+    const user = requireParent(req);
+    const id = Number(path.split("/").pop());
+    const existing = db(sql`SELECT * FROM sports_videos WHERE id = ${id};`)[0];
+    if (!existing) return send(res, 404, { error: "Video not found." });
+    const payload = storeSportsVideoUpload(normalizeVideoPayload({ ...existing, ...body }, user));
+    exec(sql`
+      UPDATE sports_videos SET
+        exercise_key = ${payload.exerciseKey},
+        title = ${payload.title},
+        source_type = ${payload.sourceType},
+        video_url = ${payload.videoUrl},
+        thumbnail_url = ${payload.thumbnailUrl},
+        explanation = ${payload.explanation},
+        safety_tips = ${payload.safetyTips},
+        difficulty = ${payload.difficulty},
+        duration_seconds = ${payload.durationSeconds},
+        enabled = ${payload.enabled},
+        ai_feedback_prompt = ${payload.aiFeedbackPrompt},
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id};
+    `);
+    return send(res, 200, { ok: true });
+  }
+  if (method === "DELETE" && path.startsWith("/api/sports-videos/")) {
+    requireParent(req);
+    const id = Number(path.split("/").pop());
+    exec(sql`UPDATE sports_videos SET enabled = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ${id};`);
+    return send(res, 200, { ok: true });
+  }
   if (method === "POST" && path === "/api/early-bird") {
     const childId = childIdFor(req, body.childId);
     const date = today();
@@ -3108,6 +3512,7 @@ async function api(req, res, path) {
       child_moods: db("SELECT * FROM child_moods ORDER BY id;"),
       parent_praise_messages: db("SELECT * FROM parent_praise_messages ORDER BY id;"),
       app_settings: db("SELECT * FROM app_settings ORDER BY setting_key;"),
+      sports_videos: db("SELECT * FROM sports_videos ORDER BY exercise_key;"),
       quran_favorite_surahs: db("SELECT * FROM quran_favorite_surahs ORDER BY child_id, surah_id;"),
       quran_revision_logs: db("SELECT * FROM quran_revision_logs ORDER BY id;"),
       quran_surah_progress: db("SELECT * FROM quran_surah_progress ORDER BY child_id, surah_id;"),
@@ -3142,7 +3547,10 @@ function serveStatic(req, res) {
       ".jpg": "image/jpeg",
       ".jpeg": "image/jpeg",
       ".png": "image/png",
-      ".svg": "image/svg+xml"
+      ".svg": "image/svg+xml",
+      ".mp4": "video/mp4",
+      ".webm": "video/webm",
+      ".mov": "video/quicktime"
     }[extname(filePath)] || "text/plain";
     const file = readFileSync(filePath);
     res.writeHead(200, { "Content-Type": mime });

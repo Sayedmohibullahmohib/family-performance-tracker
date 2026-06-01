@@ -1,4 +1,4 @@
-const { useEffect, useState } = React;
+const { useEffect, useRef, useState } = React;
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -126,6 +126,26 @@ function levelFor(points) {
   return { level, title: titles[Math.min(titles.length - 1, level - 1)], progress: Number(points || 0) % 100 };
 }
 
+function classSlug(value) {
+  return String(value || "general").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "general";
+}
+
+function youtubeEmbedUrl(value = "") {
+  try {
+    const url = new URL(value);
+    if (url.hostname.includes("youtube.com") && url.searchParams.get("v")) {
+      return `https://www.youtube-nocookie.com/embed/${url.searchParams.get("v")}`;
+    }
+    if (url.hostname.includes("youtu.be")) {
+      return `https://www.youtube-nocookie.com/embed/${url.pathname.replace("/", "")}`;
+    }
+    if (url.hostname.includes("youtube.com") && url.pathname.includes("/embed/")) {
+      return value.replace("youtube.com", "youtube-nocookie.com");
+    }
+  } catch {}
+  return value;
+}
+
 function calendarInfo(dateString) {
   const date = new Date(`${dateString}T12:00:00`);
   const weekday = new Intl.DateTimeFormat("en", { weekday: "long" }).format(date);
@@ -212,7 +232,6 @@ function Login({ onLogin, error }) {
             <a href="https://www.traintheteachers.com" target="_blank" rel="noreferrer">www.traintheteachers.com</a>
             <a href="https://www.courses.traintheteachers.com" target="_blank" rel="noreferrer">www.courses.traintheteachers.com</a>
           </div>
-          <QuranicMotivationCard compact />
         </div>
       </section>
       <section className="login-panel" aria-label="Sign in">
@@ -702,7 +721,7 @@ function ChildDashboard({ api }) {
         <Leaderboard children={data.leaderboard} currentChildId={data.child.id} />
       </section>
 
-      <QuranicMotivationCard />
+      {data.quranicMotivationVisible ? <QuranicMotivationCard /> : null}
 
       <PraiseBanner messages={data.praiseMessages || []} onSeen={markPraiseSeen} />
 
@@ -716,10 +735,11 @@ function ChildDashboard({ api }) {
 
       <section className="game-grid compact-grid">
         <DailySurpriseBox surprise={data.dailySurprise} onOpen={openDailySurprise} />
-        <StorylineCard completed={completedToday} total={totalToday} />
       </section>
 
       <EarlyBirdCard earlyBird={data.earlyBird} onCheckIn={checkEarlyBird} />
+
+      <SportsDashboard sports={data.sports} activities={data.activities.filter((activity) => activity.subject === "Sports & Physical Development")} onComplete={complete} />
 
       <section className="today-progress-card" aria-label="Today’s progress">
         <div>
@@ -1031,20 +1051,150 @@ function MoodCheckIn({ mood, onMood }) {
   );
 }
 
-function StorylineCard({ completed, total }) {
-  const percent = Math.min(100, Math.round((completed / Math.max(1, total)) * 100));
+function SportsDashboard({ sports, activities = [], onComplete }) {
+  const [demo, setDemo] = useState(null);
+  if (!sports) return null;
+  const percent = sports.today_total ? Math.round((sports.today_completed / sports.today_total) * 100) : 0;
   return (
-    <section className="game-card story-card">
-      <div className="game-card-head">
-        <span>🏰</span>
+    <section className="sports-dashboard" aria-label="Sports and Physical Development">
+      <div className="sports-hero">
         <div>
-          <p className="eyebrow">Storyline</p>
-          <h2>Sadat Heroes Kingdom</h2>
+          <p className="eyebrow">Sports & Physical Development</p>
+          <h2>Move, train, and grow stronger</h2>
+          <p>You are getting stronger, faster, and more balanced one activity at a time.</p>
+        </div>
+        <div className="sports-ring" style={{ "--sports-progress": `${percent}%` }}>
+          <strong>{percent}%</strong>
+          <span>today</span>
         </div>
       </div>
-      <p>Help the Sadat Heroes complete learning missions and unlock the Kingdom of Learning.</p>
-      <Progress value={percent} />
+      <div className="sports-stats">
+        <Stat label="Completed" value={`${sports.today_completed}/${sports.today_total}`} icon="✅" />
+        <Stat label="Remaining" value={sports.today_remaining} icon="🎯" />
+        <Stat label="Sports streak" value={`${sports.sports_streak} days`} icon="🔥" pulse={sports.sports_streak > 0} />
+        <Stat label="Weekly" value={sports.weekly_completed} icon="📈" />
+        <Stat label="Monthly" value={sports.monthly_completed} icon="🏆" />
+        <Stat label="Sports Hasanat" value={sports.total_hasnat} icon={<CoinIcon />} />
+        <Stat label="Exercise time" value={`${sports.total_time} min`} icon="⏱️" />
+      </div>
+      <div className="sports-activity-grid">
+        {activities.length === 0 ? <p className="muted">No sports activities assigned for today.</p> : activities.map((activity) => (
+          <SportsExerciseCard activity={activity} key={activity.id} onDemo={setDemo} onComplete={onComplete} />
+        ))}
+      </div>
+      <div className="sports-badges">
+        {(sports.badges || []).map((badge) => (
+          <article className={badge.earned ? "sports-badge earned" : "sports-badge"} key={badge.title}>
+            <span>{badge.icon}</span>
+            <strong>{badge.title}</strong>
+            <small>{badge.description}</small>
+            <Progress value={Math.round((Number(badge.progress || 0) / Math.max(1, Number(badge.target || 1))) * 100)} />
+          </article>
+        ))}
+      </div>
+      {demo ? <ExerciseDemoModal activity={demo} onClose={() => setDemo(null)} /> : null}
     </section>
+  );
+}
+
+function SportsExerciseCard({ activity, onDemo, onComplete }) {
+  const taskData = activity.task_data || {};
+  const video = activity.sports_video || {};
+  const complete = ["completed", "approved"].includes(activity.status);
+  return (
+    <article className={complete ? "sports-exercise complete" : "sports-exercise"}>
+      {video.thumbnail_url ? (
+        <button className="sports-video-thumb" type="button" onClick={() => onDemo(activity)} aria-label={`Watch ${activity.title} demo`}>
+          <img src={video.thumbnail_url} alt={`${activity.title} demo thumbnail`} loading="lazy" />
+          <span>▶</span>
+        </button>
+      ) : (
+        <ExerciseAnimation exerciseKey={taskData.exerciseKey} />
+      )}
+      <div>
+        <p className="eyebrow">{taskData.category || "Sports"} · {taskData.difficulty || "Easy"}</p>
+        <h3>{activity.title}</h3>
+        <p>{activity.description}</p>
+        <small>{taskData.recommendation || "Try your best"} · <CoinIcon /> {activity.points} Hasanat</small>
+        {video.video_url ? <small className="video-ready">Real video demo ready</small> : <small className="muted">Animation demo until a real video is added</small>}
+      </div>
+      <div className="sports-actions">
+        <button className="ghost" type="button" onClick={() => onDemo(activity)}>Watch Demo</button>
+        <button disabled={complete} type="button" onClick={() => onComplete(activity)}>{complete ? "Completed" : "Complete"}</button>
+      </div>
+    </article>
+  );
+}
+
+function ExerciseAnimation({ exerciseKey = "run" }) {
+  return (
+    <div className={`exercise-animation exercise-${classSlug(exerciseKey)}`} aria-hidden="true">
+      <span className="exercise-head" />
+      <span className="exercise-body" />
+      <span className="exercise-arm left" />
+      <span className="exercise-arm right" />
+      <span className="exercise-leg left" />
+      <span className="exercise-leg right" />
+      <span className="exercise-ground" />
+    </div>
+  );
+}
+
+function ExerciseDemoModal({ activity, onClose }) {
+  const data = activity.task_data || {};
+  const video = activity.sports_video || {};
+  const videoRef = useRef(null);
+  const steps = Array.isArray(data.instructions) ? data.instructions : ["Start slowly.", "Keep control.", "Finish with a smile."];
+  const safety = video.safety_tips || data.safety || "Warm up first. Drink water. Stop if you feel pain. Ask a parent for help.";
+  const hasVideo = Boolean(video.enabled && video.video_url);
+  const isYoutube = video.source_type === "youtube";
+  function replay() {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {});
+    }
+  }
+  return (
+    <div className="demo-modal" role="dialog" aria-modal="true" aria-label={`${activity.title} demo`} onClick={onClose}>
+      <section onClick={(event) => event.stopPropagation()}>
+        <button className="modal-close" onClick={onClose} aria-label="Close demo">×</button>
+        {hasVideo ? (
+          <div className="sports-video-frame">
+            {isYoutube ? (
+              <iframe
+                title={`${activity.title} demonstration video`}
+                src={youtubeEmbedUrl(video.video_url)}
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <video ref={videoRef} controls preload="metadata" poster={video.thumbnail_url || ""}>
+                <source src={video.video_url} />
+                Your browser cannot play this video.
+              </video>
+            )}
+          </div>
+        ) : (
+          <div className="sports-video-placeholder">
+            <ExerciseAnimation exerciseKey={data.exerciseKey} />
+            <strong>No real video has been added yet.</strong>
+            <span>The safe animation demo is shown until a parent/admin adds a video.</span>
+          </div>
+        )}
+        <p className="eyebrow">Watch Demo</p>
+        <h2>{activity.title}</h2>
+        <p>{video.explanation || data.recommendation || "Watch the movement, then start slowly and safely."}</p>
+        <ol>
+          {steps.map((step) => <li key={step}>{step}</li>)}
+        </ol>
+        <div className="demo-safety">Safety reminder: {safety}</div>
+        <div className="video-replay-row">
+          {hasVideo && !isYoutube ? <button className="ghost" type="button" onClick={replay}>Replay video</button> : null}
+          <button onClick={onClose}>Start Activity</button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1993,8 +2143,10 @@ function ActivityCard({ activity, timerScope, onComplete }) {
   const [buttonBounce, setButtonBounce] = useState(false);
   const [proof, setProof] = useState("");
   const [interactiveAnswer, setInteractiveAnswer] = useState("");
+  const [demoOpen, setDemoOpen] = useState(false);
   const taskType = activity.task_type || "standard";
   const taskData = activity.task_data || {};
+  const isSports = activity.subject === "Sports & Physical Development";
   const hasInteractiveTask = taskType && taskType !== "standard";
   const timerRequired = durationSeconds > 0 && !activity.is_prayer;
   const timerProgress = timerRequired ? Math.max(0, Math.min(100, Math.round(((durationSeconds - secondsLeft) / durationSeconds) * 100))) : 0;
@@ -2150,8 +2302,9 @@ function ActivityCard({ activity, timerScope, onComplete }) {
   }
 
   return (
-    <article className={`activity ${activity.status} subject-${String(activity.subject || "general").toLowerCase()} ${activity.is_daily_challenge ? "daily-pick" : ""}`}>
+    <article className={`activity ${activity.status} subject-${classSlug(activity.subject)} ${activity.is_daily_challenge ? "daily-pick" : ""}`}>
       <ActivityMotionIcon activity={activity} />
+      {demoOpen ? <ExerciseDemoModal activity={activity} onClose={() => setDemoOpen(false)} /> : null}
       <div className="activity-body">
         <div className="row">
           <h3>{activity.title} {activity.is_daily_challenge ? <span className="daily-badge">Activity of the day</span> : null}</h3>
@@ -2159,6 +2312,7 @@ function ActivityCard({ activity, timerScope, onComplete }) {
         </div>
         <p>{activity.description}</p>
         <button className="narrate-button ghost" type="button" onClick={narrateTask} aria-label={`Read ${activity.title} instructions aloud`}>Read task</button>
+        {isSports ? <button className="narrate-button ghost" type="button" onClick={() => setDemoOpen(true)}>Watch Demo</button> : null}
         {activity.subject ? <small className="subject-chip">{activity.subject} · {taskType === "standard" ? "Daily activity" : taskType.replaceAll("_", " ")}</small> : null}
         <span className={`status-chip ${activity.status}`}>{activity.status}</span>
         {activity.proof_required ? (
@@ -2441,7 +2595,7 @@ function ParentDashboard({ api }) {
   async function saveActivity(event) {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget));
-    const taskData = {
+    const taskData = form.task_type === "sports" && editingActivity?.task_data ? editingActivity.task_data : {
       prompt: form.interactive_prompt || "",
       options: String(form.interactive_options || "").split("\n").map((item) => item.trim()).filter(Boolean),
       pairs: String(form.interactive_pairs || "").split("\n").map((line) => line.split("=").map((item) => item.trim())).filter((pair) => pair.length === 2 && pair[0] && pair[1]),
@@ -2688,6 +2842,40 @@ function ParentDashboard({ api }) {
     load(childId);
   }
 
+  async function toggleQuranicVisibility(child, visible) {
+    await api("/api/quranic-visibility", { method: "POST", body: JSON.stringify({ childId: child.child_id, visible }) });
+    setNotice(`Quranic Motivation ${visible ? "enabled" : "hidden"} for ${child.name}.`);
+    load(childId);
+  }
+
+  async function awardBonusHasnat(event) {
+    event.preventDefault();
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    await api("/api/bonus-hasnat", {
+      method: "POST",
+      body: JSON.stringify({ childId, amount: Number(form.amount || 0), note: form.note || "Parent bonus Hasanat" })
+    });
+    event.currentTarget.reset();
+    setNotice("Bonus Hasanat awarded.");
+    load(childId);
+  }
+
+  async function saveSportsVideo(event) {
+    event.preventDefault();
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    await api("/api/sports-videos", {
+      method: "POST",
+      body: JSON.stringify({
+        ...form,
+        enabled: form.enabled === "on",
+        duration_seconds: Number(form.duration_seconds || 20)
+      })
+    });
+    event.currentTarget.reset();
+    setNotice("Sports demo video saved.");
+    load(childId);
+  }
+
   return (
     <main className="dashboard">
       <section className="admin-top">
@@ -2848,6 +3036,18 @@ function ParentDashboard({ api }) {
         <section className="admin-grid">
           <Panel title="Seasonal Theme & Sound">
             <GameSettingsForm settings={admin.settings || {}} onSubmit={saveGameSettings} />
+          </Panel>
+          <Panel title="Quranic Motivation Visibility">
+            <QuranicVisibilityForm rows={admin.quranicVisibility || []} onToggle={toggleQuranicVisibility} />
+          </Panel>
+          <Panel title="Award Bonus Hasanat">
+            <BonusHasnatForm childName={selectedChildName} onSubmit={awardBonusHasnat} />
+          </Panel>
+          <Panel title="Sports Reports">
+            <SportsReportsPanel rows={admin.sportsReports || []} />
+          </Panel>
+          <Panel title="Sports Video Library">
+            <SportsVideoLibrary videos={admin.sportsVideos || []} activities={admin.activities || []} onSubmit={saveSportsVideo} />
           </Panel>
           <Panel title="Send Praise Message">
             <PraiseForm childName={selectedChildName} onSubmit={sendPraise} />
@@ -3188,7 +3388,7 @@ function QuizEditorForm({ item, children, onSubmit }) {
       <h3>{item ? "Edit quiz" : "New quiz activity"}</h3>
       <input name="title" placeholder="Quiz title" defaultValue={item?.title || ""} required />
       <select name="subject" defaultValue={item?.subject || "Reading"}>
-        {["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork"].map((subject) => <option key={subject}>{subject}</option>)}
+        {["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map((subject) => <option key={subject}>{subject}</option>)}
       </select>
       <select name="quiz_type" defaultValue={item?.quiz_type || "select_3"}>
         {quizTypes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
@@ -3273,6 +3473,110 @@ function GameSettingsForm({ settings = {}, onSubmit }) {
   );
 }
 
+function QuranicVisibilityForm({ rows = [], onToggle }) {
+  return (
+    <div className="mini-list">
+      {rows.map((row) => (
+        <div key={row.child_id}>
+          <span>{row.name}</span>
+          <label className="check">
+            <input type="checkbox" checked={Number(row.visible) === 1} onChange={(event) => onToggle(row, event.target.checked)} />
+            Show Quranic Motivation
+          </label>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BonusHasnatForm({ childName, onSubmit }) {
+  return (
+    <form className="editor" onSubmit={onSubmit}>
+      <p className="muted">Award extra Hasanat to {childName || "the selected child"}.</p>
+      <input name="amount" type="number" min="1" max="1000" placeholder="Hasanat amount" required />
+      <input name="note" placeholder="Reason, for example: Excellent sports effort" />
+      <button>Award bonus</button>
+    </form>
+  );
+}
+
+function SportsReportsPanel({ rows = [] }) {
+  if (!rows.length) return <p className="muted">No sports report data yet.</p>;
+  return (
+    <div className="mini-list">
+      {rows.map((row) => (
+        <div key={row.child_id}>
+          <span>{row.child_name}</span>
+          <small>{row.completed} completed · {row.duration} min · {row.hasnat} Hasanat</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SportsVideoLibrary({ videos = [], activities = [], onSubmit }) {
+  const sportsActivities = activities.filter((activity) => activity.subject === "Sports & Physical Development");
+  const exerciseOptions = Array.from(new Map(sportsActivities.map((activity) => {
+    const key = activity.task_data?.exerciseKey || classSlug(activity.title);
+    return [key, `${activity.title} (${key})`];
+  })).entries());
+  const [videoData, setVideoData] = useState("");
+
+  function readVideo(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setVideoData(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div className="sports-video-library">
+      <form className="editor" onSubmit={(event) => {
+        const hidden = event.currentTarget.querySelector("input[name='video_url']");
+        if (hidden && videoData) hidden.value = videoData;
+        onSubmit(event);
+        setVideoData("");
+      }}>
+        <select name="exercise_key" required>
+          <option value="">Choose exercise</option>
+          {exerciseOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+        </select>
+        <input name="title" placeholder="Video title" required />
+        <select name="source_type" defaultValue="url">
+          <option value="url">Video URL</option>
+          <option value="youtube">YouTube embed</option>
+          <option value="upload">Upload MP4</option>
+          <option value="self_hosted">Self-hosted file</option>
+        </select>
+        <input name="video_url" placeholder="Video URL, YouTube embed URL, or uploaded MP4 data" />
+        <label className="restore-button">Upload MP4<input type="file" accept="video/mp4,video/webm,video/*" onChange={(event) => readVideo(event.target.files?.[0])} /></label>
+        {videoData ? <small>Video ready to save. Large files may take longer to upload.</small> : null}
+        <input name="thumbnail_url" placeholder="Thumbnail URL, optional" />
+        <textarea name="explanation" placeholder="Simple child-friendly explanation" />
+        <textarea name="safety_tips" placeholder="Safety tips" defaultValue="Warm up first. Drink water. Stop if you feel pain. Ask a parent for help." />
+        <div className="form-row">
+          <select name="difficulty" defaultValue="Easy">
+            <option>Easy</option>
+            <option>Medium</option>
+            <option>Hard</option>
+          </select>
+          <input name="duration_seconds" type="number" min="5" max="180" defaultValue="20" />
+        </div>
+        <textarea name="ai_feedback_prompt" placeholder="Future AI exercise analysis prompt" defaultValue="Future AI posture feedback for safe child-friendly exercise guidance." />
+        <label className="check"><input name="enabled" type="checkbox" defaultChecked /> Enabled</label>
+        <button>Save video</button>
+      </form>
+      <div className="mini-list">
+        {videos.map((video) => (
+          <div key={video.id}>
+            <span>{video.enabled ? "✅" : "⏸️"} {video.title} · {video.exercise_key} · {video.source_type}<small>{video.duration_seconds}s · {video.difficulty}</small></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PraiseForm({ childName, onSubmit }) {
   return (
     <form className="editor" onSubmit={onSubmit}>
@@ -3336,7 +3640,7 @@ function EditorForm({ item, type, onSubmit }) {
         <>
           <input name="duration_minutes" type="number" min="0" placeholder="Timer minutes" defaultValue={item?.duration_minutes || 0} />
           <select name="subject" defaultValue={item?.subject || "Reading"}>
-            {["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork"].map((subject) => <option key={subject}>{subject}</option>)}
+            {["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map((subject) => <option key={subject}>{subject}</option>)}
           </select>
           <select name="task_type" defaultValue={item?.task_type || "standard"}>
             <option value="standard">Standard task</option>
@@ -3387,6 +3691,11 @@ function ReportView({ reports }) {
       {reports.weekly.map((row) => <Bar key={row.week} label={row.week} value={row.points} />)}
       <h3>Monthly Hasanat</h3>
       {reports.monthly.map((row) => <Bar key={row.month} label={row.month} value={row.points} />)}
+      <h3>Sports & Physical Development</h3>
+      <p><strong>Today:</strong> {reports.sports?.today_completed || 0}/{reports.sports?.today_total || 0} completed · {reports.sports?.completion_rate || 0}%</p>
+      <p><strong>Weekly:</strong> {reports.sports?.weekly_completed || 0} activities · <strong>Monthly:</strong> {reports.sports?.monthly_completed || 0} activities</p>
+      <p><strong>Exercise time:</strong> {reports.sports?.total_time || 0} minutes · <strong>Sports Hasanat:</strong> {reports.sports?.total_hasnat || 0}</p>
+      {(reports.sportsTrends || []).slice(0, 7).map((row) => <Bar key={row.date} label={row.date} value={row.completed} />)}
       <h3>Redeemed rewards</h3>
       {reports.redeemed.length === 0 ? <p className="muted">No rewards redeemed yet.</p> : reports.redeemed.map((row) => <p key={row.redeemed_at}>{row.title} · {row.points_spent} Hasanat</p>)}
     </div>

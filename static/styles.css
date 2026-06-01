@@ -582,6 +582,35 @@ body[data-seasonal-theme="summer"] {
   }
 }
 
+@keyframes exerciseMove {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+}
+
+@keyframes exerciseLegs {
+  0%, 100% {
+    transform: rotate(20deg);
+  }
+  50% {
+    transform: rotate(-24deg);
+  }
+}
+
+@keyframes sportsCelebrate {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 14px 28px rgba(249, 115, 22, 0.18);
+  }
+  50% {
+    transform: scale(1.015);
+    box-shadow: 0 20px 45px rgba(34, 197, 94, 0.24);
+  }
+}
+
 @keyframes starDrift {
   0% {
     transform: translateX(-12%);
@@ -4374,10 +4403,6 @@ img.race-avatar {
   outline: 3px solid rgba(22, 163, 74, 0.16);
 }
 
-.story-card {
-  background: linear-gradient(135deg, #eff6ff, #faf5ff);
-}
-
 .narrate-button {
   min-height: 34px;
   padding: 6px 10px;
@@ -4392,6 +4417,11 @@ img.race-avatar {
 .activity.subject-fitness {
   border-color: #fb923c;
   background: linear-gradient(135deg, #ffffff, #fff7ed 65%, #fee2e2);
+}
+
+.activity.subject-sports-physical-development {
+  border-color: #f97316;
+  background: linear-gradient(135deg, #ffffff, #fff7ed 58%, #dcfce7);
 }
 
 .activity.subject-german {
@@ -4422,6 +4452,282 @@ img.race-avatar {
 .activity.subject-math {
   border-color: #38bdf8;
   background: linear-gradient(135deg, #ffffff, #eff6ff);
+}
+
+.sports-dashboard {
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.98), rgba(236, 253, 245, 0.98));
+  border: 1px solid rgba(249, 115, 22, 0.22);
+  border-radius: 8px;
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.sports-hero {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr auto;
+}
+
+.sports-hero h2 {
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 1.05;
+}
+
+.sports-ring {
+  align-items: center;
+  background: conic-gradient(#22c55e var(--sports-progress), #fed7aa 0);
+  border-radius: 50%;
+  display: inline-flex;
+  flex-direction: column;
+  height: 116px;
+  justify-content: center;
+  position: relative;
+  width: 116px;
+}
+
+.sports-ring::after {
+  background: white;
+  border-radius: 50%;
+  content: "";
+  inset: 10px;
+  position: absolute;
+}
+
+.sports-ring strong,
+.sports-ring span {
+  position: relative;
+  z-index: 1;
+}
+
+.sports-stats,
+.sports-activity-grid,
+.sports-badges {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.sports-exercise,
+.sports-badge {
+  animation: dashboardCardIn 420ms ease both;
+  background: white;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.sports-exercise.complete,
+.sports-badge.earned {
+  animation: sportsCelebrate 1800ms ease-in-out infinite;
+  border-color: #22c55e;
+}
+
+.sports-video-thumb {
+  align-items: center;
+  aspect-ratio: 16 / 10;
+  background: #0f172a;
+  border: 0;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+  width: 100%;
+}
+
+.sports-video-thumb img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.sports-video-thumb span {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  color: #2563eb;
+  display: inline-flex;
+  font-weight: 1000;
+  height: 48px;
+  justify-content: center;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+}
+
+.video-ready {
+  color: #15803d;
+  display: block;
+  font-weight: 900;
+  margin-top: 6px;
+}
+
+.sports-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exercise-animation {
+  height: 86px;
+  margin: 0 auto;
+  position: relative;
+  width: 104px;
+}
+
+.exercise-head,
+.exercise-body,
+.exercise-arm,
+.exercise-leg,
+.exercise-ground {
+  display: block;
+  position: absolute;
+}
+
+.exercise-head {
+  animation: exerciseMove 900ms ease-in-out infinite;
+  background: #fde68a;
+  border: 3px solid #1f2937;
+  border-radius: 50%;
+  height: 24px;
+  left: 40px;
+  top: 6px;
+  width: 24px;
+}
+
+.exercise-body {
+  animation: exerciseMove 900ms ease-in-out infinite;
+  background: #60a5fa;
+  border: 3px solid #1f2937;
+  border-radius: 999px;
+  height: 34px;
+  left: 43px;
+  top: 30px;
+  width: 18px;
+}
+
+.exercise-arm,
+.exercise-leg {
+  animation: exerciseLegs 720ms ease-in-out infinite;
+  background: #1f2937;
+  border-radius: 999px;
+  height: 30px;
+  transform-origin: top center;
+  width: 5px;
+}
+
+.exercise-arm.left { left: 36px; top: 33px; }
+.exercise-arm.right { animation-delay: 260ms; left: 63px; top: 33px; }
+.exercise-leg.left { left: 43px; top: 60px; }
+.exercise-leg.right { animation-delay: 260ms; left: 58px; top: 60px; }
+
+.exercise-ground {
+  background: #bbf7d0;
+  border-radius: 999px;
+  bottom: 0;
+  height: 8px;
+  left: 12px;
+  width: 80px;
+}
+
+.exercise-squats .exercise-body,
+.exercise-frog-jump .exercise-body,
+.exercise-wall-sit .exercise-body {
+  animation-name: iconBounce;
+}
+
+.exercise-one-leg-balance .exercise-leg.right,
+.exercise-heel-to-toe .exercise-leg.right {
+  transform: rotate(80deg);
+}
+
+.demo-modal {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.48);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 60;
+}
+
+.demo-modal > section {
+  background: white;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  max-height: min(92vh, 860px);
+  max-width: 720px;
+  overflow: auto;
+  padding: 22px;
+  position: relative;
+  width: min(100%, 720px);
+}
+
+.sports-video-frame,
+.sports-video-placeholder {
+  background: linear-gradient(135deg, #dbeafe, #fef3c7);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sports-video-frame video,
+.sports-video-frame iframe {
+  aspect-ratio: 16 / 9;
+  border: 0;
+  display: block;
+  width: 100%;
+}
+
+.sports-video-placeholder {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 18px;
+  text-align: center;
+}
+
+.sports-video-placeholder span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.video-replay-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.demo-modal ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.demo-safety {
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #166534;
+  font-weight: 800;
+  padding: 10px;
+}
+
+.modal-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: auto;
 }
 
 .rarity-label {
@@ -4689,7 +4995,8 @@ img.race-avatar {
   .today-progress-card,
   .weekly-theme,
   .early-bird-card,
-  .complete-stats {
+  .complete-stats,
+  .sports-hero {
     grid-template-columns: 1fr;
   }
 
