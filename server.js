@@ -4,6 +4,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
 import { spawnSync } from "node:child_process";
+import { SEERAH_CATEGORY_KEY, SEERAH_CATEGORY_NAME, SEERAH_QUESTIONS } from "./seerahQuizData.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const DATA_DIR = join(__dirname, "data");
@@ -403,17 +404,6 @@ function initDb() {
       FOREIGN KEY(child_id) REFERENCES children(id),
       FOREIGN KEY(item_id) REFERENCES avatar_items(id)
     );
-    CREATE TABLE IF NOT EXISTS treasure_chests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      child_id INTEGER NOT NULL,
-      chest_date TEXT NOT NULL,
-      reward_type TEXT NOT NULL,
-      reward_value INTEGER NOT NULL,
-      message TEXT NOT NULL,
-      opened_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(child_id, chest_date),
-      FOREIGN KEY(child_id) REFERENCES children(id)
-    );
     CREATE TABLE IF NOT EXISTS parent_challenges (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -435,29 +425,6 @@ function initDb() {
       awarded_at TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(challenge_id, child_id),
       FOREIGN KEY(challenge_id) REFERENCES parent_challenges(id),
-      FOREIGN KEY(child_id) REFERENCES children(id)
-    );
-    CREATE TABLE IF NOT EXISTS power_ups (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      child_id INTEGER NOT NULL,
-      power_type TEXT NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL,
-      value INTEGER DEFAULT 0,
-      status TEXT DEFAULT 'owned' CHECK(status IN ('owned','active','used')),
-      earned_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      used_at TEXT,
-      FOREIGN KEY(child_id) REFERENCES children(id)
-    );
-    CREATE TABLE IF NOT EXISTS mystery_boxes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      child_id INTEGER NOT NULL,
-      box_date TEXT NOT NULL,
-      reward_type TEXT NOT NULL,
-      reward_value INTEGER NOT NULL,
-      message TEXT NOT NULL,
-      opened_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(child_id, box_date),
       FOREIGN KEY(child_id) REFERENCES children(id)
     );
     CREATE TABLE IF NOT EXISTS child_reflections (
@@ -595,6 +562,17 @@ function initDb() {
       FOREIGN KEY(kid_id) REFERENCES children(id),
       FOREIGN KEY(parent_id) REFERENCES users(id)
     );
+    CREATE TABLE IF NOT EXISTS quiz_category_assignments (
+      category_key TEXT NOT NULL,
+      child_id INTEGER NOT NULL,
+      assigned_by_parent_id INTEGER NOT NULL,
+      enabled INTEGER DEFAULT 1,
+      assigned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(category_key, child_id),
+      FOREIGN KEY(child_id) REFERENCES children(id),
+      FOREIGN KEY(assigned_by_parent_id) REFERENCES users(id)
+    );
     CREATE TABLE IF NOT EXISTS child_wallets (
       child_id INTEGER PRIMARY KEY,
       xp INTEGER DEFAULT 0,
@@ -605,15 +583,13 @@ function initDb() {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(child_id) REFERENCES children(id)
     );
-    CREATE TABLE IF NOT EXISTS daily_surprises (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      child_id INTEGER NOT NULL,
-      surprise_date TEXT NOT NULL,
-      reward_type TEXT NOT NULL,
-      reward_value INTEGER DEFAULT 0,
-      message TEXT NOT NULL,
-      opened_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(child_id, surprise_date),
+    CREATE TABLE IF NOT EXISTS seerah_quiz_progress (
+      child_id INTEGER PRIMARY KEY,
+      current_question INTEGER DEFAULT 1,
+      current_level INTEGER DEFAULT 1,
+      questions_completed_in_level INTEGER DEFAULT 0,
+      completed INTEGER DEFAULT 0,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(child_id) REFERENCES children(id)
     );
     CREATE TABLE IF NOT EXISTS child_pets (
@@ -787,6 +763,12 @@ function initDb() {
   if (!columnExists("activities", "task_date")) {
     exec("ALTER TABLE activities ADD COLUMN task_date TEXT;");
   }
+  if (!columnExists("quizzes", "category_key")) {
+    exec("ALTER TABLE quizzes ADD COLUMN category_key TEXT DEFAULT '';");
+  }
+  if (!columnExists("quizzes", "category_question_id")) {
+    exec("ALTER TABLE quizzes ADD COLUMN category_question_id INTEGER;");
+  }
   if (db("SELECT COUNT(*) AS count FROM avatar_items;")[0].count === 0) {
     const items = [
       ["Golden Frame", "🏅", "frame", 60],
@@ -808,10 +790,22 @@ function initDb() {
     SELECT id FROM children;
     INSERT OR IGNORE INTO app_settings (setting_key, setting_value) VALUES ('seasonal_theme', 'learning');
     INSERT OR IGNORE INTO app_settings (setting_key, setting_value) VALUES ('sound_enabled', 'true');
+    INSERT OR IGNORE INTO app_settings (setting_key, setting_value) VALUES ('seerah_restart_on_wrong', 'true');
+    INSERT OR IGNORE INTO app_settings (setting_key, setting_value) VALUES ('seerah_level_size', '10');
     INSERT OR IGNORE INTO child_quranic_settings (child_id, visible)
     SELECT id, 1 FROM children;
+    INSERT OR IGNORE INTO seerah_quiz_progress (child_id)
+    SELECT id FROM children;
+  `);
+  exec(`
+    DROP TABLE IF EXISTS daily_surprises;
+    DROP TABLE IF EXISTS power_ups;
+    DROP TABLE IF EXISTS mystery_boxes;
+    DROP TABLE IF EXISTS treasure_chests;
   `);
   seedSportsActivities();
+  seedSeerahQuiz();
+  migrateSeerahProgress();
 
   const [{ count }] = db("SELECT COUNT(*) AS count FROM users;");
   if (count > 0) {
@@ -880,6 +874,8 @@ function initDb() {
     exec(sql`INSERT INTO rewards (title, description, required_points) VALUES (${reward[0]}, ${reward[1]}, ${reward[2]});`);
   }
   seedSportsActivities();
+  seedSeerahQuiz();
+  migrateSeerahProgress();
   exec("INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled) SELECT c.id, a.id, 1 FROM children c CROSS JOIN activities a WHERE a.active = 1;");
 }
 
@@ -905,6 +901,83 @@ function addPetJoy(childId, amount = 3) {
           pet_level = MAX(pet_level, CAST((happiness + ${Number(amount)}) / 25 AS INTEGER) + 1),
           updated_at = CURRENT_TIMESTAMP
       WHERE child_id = ${childId};
+  `);
+}
+
+function seedSeerahQuiz() {
+  const admin = db("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1;")[0];
+  if (!admin) return;
+  for (const item of SEERAH_QUESTIONS) {
+    exec(sql`
+      INSERT INTO quizzes (
+        title, subject, quiz_type, instructions, difficulty, level, question_text, options,
+        correct_answer, explanation, required_score_to_pass, xp_reward, coin_reward,
+        status, created_by_parent_id, category_key, category_question_id
+      )
+      SELECT
+        ${`${SEERAH_CATEGORY_NAME} · Frage ${item.id}`},
+        ${SEERAH_CATEGORY_NAME},
+        'select_3',
+        'Wähle die richtige Antwort aus drei Möglichkeiten.',
+        ${item.difficulty},
+        ${item.id},
+        ${item.question},
+        ${JSON.stringify(item.options)},
+        ${item.correctAnswer},
+        ${item.explanation},
+        1,
+        ${item.hasnat},
+        ${item.hasnat},
+        'active',
+        ${admin.id},
+        ${SEERAH_CATEGORY_KEY},
+        ${item.id}
+      WHERE NOT EXISTS (
+        SELECT 1 FROM quizzes
+        WHERE category_key = ${SEERAH_CATEGORY_KEY} AND category_question_id = ${item.id}
+      );
+    `);
+  }
+  exec(sql`
+    INSERT OR IGNORE INTO quiz_category_assignments (category_key, child_id, assigned_by_parent_id, enabled)
+    SELECT ${SEERAH_CATEGORY_KEY}, c.id, ${admin.id}, 1 FROM children c;
+    INSERT OR IGNORE INTO seerah_quiz_progress (child_id)
+    SELECT id FROM children;
+  `);
+}
+
+function migrateSeerahProgress() {
+  const migrated = db("SELECT setting_value FROM app_settings WHERE setting_key = 'seerah_progress_migrated';")[0];
+  if (migrated?.setting_value === "true") return;
+  const levelSize = Math.max(1, Math.min(25, Number(settingsMap().seerah_level_size || 10)));
+  for (const child of db("SELECT id FROM children ORDER BY id;")) {
+    const passed = new Set(db(sql`
+      SELECT DISTINCT q.category_question_id
+      FROM quiz_attempts qa
+      JOIN quizzes q ON q.id = qa.quiz_id
+      WHERE qa.kid_id = ${child.id} AND qa.passed = 1 AND q.category_key = ${SEERAH_CATEGORY_KEY};
+    `).map((row) => Number(row.category_question_id)));
+    let currentQuestion = 1;
+    while (currentQuestion <= SEERAH_QUESTIONS.length && passed.has(currentQuestion)) currentQuestion += 1;
+    const completed = currentQuestion > SEERAH_QUESTIONS.length;
+    const currentLevel = completed
+      ? Math.ceil(SEERAH_QUESTIONS.length / levelSize)
+      : Math.floor((currentQuestion - 1) / levelSize) + 1;
+    const levelStart = (currentLevel - 1) * levelSize + 1;
+    exec(sql`
+      INSERT INTO seerah_quiz_progress (child_id, current_question, current_level, questions_completed_in_level, completed)
+      VALUES (${child.id}, ${currentQuestion}, ${currentLevel}, ${completed ? Math.min(levelSize, SEERAH_QUESTIONS.length - levelStart + 1) : currentQuestion - levelStart}, ${completed ? 1 : 0})
+      ON CONFLICT(child_id) DO UPDATE SET
+        current_question = excluded.current_question,
+        current_level = excluded.current_level,
+        questions_completed_in_level = excluded.questions_completed_in_level,
+        completed = excluded.completed,
+        updated_at = CURRENT_TIMESTAMP;
+    `);
+  }
+  exec(`
+    INSERT INTO app_settings (setting_key, setting_value) VALUES ('seerah_progress_migrated', 'true')
+    ON CONFLICT(setting_key) DO UPDATE SET setting_value = 'true', updated_at = CURRENT_TIMESTAMP;
   `);
 }
 
@@ -1162,11 +1235,6 @@ function praiseFor(childId) {
     ORDER BY pm.created_at DESC
     LIMIT 5;
   `);
-}
-
-function dailySurpriseFor(childId, date = today()) {
-  const existing = db(sql`SELECT * FROM daily_surprises WHERE child_id = ${childId} AND surprise_date = ${date} LIMIT 1;`)[0] || null;
-  return { ready: !existing, opened: Boolean(existing), box: existing };
 }
 
 function isHifzChild(child) {
@@ -1479,20 +1547,83 @@ function quizzesForKid(childId) {
         ORDER BY qa.completed_at DESC LIMIT 1
       ) AS last_score,
       (
-        SELECT passed FROM quiz_attempts qa
+        SELECT MAX(passed) FROM quiz_attempts qa
         WHERE qa.quiz_id = q.id AND qa.kid_id = ${childId}
-        ORDER BY qa.completed_at DESC LIMIT 1
       ) AS last_passed
     FROM quizzes q
     WHERE q.status = 'active'
       AND (q.assigned_to_kid_id IS NULL OR q.assigned_to_kid_id = ${childId})
+      AND (
+        COALESCE(q.category_key, '') = ''
+        OR EXISTS (
+          SELECT 1 FROM quiz_category_assignments qca
+          WHERE qca.category_key = q.category_key AND qca.child_id = ${childId} AND qca.enabled = 1
+        )
+      )
       AND (q.due_date IS NULL OR q.due_date >= ${today()})
        AND (
          q.created_by_parent_id = (SELECT parent_id FROM children WHERE id = ${childId})
          OR q.created_by_parent_id IN (SELECT id FROM users WHERE role = 'admin')
        )
-    ORDER BY q.due_date IS NULL, q.due_date ASC, q.level ASC, q.id DESC;
+    ORDER BY
+      CASE WHEN q.category_key = ${SEERAH_CATEGORY_KEY} THEN 0 ELSE 1 END,
+      q.category_question_id ASC,
+      q.due_date IS NULL,
+      q.due_date ASC,
+      q.level ASC,
+      q.id DESC;
   `).map(quizRow);
+}
+
+function seerahQuizProgressFor(childId) {
+  exec(sql`INSERT OR IGNORE INTO seerah_quiz_progress (child_id) VALUES (${childId});`);
+  const assignment = db(sql`
+    SELECT enabled FROM quiz_category_assignments
+    WHERE category_key = ${SEERAH_CATEGORY_KEY} AND child_id = ${childId};
+  `)[0];
+  const correctlyAnswered = Number(db(sql`
+    SELECT COUNT(DISTINCT qa.quiz_id) AS count
+    FROM quiz_attempts qa
+    JOIN quizzes q ON q.id = qa.quiz_id
+    WHERE qa.kid_id = ${childId} AND qa.passed = 1 AND q.category_key = ${SEERAH_CATEGORY_KEY};
+  `)[0]?.count || 0);
+  const settings = settingsMap();
+  const levelSize = Math.max(1, Math.min(25, Number(settings.seerah_level_size || 10)));
+  const row = db(sql`SELECT * FROM seerah_quiz_progress WHERE child_id = ${childId};`)[0] || {};
+  const currentQuestion = Math.max(1, Math.min(SEERAH_QUESTIONS.length + 1, Number(row.current_question || 1)));
+  const completed = currentQuestion > SEERAH_QUESTIONS.length;
+  const currentLevel = completed
+    ? Math.ceil(SEERAH_QUESTIONS.length / levelSize)
+    : Math.floor((currentQuestion - 1) / levelSize) + 1;
+  const levelStart = (currentLevel - 1) * levelSize + 1;
+  const levelEnd = Math.min(SEERAH_QUESTIONS.length, levelStart + levelSize - 1);
+  const completedInLevel = completed ? levelEnd - levelStart + 1 : currentQuestion - levelStart;
+  const totalProgress = completed ? SEERAH_QUESTIONS.length : currentQuestion - 1;
+  const earnedHasnat = Number(db(sql`
+    SELECT COALESCE(SUM(pt.points), 0) AS points
+    FROM point_transactions pt
+    JOIN quizzes q ON q.id = pt.source_id
+    WHERE pt.child_id = ${childId} AND pt.source_type = 'quiz' AND q.category_key = ${SEERAH_CATEGORY_KEY};
+  `)[0]?.points || 0);
+  return {
+    key: SEERAH_CATEGORY_KEY,
+    name: SEERAH_CATEGORY_NAME,
+    assigned: Boolean(Number(assignment?.enabled || 0)),
+    completed: totalProgress,
+    correctly_answered: correctlyAnswered,
+    total: SEERAH_QUESTIONS.length,
+    remaining: Math.max(0, SEERAH_QUESTIONS.length - totalProgress),
+    percentage: Math.round((totalProgress / SEERAH_QUESTIONS.length) * 100),
+    earned_hasnat: earnedHasnat,
+    complete: completed,
+    current_question: currentQuestion,
+    current_level: currentLevel,
+    level_size: levelSize,
+    level_start: levelStart,
+    level_end: levelEnd,
+    questions_completed_in_level: completedInLevel,
+    restart_on_wrong: settings.seerah_restart_on_wrong !== "false"
+  };
 }
 
 function quizResultsForParent(user) {
@@ -1591,6 +1722,24 @@ function awardQuizBadges(childId, quiz, correct, passed) {
   }
 }
 
+function awardSeerahBadges(childId) {
+  const completed = Number(seerahQuizProgressFor(childId).completed || 0);
+  const milestones = [
+    [1, -820001, "Seerah Beginner", "🌙"],
+    [10, -820010, "Prophet’s Life Learner", "📖"],
+    [25, -820025, "Good Akhlaq Star", "⭐"],
+    [50, -820050, "50 Questions Champion", "🏆"],
+    [100, -820100, "100 Questions Master", "👑"]
+  ];
+  for (const [target, activityId, title, icon] of milestones) {
+    if (completed < target) continue;
+    exec(sql`
+      INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon)
+      VALUES (${childId}, ${today()}, ${activityId}, ${title}, ${icon});
+    `);
+  }
+}
+
 function quranJuzCompleted(childId, juz) {
   const progress = new Map(db(sql`SELECT surah_id, memorized_verses FROM quran_surah_progress WHERE child_id = ${childId};`).map((row) => [Number(row.surah_id), Number(row.memorized_verses || 0)]));
   const item = QURAN_JUZ_RANGES.find((entry) => Number(entry.juz) === Number(juz));
@@ -1618,50 +1767,10 @@ function ensureLog(childId, activityId, date = today()) {
   return db(sql`SELECT * FROM activity_logs WHERE child_id = ${childId} AND activity_id = ${activityId} AND log_date = ${date};`)[0];
 }
 
-function powerUpsFor(childId) {
-  return db(sql`
-    SELECT *
-    FROM power_ups
-    WHERE child_id = ${childId} AND status IN ('owned','active')
-    ORDER BY
-      CASE status WHEN 'active' THEN 0 ELSE 1 END,
-      earned_at DESC
-    LIMIT 12;
-  `);
-}
-
-function awardPowerUp(childId, type) {
-  const catalog = {
-    point_bonus: ["Double Points", "The next completed activity gives double points.", 100],
-    reward_discount: ["Reward Discount", "Use 10% off your next reward request.", 10],
-    instant_points: ["Bonus Coins", "Use this power-up to get 10 bonus points.", 10]
-  };
-  const item = catalog[type] || catalog.instant_points;
-  exec(sql`
-    INSERT INTO power_ups (child_id, power_type, title, description, value)
-    VALUES (${childId}, ${type}, ${item[0]}, ${item[1]}, ${item[2]});
-  `);
-}
-
-function applyActivePointPowerUp(childId, logId, activity) {
-  if (activity.is_prayer) return;
-  const power = db(sql`
-    SELECT *
-    FROM power_ups
-    WHERE child_id = ${childId} AND power_type = 'point_bonus' AND status = 'active'
-    ORDER BY earned_at ASC
-    LIMIT 1;
-  `)[0];
-  if (!power) return;
-  addPoints(childId, activity.points, "power_up", power.id, `Double points for ${activity.title}`);
-  exec(sql`UPDATE power_ups SET status = 'used', used_at = CURRENT_TIMESTAMP WHERE id = ${power.id};`);
-}
-
 function awardActivityIfNeeded(log, activity) {
   if (log.awarded_points > 0 || log.status !== "approved") return;
   addPoints(log.child_id, activity.points, "activity", log.id, `${activity.title} approved`);
   exec(sql`UPDATE activity_logs SET awarded_points = ${activity.points}, updated_at = CURRENT_TIMESTAMP WHERE id = ${log.id};`);
-  applyActivePointPowerUp(log.child_id, log.id, activity);
   awardDailyBadgeIfNeeded(log, activity);
   awardStreakBadgesIfNeeded(log.child_id);
 }
@@ -1703,17 +1812,15 @@ function restoreBackup(backup) {
       DELETE FROM family_quest_awards;
       DELETE FROM parent_challenges;
       DELETE FROM parent_challenge_awards;
-      DELETE FROM treasure_chests;
       DELETE FROM avatar_purchases;
       DELETE FROM avatar_items;
       DELETE FROM reward_discounts;
-      DELETE FROM power_ups;
-      DELETE FROM mystery_boxes;
       DELETE FROM child_reflections;
       DELETE FROM early_bird_checkins;
       DELETE FROM quiz_attempts;
+      DELETE FROM quiz_category_assignments;
+      DELETE FROM seerah_quiz_progress;
       DELETE FROM quizzes;
-      DELETE FROM daily_surprises;
       DELETE FROM child_pets;
       DELETE FROM child_wallets;
       DELETE FROM child_moods;
@@ -1752,17 +1859,15 @@ function restoreBackup(backup) {
   insertRows("family_quest_awards", backup.family_quest_awards, ["id", "award_date", "child_id", "points", "created_at"]);
   insertRows("avatar_items", backup.avatar_items, ["id", "title", "icon", "item_type", "cost", "active", "created_at"]);
   insertRows("avatar_purchases", backup.avatar_purchases, ["id", "child_id", "item_id", "equipped", "purchased_at"]);
-  insertRows("treasure_chests", backup.treasure_chests, ["id", "child_id", "chest_date", "reward_type", "reward_value", "message", "opened_at"]);
   insertRows("parent_challenges", backup.parent_challenges, ["id", "title", "description", "target_count", "bonus_points", "start_date", "end_date", "child_id", "active", "created_at", "parent_id"]);
   insertRows("parent_challenge_awards", backup.parent_challenge_awards, ["id", "challenge_id", "child_id", "points", "awarded_at"]);
-  insertRows("power_ups", backup.power_ups, ["id", "child_id", "power_type", "title", "description", "value", "status", "earned_at", "used_at"]);
-  insertRows("mystery_boxes", backup.mystery_boxes, ["id", "child_id", "box_date", "reward_type", "reward_value", "message", "opened_at"]);
   insertRows("child_reflections", backup.child_reflections, ["id", "child_id", "reflection_date", "enjoyed_activity", "feeling", "note", "created_at"]);
   insertRows("early_bird_checkins", backup.early_bird_checkins, ["id", "child_id", "checkin_date", "checkin_time", "status", "awarded_points", "created_at"]);
-  insertRows("quizzes", backup.quizzes, ["id", "title", "subject", "quiz_type", "instructions", "difficulty", "level", "question_text", "story_text", "image_url", "audio_url", "emoji_prompt", "options", "correct_answer", "multiple_correct_answers", "explanation", "timer_seconds", "hearts", "required_score_to_pass", "xp_reward", "coin_reward", "badge_reward", "unlock_next_level", "status", "created_by_parent_id", "assigned_to_kid_id", "due_date", "created_at", "updated_at"]);
+  insertRows("quizzes", backup.quizzes, ["id", "title", "subject", "quiz_type", "instructions", "difficulty", "level", "question_text", "story_text", "image_url", "audio_url", "emoji_prompt", "options", "correct_answer", "multiple_correct_answers", "explanation", "timer_seconds", "hearts", "required_score_to_pass", "xp_reward", "coin_reward", "badge_reward", "unlock_next_level", "status", "created_by_parent_id", "assigned_to_kid_id", "due_date", "created_at", "updated_at", "category_key", "category_question_id"]);
   insertRows("quiz_attempts", backup.quiz_attempts, ["id", "quiz_id", "kid_id", "parent_id", "answer", "selected_answers", "score", "passed", "attempts", "time_used_seconds", "hearts_left", "streak_bonus", "xp_earned", "coins_earned", "completed_at", "feedback"]);
+  insertRows("quiz_category_assignments", backup.quiz_category_assignments, ["category_key", "child_id", "assigned_by_parent_id", "enabled", "assigned_at", "updated_at"]);
+  insertRows("seerah_quiz_progress", backup.seerah_quiz_progress, ["child_id", "current_question", "current_level", "questions_completed_in_level", "completed", "updated_at"]);
   insertRows("child_wallets", backup.child_wallets, ["child_id", "xp", "coins", "gems", "keys", "treasure_tickets", "updated_at"]);
-  insertRows("daily_surprises", backup.daily_surprises, ["id", "child_id", "surprise_date", "reward_type", "reward_value", "message", "opened_at"]);
   insertRows("child_pets", backup.child_pets, ["child_id", "pet_type", "pet_name", "happiness", "pet_level", "updated_at"]);
   insertRows("child_moods", backup.child_moods, ["id", "child_id", "mood_date", "mood", "note", "created_at"]);
   insertRows("parent_praise_messages", backup.parent_praise_messages, ["id", "parent_id", "child_id", "message", "status", "created_at", "seen_at"]);
@@ -1776,6 +1881,7 @@ function restoreBackup(backup) {
   insertRows("hifz_plan", backup.hifz_plan, ["id", "user_id", "plan_date", "day_name", "page_number", "juz_number", "page_in_juz", "surah_number", "surah_name", "surah_name_arabic", "surah_name_english", "ayah_range", "memorization_task", "revision_task", "memorized", "revised", "weekly_review_done", "juz_review_done", "parent_reviewed", "notes", "parent_notes", "points_earned", "badges_earned", "streak_count", "completed_at", "created_at", "updated_at"]);
   exec("PRAGMA foreign_keys = ON;");
   ensureActivityAssignments();
+  seedSeerahQuiz();
 }
 
 function requireUser(req) {
@@ -2002,33 +2108,6 @@ function missionsFor(childId, date = today()) {
   ];
 }
 
-function treasureFor(childId, date = today()) {
-  const existing = db(sql`SELECT * FROM treasure_chests WHERE child_id = ${childId} AND chest_date = ${date} LIMIT 1;`)[0] || null;
-  const missions = missionsFor(childId, date);
-  return {
-    ready: missions.filter((mission) => mission.complete).length >= 3,
-    opened: Boolean(existing),
-    chest: existing,
-    needed: Math.max(0, 3 - missions.filter((mission) => mission.complete).length)
-  };
-}
-
-function mysteryBoxFor(childId, date = today()) {
-  const existing = db(sql`SELECT * FROM mystery_boxes WHERE child_id = ${childId} AND box_date = ${date} LIMIT 1;`)[0] || null;
-  const completed = Number(db(sql`
-    SELECT COUNT(*) AS count
-    FROM activity_logs
-    WHERE child_id = ${childId} AND log_date = ${date} AND status IN ('completed','approved');
-  `)[0].count || 0);
-  return {
-    ready: completed >= 3,
-    opened: Boolean(existing),
-    box: existing,
-    completed,
-    needed: Math.max(0, 3 - completed)
-  };
-}
-
 const weeklyThemes = [
   { title: "Helper Week", message: "Small acts of help make the home brighter.", goal: 4, badge: "Helper Hero Badge", icon: "🏠", match: ["helping", "clean", "teamwork", "organization", "organisation"] },
   { title: "Reading Hero Week", message: "Every page makes your mind stronger.", goal: 5, badge: "Reading Star Badge", icon: "📚", match: ["reading", "writing"] },
@@ -2170,9 +2249,6 @@ function dashboardFor(childId) {
       activityOfTheDay: null,
       badges: [],
       missions: [],
-      treasure: null,
-      mysteryBox: null,
-      powerUps: [],
       weeklyTheme: {},
       reflection: null,
       earlyBird: { rows: [] },
@@ -2181,7 +2257,6 @@ function dashboardFor(childId) {
       quizzes: [],
       wallet: { xp: 0, coins: 0, gems: 0, keys: 0, treasure_tickets: 0 },
       pet: null,
-      dailySurprise: { ready: false, opened: false, box: null },
       praiseMessages: [],
       mood: null,
       settings: settingsMap(),
@@ -2291,18 +2366,15 @@ function dashboardFor(childId) {
   const todayChallengeCompleted = Boolean(db(sql`SELECT id FROM daily_challenge_completions WHERE child_id = ${childId} AND challenge_date = ${date} LIMIT 1;`)[0]);
   const streak = dayStreakFor(childId);
   const missions = missionsFor(childId, date);
-  const treasure = treasureFor(childId, date);
-  const mysteryBox = mysteryBoxFor(childId, date);
-  const powerUps = powerUpsFor(childId);
   const weeklyTheme = weeklyThemeFor(childId, date);
   const reflection = reflectionFor(childId, date);
   const earlyBird = earlyBirdBoard(date, childId);
   const personalBest = personalBestFor(childId);
   const quran = isHifzChild(child) ? quranProgressFor(childId) : null;
   const quizzes = quizzesForKid(childId);
+  const seerahQuiz = seerahQuizProgressFor(childId);
   const wallet = walletFor(childId);
   const pet = petFor(childId);
-  const dailySurprise = dailySurpriseFor(childId, date);
   const praiseMessages = praiseFor(childId);
   const mood = moodFor(childId, date);
   const settings = settingsMap();
@@ -2321,18 +2393,15 @@ function dashboardFor(childId) {
     activityOfTheDay: challenge,
     badges,
     missions,
-    treasure,
-    mysteryBox,
-    powerUps,
     weeklyTheme,
     reflection,
     earlyBird,
     quran,
     hifz: null,
     quizzes,
+    seerahQuiz,
     wallet,
     pet,
-    dailySurprise,
     praiseMessages,
     mood,
     settings,
@@ -2609,9 +2678,30 @@ async function api(req, res, path) {
         SELECT q.*, c.name AS assigned_kid_name
         FROM quizzes q
         LEFT JOIN children c ON c.id = q.assigned_to_kid_id
-        WHERE ${quizScope}
+        WHERE ${quizScope} AND COALESCE(q.category_key, '') = ''
         ORDER BY q.created_at DESC, q.id DESC;
       `).map(quizRow),
+      quizCategoryAssignments: db(`
+        SELECT
+          c.id AS child_id,
+          c.name AS child_name,
+          COALESCE(qca.enabled, 0) AS enabled,
+          MIN(${SEERAH_QUESTIONS.length}, MAX(0, COALESCE(sqp.current_question, 1) - 1)) AS completed,
+          COALESCE(sqp.current_level, 1) AS current_level
+        FROM children c
+        LEFT JOIN quiz_category_assignments qca
+          ON qca.child_id = c.id AND qca.category_key = ${quote(SEERAH_CATEGORY_KEY)}
+        LEFT JOIN seerah_quiz_progress sqp ON sqp.child_id = c.id
+        WHERE ${childScope}
+        ORDER BY c.name;
+      `),
+      quizCategories: [{
+        key: SEERAH_CATEGORY_KEY,
+        name: SEERAH_CATEGORY_NAME,
+        question_count: SEERAH_QUESTIONS.length,
+        restart_on_wrong: settingsMap().seerah_restart_on_wrong !== "false",
+        level_size: Number(settingsMap().seerah_level_size || 10)
+      }],
       quizResults: quizResultsForParent(user),
       settings: settingsMap(),
       moods: db(`
@@ -2653,6 +2743,61 @@ async function api(req, res, path) {
 
   const quizMatch = path.match(/^\/api\/quizzes\/(\d+)$/);
   const quizSubmitMatch = path.match(/^\/api\/quizzes\/(\d+)\/submit$/);
+
+  if (method === "POST" && path === "/api/quiz-categories/assign") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    requireChildAccess(user, childId);
+    const categoryKey = String(body.categoryKey || "");
+    if (categoryKey !== SEERAH_CATEGORY_KEY) return send(res, 400, { error: "Unknown quiz category." });
+    const enabled = boolInt(body.enabled);
+    exec(sql`
+      INSERT INTO quiz_category_assignments (category_key, child_id, assigned_by_parent_id, enabled)
+      VALUES (${categoryKey}, ${childId}, ${user.id}, ${enabled})
+      ON CONFLICT(category_key, child_id) DO UPDATE SET
+        assigned_by_parent_id = ${user.id},
+        enabled = ${enabled},
+        updated_at = CURRENT_TIMESTAMP;
+    `);
+    return send(res, 200, { ok: true });
+  }
+  if (method === "POST" && path === "/api/quiz-categories/settings") {
+    requireParent(req);
+    const levelSize = Math.max(1, Math.min(25, Number(body.levelSize || 10)));
+    const restartOnWrong = boolInt(body.restartOnWrong);
+    exec(sql`
+      INSERT INTO app_settings (setting_key, setting_value) VALUES ('seerah_restart_on_wrong', ${restartOnWrong ? "true" : "false"})
+      ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = CURRENT_TIMESTAMP;
+      INSERT INTO app_settings (setting_key, setting_value) VALUES ('seerah_level_size', ${String(levelSize)})
+      ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = CURRENT_TIMESTAMP;
+    `);
+    exec(sql`
+      UPDATE seerah_quiz_progress
+      SET current_level = MIN(${Math.ceil(SEERAH_QUESTIONS.length / levelSize)}, CAST((MAX(1, current_question) - 1) / ${levelSize} AS INTEGER) + 1),
+          questions_completed_in_level = (MAX(1, current_question) - 1) % ${levelSize},
+          updated_at = CURRENT_TIMESTAMP;
+    `);
+    return send(res, 200, { ok: true });
+  }
+  if (method === "POST" && path === "/api/quiz-categories/reset") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    requireChildAccess(user, childId);
+    if (String(body.categoryKey || "") !== SEERAH_CATEGORY_KEY) return send(res, 400, { error: "Unknown quiz category." });
+    exec(sql`
+      INSERT INTO seerah_quiz_progress (child_id, current_question, current_level, questions_completed_in_level, completed)
+      VALUES (${childId}, 1, 1, 0, 0)
+      ON CONFLICT(child_id) DO UPDATE SET
+        current_question = 1,
+        current_level = 1,
+        questions_completed_in_level = 0,
+        completed = 0,
+        updated_at = CURRENT_TIMESTAMP;
+      DELETE FROM badges
+      WHERE child_id = ${childId} AND activity_id IN (-820001, -820010, -820025, -820050, -820100);
+    `);
+    return send(res, 200, { ok: true });
+  }
 
   if (method === "POST" && path === "/api/quizzes") {
     const user = requireParent(req);
@@ -2733,15 +2878,25 @@ async function api(req, res, path) {
     if (quiz.assigned_to_kid_id && Number(quiz.assigned_to_kid_id) !== childId) return send(res, 403, { error: "This quiz is assigned to another child." });
     const quizCreator = db(sql`SELECT role FROM users WHERE id = ${quiz.created_by_parent_id};`)[0];
     if (Number(quiz.created_by_parent_id) !== Number(child.parent_id) && quizCreator?.role !== "admin") return send(res, 403, { error: "This quiz is not assigned to your family." });
+    const seerahBefore = quiz.category_key === SEERAH_CATEGORY_KEY ? seerahQuizProgressFor(childId) : null;
+    if (seerahBefore && Number(quiz.category_question_id) !== Number(seerahBefore.current_question)) {
+      return send(res, 409, { error: `Continue with question ${seerahBefore.current_question}.` });
+    }
     const selectedAnswers = Array.isArray(body.selectedAnswers) ? body.selectedAnswers : parseJsonArray(body.selectedAnswers);
     const answer = String(body.answer || "").trim();
     const correct = quizAnswerIsCorrect(quiz, answer, selectedAnswers);
     const score = correct ? 1 : 0;
     const passed = score >= Number(quiz.required_score_to_pass || 1);
     const previousAttempts = Number(db(sql`SELECT COUNT(*) AS count FROM quiz_attempts WHERE quiz_id = ${quiz.id} AND kid_id = ${childId};`)[0]?.count || 0);
+    const previouslyPassed = Boolean(db(sql`
+      SELECT id FROM quiz_attempts
+      WHERE quiz_id = ${quiz.id} AND kid_id = ${childId} AND passed = 1
+      LIMIT 1;
+    `)[0]);
     const streakBonus = correct && ["streak_quiz", "daily_quiz_mission", "fastest_finger"].includes(quiz.quiz_type) ? 5 : 0;
     const xpEarned = correct ? Number(quiz.xp_reward || 0) + streakBonus : 0;
-    const coinsEarned = correct ? Number(quiz.coin_reward || 0) : 0;
+    const categoryRewardAvailable = !quiz.category_key || !previouslyPassed;
+    const coinsEarned = correct && categoryRewardAvailable ? Number(quiz.coin_reward || 0) : 0;
     const feedback = correct
       ? (quiz.explanation || "Correct answer. Great job!")
       : (quiz.explanation || "Good try. Read the hint and try again.");
@@ -2757,8 +2912,59 @@ async function api(req, res, path) {
     `);
     if (coinsEarned > 0) addPoints(childId, coinsEarned, "quiz", quiz.id, `Quiz reward: ${quiz.title}`);
     awardQuizBadges(childId, quiz, correct, passed);
+    let seerahMessage = "";
+    let levelCompleted = false;
+    let restarted = false;
+    if (quiz.category_key === SEERAH_CATEGORY_KEY) {
+      const levelSize = seerahBefore.level_size;
+      const questionNumber = Number(quiz.category_question_id);
+      const levelStart = Math.floor((questionNumber - 1) / levelSize) * levelSize + 1;
+      const levelEnd = Math.min(SEERAH_QUESTIONS.length, levelStart + levelSize - 1);
+      if (correct) {
+        const nextQuestion = Math.min(SEERAH_QUESTIONS.length + 1, questionNumber + 1);
+        levelCompleted = questionNumber === levelEnd;
+        exec(sql`
+          UPDATE seerah_quiz_progress
+          SET current_question = ${nextQuestion},
+              current_level = ${Math.min(Math.ceil(SEERAH_QUESTIONS.length / levelSize), Math.floor((nextQuestion - 1) / levelSize) + 1)},
+              questions_completed_in_level = ${levelCompleted ? 0 : questionNumber - levelStart + 1},
+              completed = ${nextQuestion > SEERAH_QUESTIONS.length ? 1 : 0},
+              updated_at = CURRENT_TIMESTAMP
+          WHERE child_id = ${childId};
+        `);
+        seerahMessage = levelCompleted
+          ? "Excellent! You completed this level. The next level is unlocked."
+          : (quiz.explanation || "Richtig! Sehr gut gemacht.");
+      } else if (seerahBefore.restart_on_wrong) {
+        restarted = true;
+        exec(sql`
+          UPDATE seerah_quiz_progress
+          SET current_question = ${levelStart},
+              current_level = ${seerahBefore.current_level},
+              questions_completed_in_level = 0,
+              completed = 0,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE child_id = ${childId};
+        `);
+        seerahMessage = `Not correct this time. Let’s practise this level again from the beginning. ${quiz.explanation || ""}`.trim();
+      } else {
+        seerahMessage = quiz.explanation || "Good try. Read the explanation and try again.";
+      }
+      awardSeerahBadges(childId);
+    }
     const next = dashboardFor(childId);
-    next.quizFeedback = `${correct ? "Correct!" : "Good try!"} ${feedback}${coinsEarned ? ` You earned ${coinsEarned} coins.` : ""}`;
+    next.quizFeedback = quiz.category_key === SEERAH_CATEGORY_KEY
+      ? `${seerahMessage}${coinsEarned ? ` Du hast ${coinsEarned} Hasnat verdient.` : ""}`
+      : `${correct ? "Richtig!" : "Versuche es noch einmal!"} ${feedback}${coinsEarned ? ` Du hast ${coinsEarned} Hasnat verdient.` : ""}`;
+    next.quizAnswer = {
+      correct,
+      passed,
+      feedback: quiz.category_key === SEERAH_CATEGORY_KEY ? seerahMessage : feedback,
+      earnedHasnat: coinsEarned,
+      alreadyRewarded: correct && !categoryRewardAvailable,
+      levelCompleted,
+      restarted
+    };
     return send(res, 200, next);
   }
 
@@ -2772,6 +2978,11 @@ async function api(req, res, path) {
     const child = db("SELECT id FROM children ORDER BY id DESC LIMIT 1;")[0];
     exec(sql`INSERT INTO users (name, email, password_hash, role, child_id) VALUES (${name}, ${localEmailFor(name, "child", child.id)}, ${hashPassword(password)}, 'child', ${child.id});`);
     exec(sql`INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled) SELECT ${child.id}, id, 1 FROM activities WHERE active = 1;`);
+    exec(sql`
+      INSERT OR IGNORE INTO seerah_quiz_progress (child_id) VALUES (${child.id});
+      INSERT OR IGNORE INTO quiz_category_assignments (category_key, child_id, assigned_by_parent_id, enabled)
+      VALUES (${SEERAH_CATEGORY_KEY}, ${child.id}, ${user.id}, 1);
+    `);
     return send(res, 201, { ok: true });
   }
 
@@ -2836,9 +3047,6 @@ async function api(req, res, path) {
       DELETE FROM family_quest_awards WHERE child_id = ${id};
       DELETE FROM parent_challenge_awards WHERE child_id = ${id};
       DELETE FROM avatar_purchases WHERE child_id = ${id};
-      DELETE FROM treasure_chests WHERE child_id = ${id};
-      DELETE FROM power_ups WHERE child_id = ${id};
-      DELETE FROM mystery_boxes WHERE child_id = ${id};
       DELETE FROM child_reflections WHERE child_id = ${id};
       DELETE FROM early_bird_checkins WHERE child_id = ${id};
       DELETE FROM quran_favorite_surahs WHERE child_id = ${id};
@@ -2847,6 +3055,9 @@ async function api(req, res, path) {
       DELETE FROM quran_juz_awards WHERE child_id = ${id};
       DELETE FROM quran_surah_progress WHERE child_id = ${id};
       DELETE FROM hifz_plan WHERE user_id = ${id};
+      DELETE FROM quiz_attempts WHERE kid_id = ${id};
+      DELETE FROM quiz_category_assignments WHERE child_id = ${id};
+      DELETE FROM seerah_quiz_progress WHERE child_id = ${id};
       UPDATE parent_challenges SET active = 0 WHERE child_id = ${id};
       DELETE FROM activity_assignments WHERE child_id = ${id};
       DELETE FROM users WHERE role = 'child' AND child_id = ${id};
@@ -3122,91 +3333,6 @@ async function api(req, res, path) {
     `);
     return send(res, 201, { ok: true });
   }
-  if (method === "POST" && path === "/api/treasure/open") {
-    const childId = childIdFor(req, body.childId);
-    const state = treasureFor(childId);
-    if (!state.ready) return send(res, 400, { error: `Complete ${state.needed} more mission(s) to open the treasure chest.` });
-    if (state.opened) return send(res, 200, dashboardFor(childId));
-    const date = today();
-    const rewards = [
-      { reward_type: "points", reward_value: 10, message: "You found 10 bonus Hasanat!" },
-      { reward_type: "points", reward_value: 15, message: "Amazing! You found 15 bonus Hasanat!" },
-      { reward_type: "badge", reward_value: 0, message: "You found a treasure badge!" }
-    ];
-    const selected = rewards[(Number(date.replaceAll("-", "")) + childId) % rewards.length];
-    exec(sql`INSERT INTO treasure_chests (child_id, chest_date, reward_type, reward_value, message) VALUES (${childId}, ${date}, ${selected.reward_type}, ${selected.reward_value}, ${selected.message});`);
-    if (selected.reward_type === "points") addPoints(childId, selected.reward_value, "treasure", 0, selected.message);
-    if (selected.reward_type === "badge") {
-      exec(sql`INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon) VALUES (${childId}, ${date}, ${-900000 - childId}, 'Treasure Finder', '🧰');`);
-    }
-    return send(res, 200, dashboardFor(childId));
-  }
-  if (method === "POST" && path === "/api/mystery/open") {
-    const childId = childIdFor(req, body.childId);
-    const state = mysteryBoxFor(childId);
-    if (!state.ready) return send(res, 400, { error: `Complete ${state.needed} more activity(s) to open the mystery box.` });
-    if (state.opened) return send(res, 200, dashboardFor(childId));
-    const date = today();
-    const rewards = [
-      { reward_type: "points", reward_value: 10, message: "Mystery box: 10 bonus Hasanat!" },
-      { reward_type: "points", reward_value: 15, message: "Mystery box: 15 bonus Hasanat!" },
-      { reward_type: "power_up", reward_value: 0, power_type: "point_bonus", message: "Mystery box: Double Points power-up!" },
-      { reward_type: "power_up", reward_value: 0, power_type: "reward_discount", message: "Mystery box: 10% Reward Discount power-up!" },
-      { reward_type: "power_up", reward_value: 0, power_type: "instant_points", message: "Mystery box: Bonus Coins power-up!" }
-    ];
-    const selected = rewards[(Number(date.replaceAll("-", "")) + childId * 3) % rewards.length];
-    exec(sql`
-      INSERT INTO mystery_boxes (child_id, box_date, reward_type, reward_value, message)
-      VALUES (${childId}, ${date}, ${selected.reward_type}, ${selected.reward_value}, ${selected.message});
-    `);
-    if (selected.reward_type === "points") addPoints(childId, selected.reward_value, "mystery_box", 0, selected.message);
-    if (selected.reward_type === "power_up") awardPowerUp(childId, selected.power_type);
-    return send(res, 200, dashboardFor(childId));
-  }
-  if (method === "POST" && path === "/api/daily-surprise/open") {
-    const childId = childIdFor(req, body.childId);
-    const date = today();
-    const existing = db(sql`SELECT * FROM daily_surprises WHERE child_id = ${childId} AND surprise_date = ${date} LIMIT 1;`)[0];
-    if (existing) return send(res, 200, dashboardFor(childId));
-    const rewards = [
-      { reward_type: "coins", reward_value: 8, message: "Daily surprise: 8 coins!" },
-      { reward_type: "coins", reward_value: 12, message: "Daily surprise: 12 coins!" },
-      { reward_type: "gems", reward_value: 2, message: "Daily surprise: 2 gems!" },
-      { reward_type: "keys", reward_value: 1, message: "Daily surprise: 1 treasure key!" },
-      { reward_type: "treasure_tickets", reward_value: 1, message: "Daily surprise: 1 treasure ticket!" },
-      { reward_type: "power_up", reward_value: 0, message: "Daily surprise: streak protection power-up!" }
-    ];
-    const selected = rewards[(Number(date.replaceAll("-", "")) + childId * 7) % rewards.length];
-    exec(sql`
-      INSERT INTO daily_surprises (child_id, surprise_date, reward_type, reward_value, message)
-      VALUES (${childId}, ${date}, ${selected.reward_type}, ${selected.reward_value}, ${selected.message});
-      INSERT OR IGNORE INTO child_wallets (child_id, xp, coins) VALUES (${childId}, 0, 0);
-    `);
-    if (selected.reward_type === "coins") addPoints(childId, selected.reward_value, "daily_surprise", 0, selected.message);
-    if (["gems", "keys", "treasure_tickets"].includes(selected.reward_type)) {
-      exec(`UPDATE child_wallets SET ${selected.reward_type} = ${selected.reward_type} + ${Number(selected.reward_value)}, updated_at = CURRENT_TIMESTAMP WHERE child_id = ${Number(childId)};`);
-      addPetJoy(childId, 4);
-    }
-    if (selected.reward_type === "power_up") awardPowerUp(childId, "point_bonus");
-    const next = dashboardFor(childId);
-    next.dailySurpriseMessage = selected.message;
-    return send(res, 200, next);
-  }
-  if (method === "POST" && path === "/api/power-ups/use") {
-    const childId = childIdFor(req, body.childId);
-    const power = db(sql`SELECT * FROM power_ups WHERE id = ${Number(body.powerUpId)} AND child_id = ${childId} AND status IN ('owned','active') LIMIT 1;`)[0];
-    if (!power) return send(res, 404, { error: "Power-up not found" });
-    if (power.power_type === "instant_points") {
-      addPoints(childId, Number(power.value || 10), "power_up", power.id, power.title);
-      exec(sql`UPDATE power_ups SET status = 'used', used_at = CURRENT_TIMESTAMP WHERE id = ${power.id};`);
-      return send(res, 200, dashboardFor(childId));
-    }
-    exec(sql`
-      UPDATE power_ups SET status = 'owned' WHERE child_id = ${childId} AND power_type = ${power.power_type} AND status = 'active';
-      UPDATE power_ups SET status = 'active' WHERE id = ${power.id};
-    `);
-    return send(res, 200, dashboardFor(childId));
-  }
   if (method === "POST" && path === "/api/mood") {
     const childId = childIdFor(req, body.childId);
     const mood = String(body.mood || "").trim();
@@ -3458,24 +3584,11 @@ async function api(req, res, path) {
     let pointsToSpend = discount && Number(discount.id) === Number(reward.id)
       ? Math.ceil(reward.required_points * (100 - discount.discount_percent) / 100)
       : reward.required_points;
-    const powerDiscount = db(sql`
-      SELECT *
-      FROM power_ups
-      WHERE child_id = ${childId} AND power_type = 'reward_discount' AND status = 'active'
-      ORDER BY earned_at ASC
-      LIMIT 1;
-    `)[0];
-    if (powerDiscount) {
-      pointsToSpend = Math.ceil(pointsToSpend * (100 - Number(powerDiscount.value || 10)) / 100);
-    }
     if (db(sql`SELECT id FROM reward_redemptions WHERE child_id = ${childId} AND reward_id = ${reward.id} AND status = 'pending' LIMIT 1;`)[0]) {
       return send(res, 400, { error: "This reward is already waiting for parent approval." });
     }
     if (child.total_points < pointsToSpend) return send(res, 400, { error: "Not enough points yet. Keep going!" });
     exec(sql`INSERT INTO reward_redemptions (child_id, reward_id, points_spent, status) VALUES (${childId}, ${reward.id}, ${pointsToSpend}, 'pending');`);
-    if (powerDiscount) {
-      exec(sql`UPDATE power_ups SET status = 'used', used_at = CURRENT_TIMESTAMP WHERE id = ${powerDiscount.id};`);
-    }
     return send(res, 200, dashboardFor(childId));
   }
   if (method === "GET" && path === "/api/backup") {
@@ -3497,17 +3610,15 @@ async function api(req, res, path) {
       family_quest_awards: db("SELECT * FROM family_quest_awards ORDER BY id;"),
       avatar_items: db("SELECT * FROM avatar_items ORDER BY id;"),
       avatar_purchases: db("SELECT * FROM avatar_purchases ORDER BY id;"),
-      treasure_chests: db("SELECT * FROM treasure_chests ORDER BY id;"),
       parent_challenges: db("SELECT * FROM parent_challenges ORDER BY id;"),
       parent_challenge_awards: db("SELECT * FROM parent_challenge_awards ORDER BY id;"),
-      power_ups: db("SELECT * FROM power_ups ORDER BY id;"),
-      mystery_boxes: db("SELECT * FROM mystery_boxes ORDER BY id;"),
       child_reflections: db("SELECT * FROM child_reflections ORDER BY id;"),
       early_bird_checkins: db("SELECT * FROM early_bird_checkins ORDER BY id;"),
       quizzes: db("SELECT * FROM quizzes ORDER BY id;"),
       quiz_attempts: db("SELECT * FROM quiz_attempts ORDER BY id;"),
+      quiz_category_assignments: db("SELECT * FROM quiz_category_assignments ORDER BY category_key, child_id;"),
+      seerah_quiz_progress: db("SELECT * FROM seerah_quiz_progress ORDER BY child_id;"),
       child_wallets: db("SELECT * FROM child_wallets ORDER BY child_id;"),
-      daily_surprises: db("SELECT * FROM daily_surprises ORDER BY id;"),
       child_pets: db("SELECT * FROM child_pets ORDER BY child_id;"),
       child_moods: db("SELECT * FROM child_moods ORDER BY id;"),
       parent_praise_messages: db("SELECT * FROM parent_praise_messages ORDER BY id;"),
