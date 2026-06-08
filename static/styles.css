@@ -4334,6 +4334,405 @@ img.race-avatar {
   border-color: #86efac;
 }
 
+.seerah-review-summary {
+  align-items: center;
+  background: linear-gradient(120deg, #fff7ed, #eff6ff);
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  padding: 18px;
+}
+
+.streak-recovery-card {
+  background: linear-gradient(125deg, #eff6ff, #f0fdf4 55%, #fffbeb);
+  border: 2px solid #60a5fa;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.streak-recovery-card.active {
+  background: linear-gradient(125deg, #fff7ed, #fefce8 55%, #eff6ff);
+  border-color: #f59e0b;
+}
+
+.streak-recovery-heading {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.streak-recovery-heading h2 {
+  margin-bottom: 5px;
+}
+
+.shield-counter {
+  align-items: center;
+  background: white;
+  border: 2px solid #93c5fd;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: auto auto;
+  min-width: 122px;
+  padding: 10px 14px;
+}
+
+.shield-counter > span {
+  font-size: 30px;
+  grid-row: 1 / 3;
+  margin-right: 8px;
+}
+
+.shield-counter strong {
+  font-size: 22px;
+}
+
+.shield-counter small {
+  color: var(--muted);
+}
+
+.streak-recovery-stats {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.streak-recovery-stats > div {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  padding: 12px;
+}
+
+.streak-recovery-stats > div > span {
+  font-size: 30px;
+  grid-row: 1 / 3;
+  margin-right: 10px;
+}
+
+.streak-recovery-stats small {
+  color: var(--muted);
+}
+
+.learning-tree.weak {
+  filter: saturate(0.55);
+}
+
+.learning-tree.weak > span {
+  animation: treeDroop 1800ms ease-in-out infinite;
+}
+
+.recovery-work {
+  border-top: 1px solid #fcd34d;
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.recovery-progress-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.recovery-missions {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  margin: 15px 0;
+}
+
+.recovery-missions article {
+  align-items: center;
+  background: white;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  display: flex;
+  gap: 9px;
+  padding: 11px;
+}
+
+.recovery-missions article.complete {
+  background: #dcfce7;
+  border-color: #22c55e;
+}
+
+.rescue-quiz-start {
+  background: #c2410c;
+  border-color: #c2410c;
+  min-height: 48px;
+}
+
+.rescue-final-result {
+  background: #effcf3;
+  border: 2px solid #73c78f;
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.rescue-final-result.retry {
+  background: #fff9e9;
+  border-color: #e5b652;
+}
+
+.rescue-final-result strong,
+.rescue-final-result p {
+  display: block;
+  margin: 0 0 8px;
+}
+
+.rescue-final-result button {
+  min-height: 44px;
+}
+
+.rescue-question-card {
+  background: white;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  margin-top: 15px;
+  padding: 16px;
+}
+
+.rescue-question-card h3 {
+  margin: 16px 0;
+}
+
+.streak-admin {
+  display: grid;
+  gap: 14px;
+}
+
+.streak-admin-list {
+  display: grid;
+  gap: 10px;
+}
+
+.streak-admin-list article {
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 9px;
+  grid-template-columns: minmax(180px, 1.3fr) repeat(4, minmax(120px, 1fr));
+  padding: 12px;
+}
+
+.streak-admin-list article > div {
+  display: grid;
+  gap: 4px;
+}
+
+.streak-admin-list label {
+  display: grid;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 4px;
+}
+
+.streak-history {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.streak-history summary {
+  cursor: pointer;
+  display: flex;
+  font-weight: 900;
+  justify-content: space-between;
+}
+
+.streak-history summary strong {
+  background: #e8f3ff;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.streak-history p {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 3px;
+  padding: 8px 0;
+}
+
+@keyframes treeDroop {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50% { transform: rotate(4deg) translateY(3px); }
+}
+
+.seerah-review-summary.completed {
+  background: #f0fdf4;
+  border-color: #22c55e;
+}
+
+.seerah-review-symbol {
+  align-items: center;
+  background: #fff;
+  border: 2px solid #fde68a;
+  border-radius: 999px;
+  display: flex;
+  font-size: 30px;
+  height: 58px;
+  justify-content: center;
+  width: 58px;
+}
+
+.seerah-review-summary h2 {
+  margin-bottom: 4px;
+}
+
+.seerah-review-summary small {
+  color: var(--muted);
+  display: block;
+  margin-top: 5px;
+}
+
+.seerah-daily-review {
+  background: linear-gradient(135deg, #fffbeb, #eff6ff);
+  border-color: #fbbf24;
+}
+
+.seerah-review-heading,
+.seerah-review-progress,
+.seerah-review-start {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.seerah-review-heading h2 {
+  margin-bottom: 5px;
+}
+
+.seerah-review-streak {
+  align-items: center;
+  background: #fff7ed;
+  border: 2px solid #fdba74;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: auto auto;
+  min-width: 118px;
+  padding: 10px 14px;
+}
+
+.seerah-review-streak > span {
+  font-size: 28px;
+  grid-row: 1 / 3;
+  margin-right: 8px;
+}
+
+.seerah-review-streak strong {
+  font-size: 24px;
+}
+
+.seerah-review-streak small {
+  color: var(--muted);
+}
+
+.seerah-review-start {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.seerah-review-progress {
+  margin: 18px 0 7px;
+}
+
+.review-question-card {
+  border-color: #f59e0b;
+}
+
+.seerah-review-result {
+  align-items: center;
+  background: #ecfdf5;
+  border: 2px solid #22c55e;
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 18px;
+}
+
+.seerah-review-result > span {
+  font-size: 48px;
+}
+
+.needs-practice-list {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #fda4af;
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 12px 14px;
+}
+
+.needs-practice-list summary {
+  cursor: pointer;
+  display: flex;
+  font-weight: 900;
+  justify-content: space-between;
+  list-style: none;
+}
+
+.needs-practice-list summary::-webkit-details-marker {
+  display: none;
+}
+
+.needs-practice-list summary strong {
+  background: #ffe4e6;
+  border-radius: 999px;
+  color: #9f1239;
+  padding: 3px 9px;
+}
+
+.needs-practice-list div {
+  border-top: 1px solid #fecdd3;
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.needs-practice-list p {
+  margin: 7px 0;
+}
+
+.seerah-child-admin {
+  align-items: start !important;
+  display: grid !important;
+  gap: 14px !important;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.4fr) !important;
+}
+
+.seerah-child-admin > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.seerah-admin-actions {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.seerah-admin-actions label {
+  display: grid;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 4px;
+}
+
 .seerah-quiz-heading,
 .seerah-progress-label,
 .seerah-question-meta {
@@ -5309,6 +5708,44 @@ img.race-avatar {
   .next-task-card {
     align-items: stretch;
     grid-template-columns: 1fr;
+  }
+
+  .seerah-review-summary {
+    align-items: stretch;
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .streak-recovery-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .shield-counter {
+    align-self: start;
+  }
+
+  .streak-recovery-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .streak-admin-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .seerah-review-summary button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .seerah-review-symbol {
+    font-size: 25px;
+    height: 48px;
+    width: 48px;
+  }
+
+  .seerah-child-admin,
+  .seerah-admin-actions {
+    grid-template-columns: 1fr !important;
   }
 
   .continue-task-button {

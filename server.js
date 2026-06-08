@@ -592,6 +592,137 @@ function initDb() {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(child_id) REFERENCES children(id)
     );
+    CREATE TABLE IF NOT EXISTS seerah_review_settings (
+      child_id INTEGER PRIMARY KEY,
+      enabled INTEGER DEFAULT 1,
+      question_count INTEGER DEFAULT 10,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS seerah_review_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      child_id INTEGER NOT NULL,
+      review_date TEXT NOT NULL,
+      status TEXT DEFAULT 'not_started' CHECK(status IN ('not_started','in_progress','completed')),
+      total_questions INTEGER DEFAULT 0,
+      current_index INTEGER DEFAULT 0,
+      correct_answers INTEGER DEFAULT 0,
+      wrong_answers INTEGER DEFAULT 0,
+      hasnat_earned INTEGER DEFAULT 0,
+      completion_bonus INTEGER DEFAULT 0,
+      perfect_bonus INTEGER DEFAULT 0,
+      started_at TEXT,
+      completed_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(child_id, review_date),
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS seerah_review_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL,
+      position INTEGER NOT NULL,
+      quiz_id INTEGER NOT NULL,
+      option_order TEXT DEFAULT '[]',
+      answer TEXT DEFAULT '',
+      correct INTEGER,
+      hasnat_earned INTEGER DEFAULT 0,
+      answered_at TEXT,
+      UNIQUE(session_id, position),
+      FOREIGN KEY(session_id) REFERENCES seerah_review_sessions(id),
+      FOREIGN KEY(quiz_id) REFERENCES quizzes(id)
+    );
+    CREATE TABLE IF NOT EXISTS seerah_review_practice (
+      child_id INTEGER NOT NULL,
+      quiz_id INTEGER NOT NULL,
+      wrong_count INTEGER DEFAULT 0,
+      correct_count INTEGER DEFAULT 0,
+      priority INTEGER DEFAULT 0,
+      last_wrong_at TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(child_id, quiz_id),
+      FOREIGN KEY(child_id) REFERENCES children(id),
+      FOREIGN KEY(quiz_id) REFERENCES quizzes(id)
+    );
+    CREATE TABLE IF NOT EXISTS streak_recovery_settings (
+      child_id INTEGER PRIMARY KEY,
+      enabled INTEGER DEFAULT 1,
+      max_shields INTEGER DEFAULT 3,
+      recovery_difficulty TEXT DEFAULT 'normal',
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS streak_states (
+      child_id INTEGER PRIMARY KEY,
+      current_streak INTEGER DEFAULT 0,
+      shields INTEGER DEFAULT 0,
+      last_active_date TEXT,
+      last_processed_date TEXT,
+      active_days_since_shield INTEGER DEFAULT 0,
+      tree_points INTEGER DEFAULT 0,
+      tree_health INTEGER DEFAULT 100,
+      recovery_status TEXT DEFAULT 'none' CHECK(recovery_status IN ('none','active')),
+      missed_days INTEGER DEFAULT 0,
+      recovery_required INTEGER DEFAULT 0,
+      recovery_completed INTEGER DEFAULT 0,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS streak_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      child_id INTEGER NOT NULL,
+      event_date TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      streak_before INTEGER DEFAULT 0,
+      streak_after INTEGER DEFAULT 0,
+      shields_before INTEGER DEFAULT 0,
+      shields_after INTEGER DEFAULT 0,
+      note TEXT DEFAULT '',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS recovery_missions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      child_id INTEGER NOT NULL,
+      recovery_key TEXT NOT NULL,
+      mission_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      completed INTEGER DEFAULT 0,
+      completed_at TEXT,
+      source_type TEXT DEFAULT '',
+      source_id INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(child_id, recovery_key, mission_type),
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS rescue_quiz_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      child_id INTEGER NOT NULL,
+      recovery_key TEXT NOT NULL,
+      status TEXT DEFAULT 'in_progress' CHECK(status IN ('in_progress','completed','failed')),
+      total_questions INTEGER DEFAULT 5,
+      current_index INTEGER DEFAULT 0,
+      correct_answers INTEGER DEFAULT 0,
+      passed INTEGER DEFAULT 0,
+      hasnat_earned INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT,
+      UNIQUE(child_id, recovery_key),
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS rescue_quiz_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL,
+      position INTEGER NOT NULL,
+      quiz_id INTEGER NOT NULL,
+      option_order TEXT DEFAULT '[]',
+      answer TEXT DEFAULT '',
+      correct INTEGER,
+      answered_at TEXT,
+      UNIQUE(session_id, position),
+      FOREIGN KEY(session_id) REFERENCES rescue_quiz_sessions(id),
+      FOREIGN KEY(quiz_id) REFERENCES quizzes(id)
+    );
     CREATE TABLE IF NOT EXISTS child_pets (
       child_id INTEGER PRIMARY KEY,
       pet_type TEXT DEFAULT 'puppy',
@@ -796,6 +927,15 @@ function initDb() {
     SELECT id, 1 FROM children;
     INSERT OR IGNORE INTO seerah_quiz_progress (child_id)
     SELECT id FROM children;
+    INSERT OR IGNORE INTO seerah_review_settings (child_id, enabled, question_count)
+    SELECT id, 1, 10 FROM children;
+    INSERT OR IGNORE INTO streak_recovery_settings (child_id, enabled, max_shields, recovery_difficulty)
+    SELECT id, 1, 3, 'normal' FROM children;
+    INSERT OR IGNORE INTO streak_states (
+      child_id, current_streak, shields, last_active_date, last_processed_date,
+      active_days_since_shield, tree_points, tree_health
+    )
+    SELECT id, 28, 3, date('now', '-1 day'), date('now'), 0, 28, 100 FROM children;
   `);
   exec(`
     DROP TABLE IF EXISTS daily_surprises;
@@ -1535,7 +1675,7 @@ function quizRow(row) {
 }
 
 function quizzesForKid(childId) {
-  return db(sql`
+  const quizzes = db(sql`
     SELECT q.*,
       (
         SELECT COUNT(*) FROM quiz_attempts qa
@@ -1573,6 +1713,18 @@ function quizzesForKid(childId) {
       q.level ASC,
       q.id DESC;
   `).map(quizRow);
+  const seerahPositionOffset = Math.floor(Math.random() * 3);
+  return quizzes.map((quiz) => {
+    let publicOptions = shuffled(quiz.options);
+    if (quiz.category_key === SEERAH_CATEGORY_KEY && quiz.options.length > 1) {
+      const distractors = shuffled(quiz.options.filter((option) => option !== quiz.correct_answer));
+      const targetPosition = (Number(quiz.category_question_id || 1) - 1 + seerahPositionOffset) % quiz.options.length;
+      publicOptions = [...distractors];
+      publicOptions.splice(targetPosition, 0, quiz.correct_answer);
+    }
+    const { correct_answer, multiple_correct_answers, ...publicQuiz } = quiz;
+    return { ...publicQuiz, options: publicOptions };
+  });
 }
 
 function seerahQuizProgressFor(childId) {
@@ -1624,6 +1776,181 @@ function seerahQuizProgressFor(childId) {
     questions_completed_in_level: completedInLevel,
     restart_on_wrong: settings.seerah_restart_on_wrong !== "false"
   };
+}
+
+function shuffled(items = []) {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+}
+
+function seerahReviewReward(difficulty) {
+  return difficulty === "hard" ? 8 : difficulty === "medium" ? 5 : 3;
+}
+
+function seerahReviewStreak(childId, date = today()) {
+  const dates = new Set(db(sql`
+    SELECT review_date FROM seerah_review_sessions
+    WHERE child_id = ${childId} AND status = 'completed'
+    ORDER BY review_date DESC;
+  `).map((row) => row.review_date));
+  let cursor = new Date(`${date}T12:00:00`);
+  if (!dates.has(date)) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  while (dates.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function publicSeerahReviewQuestion(row) {
+  if (!row) return null;
+  return {
+    review_question_id: row.review_question_id,
+    position: Number(row.position),
+    quiz_id: Number(row.quiz_id),
+    question_number: Number(row.category_question_id),
+    question_text: row.question_text,
+    options: parseJsonArray(row.option_order),
+    difficulty: row.difficulty,
+    reward_hasnat: seerahReviewReward(row.difficulty),
+    answered: row.correct !== null && row.correct !== undefined,
+    correct: row.correct === null || row.correct === undefined ? null : Boolean(Number(row.correct))
+  };
+}
+
+function seerahReviewFor(childId, date = today()) {
+  exec(sql`
+    INSERT OR IGNORE INTO seerah_review_settings (child_id, enabled, question_count)
+    VALUES (${childId}, 1, 10);
+  `);
+  const settings = db(sql`SELECT * FROM seerah_review_settings WHERE child_id = ${childId};`)[0] || {};
+  const progress = seerahQuizProgressFor(childId);
+  const unlockedCount = Math.min(SEERAH_QUESTIONS.length, Math.max(0, Number(progress.current_question || 1)));
+  const session = db(sql`
+    SELECT * FROM seerah_review_sessions
+    WHERE child_id = ${childId} AND review_date = ${date}
+    LIMIT 1;
+  `)[0];
+  const history = db(sql`
+    SELECT review_date, total_questions, correct_answers, wrong_answers, hasnat_earned, completed_at
+    FROM seerah_review_sessions
+    WHERE child_id = ${childId} AND status = 'completed'
+    ORDER BY review_date DESC
+    LIMIT 30;
+  `);
+  const needsPractice = db(sql`
+    SELECT q.category_question_id AS question_number, q.question_text, srp.wrong_count, srp.correct_count, srp.priority
+    FROM seerah_review_practice srp
+    JOIN quizzes q ON q.id = srp.quiz_id
+    WHERE srp.child_id = ${childId} AND srp.priority > 0
+    ORDER BY srp.priority DESC, srp.last_wrong_at DESC
+    LIMIT 20;
+  `);
+  const currentQuestion = session && session.status === "in_progress"
+    ? publicSeerahReviewQuestion(db(sql`
+        SELECT srq.id AS review_question_id, srq.*, q.category_question_id, q.question_text, q.difficulty
+        FROM seerah_review_questions srq
+        JOIN quizzes q ON q.id = srq.quiz_id
+        WHERE srq.session_id = ${session.id} AND srq.position = ${Number(session.current_index || 0) + 1}
+        LIMIT 1;
+      `)[0])
+    : null;
+  const maxQuestionReward = Number(settings.question_count || 10) * 8;
+  return {
+    enabled: Boolean(Number(settings.enabled || 0)),
+    question_count: Number(settings.question_count || 10),
+    unlocked_questions: unlockedCount,
+    status: session?.status || "not_started",
+    session_id: session?.id || null,
+    current_index: Number(session?.current_index || 0),
+    total_questions: session
+      ? Number(session.total_questions || 0)
+      : Math.min(Number(settings.question_count || 10), unlockedCount),
+    correct_answers: Number(session?.correct_answers || 0),
+    wrong_answers: Number(session?.wrong_answers || 0),
+    hasnat_earned: Number(session?.hasnat_earned || 0),
+    completion_bonus: Number(session?.completion_bonus || 0),
+    perfect_bonus: Number(session?.perfect_bonus || 0),
+    current_question: currentQuestion,
+    streak: seerahReviewStreak(childId, date),
+    potential_hasnat: maxQuestionReward + 20 + 30,
+    needs_practice: needsPractice,
+    history
+  };
+}
+
+function startSeerahReview(childId, date = today()) {
+  const review = seerahReviewFor(childId, date);
+  if (!review.enabled) throw Object.assign(new Error("Daily Seerah Review is not enabled for this child."), { status: 403 });
+  if (review.status !== "not_started") return review;
+  if (review.unlocked_questions < 1) throw Object.assign(new Error("Complete or unlock a Seerah question first."), { status: 400 });
+
+  const requestedCount = [5, 10, 15].includes(Number(review.question_count)) ? Number(review.question_count) : 10;
+  const total = Math.min(requestedCount, review.unlocked_questions);
+  const available = db(sql`
+    SELECT q.*
+    FROM quizzes q
+    WHERE q.category_key = ${SEERAH_CATEGORY_KEY}
+      AND q.category_question_id <= ${review.unlocked_questions}
+      AND q.status = 'active'
+    ORDER BY q.category_question_id;
+  `).map(quizRow);
+  const priorityIds = db(sql`
+    SELECT quiz_id FROM seerah_review_practice
+    WHERE child_id = ${childId} AND priority > 0
+    ORDER BY priority DESC, last_wrong_at DESC;
+  `).map((row) => Number(row.quiz_id));
+  const byId = new Map(available.map((quiz) => [Number(quiz.id), quiz]));
+  const priority = priorityIds.map((id) => byId.get(id)).filter(Boolean);
+  const selected = [];
+  for (const quiz of shuffled(priority)) {
+    if (selected.length >= Math.min(total, Math.ceil(total * 0.6))) break;
+    if (!selected.some((item) => item.id === quiz.id)) selected.push(quiz);
+  }
+  for (const quiz of shuffled(available)) {
+    if (selected.length >= total) break;
+    if (!selected.some((item) => item.id === quiz.id)) selected.push(quiz);
+  }
+  const ordered = shuffled(selected);
+  exec(sql`
+    INSERT INTO seerah_review_sessions (
+      child_id, review_date, status, total_questions, current_index, started_at
+    ) VALUES (${childId}, ${date}, 'in_progress', ${ordered.length}, 0, CURRENT_TIMESTAMP)
+    ON CONFLICT(child_id, review_date) DO UPDATE SET
+      status = CASE WHEN seerah_review_sessions.status = 'not_started' THEN 'in_progress' ELSE seerah_review_sessions.status END,
+      started_at = COALESCE(seerah_review_sessions.started_at, CURRENT_TIMESTAMP),
+      updated_at = CURRENT_TIMESTAMP;
+  `);
+  const session = db(sql`SELECT id FROM seerah_review_sessions WHERE child_id = ${childId} AND review_date = ${date};`)[0];
+  if (session) {
+    ordered.forEach((quiz, index) => {
+      exec(sql`
+        INSERT OR IGNORE INTO seerah_review_questions (session_id, position, quiz_id, option_order)
+        VALUES (${session.id}, ${index + 1}, ${quiz.id}, ${JSON.stringify(shuffled(quiz.options))});
+      `);
+    });
+  }
+  return seerahReviewFor(childId, date);
+}
+
+function awardSeerahReviewStreakBadges(childId, streak) {
+  const milestones = [
+    [3, -830003, "3-Day Seerah Review Streak", "🌱"],
+    [7, -830007, "7-Day Seerah Review Streak", "⭐"],
+    [30, -830030, "30-Day Seerah Review Champion", "🏆"]
+  ];
+  for (const [target, activityId, title, icon] of milestones) {
+    if (streak < target) continue;
+    exec(sql`
+      INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon)
+      VALUES (${childId}, ${today()}, ${activityId}, ${title}, ${icon});
+    `);
+  }
 }
 
 function quizResultsForParent(user) {
@@ -1819,6 +2146,16 @@ function restoreBackup(backup) {
       DELETE FROM early_bird_checkins;
       DELETE FROM quiz_attempts;
       DELETE FROM quiz_category_assignments;
+      DELETE FROM seerah_review_questions;
+      DELETE FROM seerah_review_sessions;
+      DELETE FROM seerah_review_practice;
+      DELETE FROM seerah_review_settings;
+      DELETE FROM rescue_quiz_questions;
+      DELETE FROM rescue_quiz_sessions;
+      DELETE FROM recovery_missions;
+      DELETE FROM streak_history;
+      DELETE FROM streak_states;
+      DELETE FROM streak_recovery_settings;
       DELETE FROM seerah_quiz_progress;
       DELETE FROM quizzes;
       DELETE FROM child_pets;
@@ -1867,6 +2204,16 @@ function restoreBackup(backup) {
   insertRows("quiz_attempts", backup.quiz_attempts, ["id", "quiz_id", "kid_id", "parent_id", "answer", "selected_answers", "score", "passed", "attempts", "time_used_seconds", "hearts_left", "streak_bonus", "xp_earned", "coins_earned", "completed_at", "feedback"]);
   insertRows("quiz_category_assignments", backup.quiz_category_assignments, ["category_key", "child_id", "assigned_by_parent_id", "enabled", "assigned_at", "updated_at"]);
   insertRows("seerah_quiz_progress", backup.seerah_quiz_progress, ["child_id", "current_question", "current_level", "questions_completed_in_level", "completed", "updated_at"]);
+  insertRows("seerah_review_settings", backup.seerah_review_settings, ["child_id", "enabled", "question_count", "updated_at"]);
+  insertRows("seerah_review_sessions", backup.seerah_review_sessions, ["id", "child_id", "review_date", "status", "total_questions", "current_index", "correct_answers", "wrong_answers", "hasnat_earned", "completion_bonus", "perfect_bonus", "started_at", "completed_at", "created_at", "updated_at"]);
+  insertRows("seerah_review_questions", backup.seerah_review_questions, ["id", "session_id", "position", "quiz_id", "option_order", "answer", "correct", "hasnat_earned", "answered_at"]);
+  insertRows("seerah_review_practice", backup.seerah_review_practice, ["child_id", "quiz_id", "wrong_count", "correct_count", "priority", "last_wrong_at", "updated_at"]);
+  insertRows("streak_recovery_settings", backup.streak_recovery_settings, ["child_id", "enabled", "max_shields", "recovery_difficulty", "updated_at"]);
+  insertRows("streak_states", backup.streak_states, ["child_id", "current_streak", "shields", "last_active_date", "last_processed_date", "active_days_since_shield", "tree_points", "tree_health", "recovery_status", "missed_days", "recovery_required", "recovery_completed", "updated_at"]);
+  insertRows("streak_history", backup.streak_history, ["id", "child_id", "event_date", "event_type", "streak_before", "streak_after", "shields_before", "shields_after", "note", "created_at"]);
+  insertRows("recovery_missions", backup.recovery_missions, ["id", "child_id", "recovery_key", "mission_type", "title", "completed", "completed_at", "source_type", "source_id", "created_at"]);
+  insertRows("rescue_quiz_sessions", backup.rescue_quiz_sessions, ["id", "child_id", "recovery_key", "status", "total_questions", "current_index", "correct_answers", "passed", "hasnat_earned", "created_at", "completed_at"]);
+  insertRows("rescue_quiz_questions", backup.rescue_quiz_questions, ["id", "session_id", "position", "quiz_id", "option_order", "answer", "correct", "answered_at"]);
   insertRows("child_wallets", backup.child_wallets, ["child_id", "xp", "coins", "gems", "keys", "treasure_tickets", "updated_at"]);
   insertRows("child_pets", backup.child_pets, ["child_id", "pet_type", "pet_name", "happiness", "pet_level", "updated_at"]);
   insertRows("child_moods", backup.child_moods, ["id", "child_id", "mood_date", "mood", "note", "created_at"]);
@@ -1938,21 +2285,324 @@ function childIdFor(req, explicitId) {
   return Number(visibleChildIds(user)[0] || 0);
 }
 
-function dayStreakFor(childId) {
-  const rows = db(sql`
-    SELECT DISTINCT log_date
-    FROM activity_logs
-    WHERE child_id = ${childId} AND status IN ('completed','approved')
-    ORDER BY log_date DESC;
-  `);
-  const completedDays = new Set(rows.map((row) => row.log_date));
-  let streak = 0;
-  const cursor = new Date(`${today()}T12:00:00`);
-  while (completedDays.has(cursor.toISOString().slice(0, 10))) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
+function dateOffset(dateString, amount) {
+  const date = new Date(`${dateString}T12:00:00`);
+  date.setDate(date.getDate() + amount);
+  return date.toISOString().slice(0, 10);
+}
+
+function daysBetween(fromDate, toDate) {
+  return Math.max(0, Math.round((new Date(`${toDate}T12:00:00`) - new Date(`${fromDate}T12:00:00`)) / 86400000));
+}
+
+function recoveryRequirement(missedDays) {
+  if (missedDays <= 1) return 1;
+  if (missedDays === 2) return 2;
+  return 4;
+}
+
+const RECOVERY_MISSION_TYPES = [
+  ["sports", "Complete a sports activity"],
+  ["islamic", "Complete an Islamic activity"],
+  ["reading", "Complete a reading activity"],
+  ["family_helping", "Help your family"],
+  ["daily_review", "Complete the Daily Seerah Review Quiz"]
+];
+
+function generateRecoveryMissions(childId, recoveryKey, required) {
+  for (let index = 0; index < required; index += 1) {
+    const [type, title] = RECOVERY_MISSION_TYPES[index % RECOVERY_MISSION_TYPES.length];
+    exec(sql`
+      INSERT OR IGNORE INTO recovery_missions (child_id, recovery_key, mission_type, title)
+      VALUES (${childId}, ${recoveryKey}, ${type}, ${title});
+    `);
   }
-  return streak;
+}
+
+function processStreakRecovery(childId, date = today()) {
+  exec(sql`
+    INSERT OR IGNORE INTO streak_recovery_settings (child_id, enabled, max_shields, recovery_difficulty)
+    VALUES (${childId}, 1, 3, 'normal');
+    INSERT OR IGNORE INTO streak_states (
+      child_id, current_streak, shields, last_active_date, last_processed_date,
+      active_days_since_shield, tree_points, tree_health
+    ) VALUES (${childId}, 28, 3, ${dateOffset(date, -1)}, ${date}, 0, 28, 100);
+  `);
+  const settings = db(sql`SELECT * FROM streak_recovery_settings WHERE child_id = ${childId};`)[0];
+  let state = db(sql`SELECT * FROM streak_states WHERE child_id = ${childId};`)[0];
+  if (!state || state.recovery_status === "active") return state;
+  const yesterday = dateOffset(date, -1);
+  const lastActive = state.last_active_date || yesterday;
+  const missedDays = Math.max(0, daysBetween(lastActive, yesterday));
+  if (missedDays === 0) {
+    exec(sql`UPDATE streak_states SET last_processed_date = ${date}, updated_at = CURRENT_TIMESTAMP WHERE child_id = ${childId};`);
+    return db(sql`SELECT * FROM streak_states WHERE child_id = ${childId};`)[0];
+  }
+
+  const beforeStreak = Number(state.current_streak || 0);
+  const beforeShields = Number(state.shields || 0);
+  if (!Number(settings?.enabled || 0)) {
+    exec(sql`
+      UPDATE streak_states SET current_streak = 0, shields = 0, last_active_date = ${yesterday},
+        last_processed_date = ${date}, active_days_since_shield = 0, tree_health = 45,
+        recovery_status = 'none', missed_days = 0, recovery_required = 0, recovery_completed = 0,
+        updated_at = CURRENT_TIMESTAMP WHERE child_id = ${childId};
+      INSERT INTO streak_history (child_id, event_date, event_type, streak_before, streak_after, shields_before, shields_after, note)
+      VALUES (${childId}, ${date}, 'streak_lost', ${beforeStreak}, 0, ${beforeShields}, 0, ${`${missedDays} missed day(s); recovery disabled.`});
+    `);
+    return db(sql`SELECT * FROM streak_states WHERE child_id = ${childId};`)[0];
+  }
+
+  const shieldUses = Math.min(missedDays, beforeShields);
+  const uncoveredDays = missedDays - shieldUses;
+  const shieldsAfter = beforeShields - shieldUses;
+  if (shieldUses > 0) {
+    exec(sql`
+      INSERT INTO streak_history (child_id, event_date, event_type, streak_before, streak_after, shields_before, shields_after, note)
+      VALUES (${childId}, ${date}, 'shield_used', ${beforeStreak}, ${beforeStreak}, ${beforeShields}, ${shieldsAfter}, ${`${shieldUses} shield(s) protected the streak.`});
+    `);
+  }
+  if (uncoveredDays === 0) {
+    exec(sql`
+      UPDATE streak_states SET shields = ${shieldsAfter}, last_active_date = ${yesterday},
+        last_processed_date = ${date}, tree_health = MAX(75, tree_health - ${shieldUses * 5}),
+        updated_at = CURRENT_TIMESTAMP WHERE child_id = ${childId};
+    `);
+    return db(sql`SELECT * FROM streak_states WHERE child_id = ${childId};`)[0];
+  }
+
+  const required = recoveryRequirement(uncoveredDays);
+  const recoveryKey = `${date}-${uncoveredDays}`;
+  exec(sql`
+    UPDATE streak_states SET shields = ${shieldsAfter}, last_processed_date = ${date},
+      recovery_status = 'active', missed_days = ${uncoveredDays}, recovery_required = ${required},
+      recovery_completed = 0, tree_health = 45, updated_at = CURRENT_TIMESTAMP
+    WHERE child_id = ${childId};
+    INSERT INTO streak_history (child_id, event_date, event_type, streak_before, streak_after, shields_before, shields_after, note)
+    VALUES (${childId}, ${date}, 'recovery_started', ${beforeStreak}, ${beforeStreak}, ${beforeShields}, ${shieldsAfter}, ${`${uncoveredDays} unprotected missed day(s).`});
+  `);
+  generateRecoveryMissions(childId, recoveryKey, required);
+  return db(sql`SELECT * FROM streak_states WHERE child_id = ${childId};`)[0];
+}
+
+function completeRecovery(childId, source = "missions") {
+  const state = db(sql`SELECT * FROM streak_states WHERE child_id = ${childId};`)[0];
+  if (!state || state.recovery_status !== "active") return false;
+  const rewardHasnat = 25 + Number(state.recovery_required || 0) * 5;
+  const wallet = walletFor(childId);
+  addPoints(childId, rewardHasnat, "streak_recovery", -Number(childId), "Streak comeback completed");
+  exec(sql`
+    UPDATE child_wallets SET gems = gems + 1, updated_at = CURRENT_TIMESTAMP WHERE child_id = ${childId};
+    UPDATE streak_states SET recovery_status = 'none', missed_days = 0, recovery_required = 0,
+      recovery_completed = 0, last_active_date = ${dateOffset(today(), -1)}, tree_health = 100,
+      tree_points = tree_points + 2, updated_at = CURRENT_TIMESTAMP WHERE child_id = ${childId};
+    INSERT INTO streak_history (child_id, event_date, event_type, streak_before, streak_after, shields_before, shields_after, note)
+    VALUES (${childId}, ${today()}, 'recovery_completed', ${state.current_streak}, ${state.current_streak}, ${state.shields}, ${state.shields}, ${`Comeback completed through ${source}. +${rewardHasnat} Hasnat and +1 gem.`});
+    INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon)
+    VALUES (${childId}, ${today()}, -840002, 'Comeback Hero', '🌟');
+  `);
+  if (Number(state.missed_days || 0) >= 3) {
+    exec(sql`INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon) VALUES (${childId}, ${today()}, -840003, 'Learning Warrior', '🛡️');`);
+  }
+  return Boolean(wallet);
+}
+
+function markDailyStreakActivity(childId, sourceType = "activity", sourceId = 0) {
+  processStreakRecovery(childId);
+  let state = db(sql`SELECT * FROM streak_states WHERE child_id = ${childId};`)[0];
+  if (!state || state.recovery_status === "active" || state.last_active_date === today()) return;
+  const settings = db(sql`SELECT * FROM streak_recovery_settings WHERE child_id = ${childId};`)[0] || {};
+  const beforeStreak = Number(state.current_streak || 0);
+  const beforeShields = Number(state.shields || 0);
+  const nextStreak = state.last_active_date === dateOffset(today(), -1) ? beforeStreak + 1 : Math.max(1, beforeStreak);
+  const activeDays = Number(state.active_days_since_shield || 0) + 1;
+  const earnsShield = activeDays >= 7 && beforeShields < Number(settings.max_shields || 3);
+  const nextShields = earnsShield ? beforeShields + 1 : beforeShields;
+  exec(sql`
+    UPDATE streak_states SET current_streak = ${nextStreak}, shields = ${nextShields},
+      last_active_date = ${today()}, last_processed_date = ${today()},
+      active_days_since_shield = ${earnsShield ? 0 : activeDays}, tree_points = tree_points + 1,
+      tree_health = MIN(100, tree_health + 10), updated_at = CURRENT_TIMESTAMP
+    WHERE child_id = ${childId};
+    INSERT INTO streak_history (child_id, event_date, event_type, streak_before, streak_after, shields_before, shields_after, note)
+    VALUES (${childId}, ${today()}, 'active_day', ${beforeStreak}, ${nextStreak}, ${beforeShields}, ${nextShields}, ${`${sourceType} ${sourceId}`});
+  `);
+  if (earnsShield) {
+    exec(sql`
+      INSERT INTO streak_history (child_id, event_date, event_type, streak_before, streak_after, shields_before, shields_after, note)
+      VALUES (${childId}, ${today()}, 'shield_earned', ${nextStreak}, ${nextStreak}, ${beforeShields}, ${nextShields}, 'Seven active days earned a Streak Shield.');
+      INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon)
+      VALUES (${childId}, ${today()}, -840001, 'Streak Guardian', '🛡️');
+    `);
+  }
+}
+
+function activityRecoveryType(activity) {
+  const text = `${activity.title || ""} ${activity.subject || ""}`.toLowerCase();
+  if (text.includes("sport") || text.includes("fitness") || text.includes("squat") || text.includes("run") || text.includes("jump")) return "sports";
+  if (text.includes("quran") || text.includes("prayer") || text.includes("islam")) return "islamic";
+  if (text.includes("read") || text.includes("writing") || text.includes("english") || text.includes("german")) return "reading";
+  if (text.includes("help") || text.includes("house") || text.includes("clean") || text.includes("teamwork") || text.includes("organization")) return "family_helping";
+  return "";
+}
+
+function advanceRecoveryMission(childId, missionType, sourceType, sourceId) {
+  if (!missionType) return;
+  const state = processStreakRecovery(childId);
+  if (!state || state.recovery_status !== "active") return;
+  const mission = db(sql`
+    SELECT * FROM recovery_missions
+    WHERE child_id = ${childId} AND completed = 0 AND mission_type = ${missionType}
+    ORDER BY id LIMIT 1;
+  `)[0];
+  if (!mission) return;
+  exec(sql`
+    UPDATE recovery_missions SET completed = 1, completed_at = CURRENT_TIMESTAMP,
+      source_type = ${sourceType}, source_id = ${sourceId} WHERE id = ${mission.id};
+    UPDATE streak_states SET recovery_completed = recovery_completed + 1, updated_at = CURRENT_TIMESTAMP
+    WHERE child_id = ${childId};
+  `);
+  const next = db(sql`SELECT * FROM streak_states WHERE child_id = ${childId};`)[0];
+  if (Number(next.recovery_completed || 0) >= Number(next.recovery_required || 0)) completeRecovery(childId, "recovery missions");
+}
+
+function learningTreeFor(state) {
+  const points = Number(state.tree_points || 0);
+  const stages = [
+    [28, "Golden Tree", "🌳✨"],
+    [21, "Strong Tree", "🌳"],
+    [14, "Young Tree", "🌲"],
+    [7, "Small Plant", "🌿"],
+    [0, "Seed", "🌱"]
+  ];
+  const stage = stages.find(([target]) => points >= target) || stages.at(-1);
+  return { stage: stage[1], icon: stage[2], points, health: Number(state.tree_health || 100), weak: Number(state.tree_health || 100) < 70 };
+}
+
+function rescueQuestionFor(session) {
+  if (!session || session.status !== "in_progress") return null;
+  const row = db(sql`
+    SELECT rqq.id AS rescue_question_id, rqq.position, rqq.option_order, q.id AS quiz_id,
+      q.category_question_id, q.question_text, q.difficulty
+    FROM rescue_quiz_questions rqq
+    JOIN quizzes q ON q.id = rqq.quiz_id
+    WHERE rqq.session_id = ${session.id} AND rqq.position = ${Number(session.current_index || 0) + 1}
+    LIMIT 1;
+  `)[0];
+  return row ? {
+    rescue_question_id: row.rescue_question_id,
+    position: Number(row.position),
+    question_number: Number(row.category_question_id),
+    question_text: row.question_text,
+    difficulty: row.difficulty,
+    options: parseJsonArray(row.option_order)
+  } : null;
+}
+
+function startRescueQuiz(childId) {
+  const recovery = streakRecoveryFor(childId);
+  if (recovery.recovery_status !== "active") throw Object.assign(new Error("No streak recovery is needed right now."), { status: 400 });
+  const recoveryKey = recovery.missions[0]?.recovery_key;
+  if (!recoveryKey) throw Object.assign(new Error("Recovery missions are not ready yet."), { status: 400 });
+  const count = recovery.difficulty === "hard" ? 10 : recovery.difficulty === "easy" ? 5 : 7;
+  let session = db(sql`SELECT * FROM rescue_quiz_sessions WHERE child_id = ${childId} AND recovery_key = ${recoveryKey};`)[0];
+  if (session?.status === "in_progress" || session?.status === "completed") return session;
+  if (session?.status === "failed") {
+    exec(sql`
+      DELETE FROM rescue_quiz_questions WHERE session_id = ${session.id};
+      UPDATE rescue_quiz_sessions SET status = 'in_progress', current_index = 0, correct_answers = 0,
+        passed = 0, hasnat_earned = 0, created_at = CURRENT_TIMESTAMP, completed_at = NULL
+      WHERE id = ${session.id};
+    `);
+  } else {
+    exec(sql`
+      INSERT INTO rescue_quiz_sessions (child_id, recovery_key, total_questions)
+      VALUES (${childId}, ${recoveryKey}, ${count});
+    `);
+    session = db(sql`SELECT * FROM rescue_quiz_sessions WHERE child_id = ${childId} AND recovery_key = ${recoveryKey};`)[0];
+  }
+  const progress = seerahQuizProgressFor(childId);
+  const unlocked = Math.max(1, Math.min(SEERAH_QUESTIONS.length, Number(progress.current_question || 1)));
+  const available = db(sql`
+    SELECT q.* FROM quizzes q
+    WHERE q.category_key = ${SEERAH_CATEGORY_KEY} AND q.category_question_id <= ${unlocked} AND q.status = 'active';
+  `).map(quizRow);
+  const priorityIds = db(sql`
+    SELECT quiz_id FROM seerah_review_practice WHERE child_id = ${childId} AND priority > 0 ORDER BY priority DESC;
+  `).map((row) => Number(row.quiz_id));
+  const byId = new Map(available.map((quiz) => [Number(quiz.id), quiz]));
+  const selected = [];
+  for (const id of priorityIds) {
+    const quiz = byId.get(id);
+    if (quiz && !selected.some((item) => item.id === quiz.id)) selected.push(quiz);
+    if (selected.length >= count) break;
+  }
+  for (const quiz of shuffled(available)) {
+    if (selected.length >= Math.min(count, available.length)) break;
+    if (!selected.some((item) => item.id === quiz.id)) selected.push(quiz);
+  }
+  const learnedPool = shuffled(available);
+  let repeatIndex = 0;
+  while (selected.length < count && learnedPool.length > 0) {
+    selected.push(learnedPool[repeatIndex % learnedPool.length]);
+    repeatIndex += 1;
+  }
+  const ordered = shuffled(selected);
+  exec(sql`UPDATE rescue_quiz_sessions SET total_questions = ${ordered.length} WHERE id = ${session.id};`);
+  ordered.forEach((quiz, index) => {
+    exec(sql`
+      INSERT OR IGNORE INTO rescue_quiz_questions (session_id, position, quiz_id, option_order)
+      VALUES (${session.id}, ${index + 1}, ${quiz.id}, ${JSON.stringify(shuffled(quiz.options))});
+    `);
+  });
+  return db(sql`SELECT * FROM rescue_quiz_sessions WHERE id = ${session.id};`)[0];
+}
+
+function streakRecoveryFor(childId) {
+  const state = processStreakRecovery(childId);
+  const settings = db(sql`SELECT * FROM streak_recovery_settings WHERE child_id = ${childId};`)[0] || {};
+  const missions = db(sql`
+    SELECT * FROM recovery_missions
+    WHERE child_id = ${childId}
+      AND recovery_key = (SELECT recovery_key FROM recovery_missions WHERE child_id = ${childId} ORDER BY id DESC LIMIT 1)
+    ORDER BY id;
+  `);
+  const activeRecoveryKey = missions[0]?.recovery_key || "";
+  const rescue = activeRecoveryKey
+    ? db(sql`SELECT * FROM rescue_quiz_sessions WHERE child_id = ${childId} AND recovery_key = ${activeRecoveryKey} LIMIT 1;`)[0] || null
+    : null;
+  const history = db(sql`SELECT * FROM streak_history WHERE child_id = ${childId} ORDER BY id DESC LIMIT 30;`);
+  const child = db(sql`SELECT parent_id FROM children WHERE id = ${childId};`)[0];
+  const familyStates = db(sql`
+    SELECT ss.current_streak FROM streak_states ss JOIN children c ON c.id = ss.child_id
+    WHERE c.parent_id = ${Number(child?.parent_id || 0)};
+  `);
+  if (Number(state.shields || 0) > 0) {
+    exec(sql`INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon) VALUES (${childId}, ${today()}, -840001, 'Streak Guardian', '🛡️');`);
+  }
+  if (Number(state.tree_points || 0) >= 28) {
+    exec(sql`INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon) VALUES (${childId}, ${today()}, -840005, 'Golden Tree Champion', '🌳');`);
+  }
+  return {
+    enabled: Boolean(Number(settings.enabled || 0)),
+    max_shields: Number(settings.max_shields || 3),
+    difficulty: settings.recovery_difficulty || "normal",
+    current_streak: Number(state.current_streak || 0),
+    shields: Number(state.shields || 0),
+    recovery_status: state.recovery_status,
+    missed_days: Number(state.missed_days || 0),
+    recovery_required: Number(state.recovery_required || 0),
+    recovery_completed: Number(state.recovery_completed || 0),
+    missions,
+    rescue_quiz: rescue ? { ...rescue, current_question: rescueQuestionFor(rescue), pass_score: 80 } : null,
+    tree: learningTreeFor(state),
+    family_streak: familyStates.length ? Math.min(...familyStates.map((row) => Number(row.current_streak || 0))) : Number(state.current_streak || 0),
+    history
+  };
+}
+
+function dayStreakFor(childId) {
+  return Number(processStreakRecovery(childId)?.current_streak || 0);
 }
 
 function activityOfTheDay() {
@@ -2365,6 +3015,7 @@ function dashboardFor(childId) {
   const challengeProgress = db(sql`SELECT COUNT(*) AS count FROM daily_challenge_completions WHERE child_id = ${childId};`)[0].count;
   const todayChallengeCompleted = Boolean(db(sql`SELECT id FROM daily_challenge_completions WHERE child_id = ${childId} AND challenge_date = ${date} LIMIT 1;`)[0]);
   const streak = dayStreakFor(childId);
+  const streakRecovery = streakRecoveryFor(childId);
   const missions = missionsFor(childId, date);
   const weeklyTheme = weeklyThemeFor(childId, date);
   const reflection = reflectionFor(childId, date);
@@ -2373,6 +3024,7 @@ function dashboardFor(childId) {
   const quran = isHifzChild(child) ? quranProgressFor(childId) : null;
   const quizzes = quizzesForKid(childId);
   const seerahQuiz = seerahQuizProgressFor(childId);
+  const seerahReview = seerahReviewFor(childId, date);
   const wallet = walletFor(childId);
   const pet = petFor(childId);
   const praiseMessages = praiseFor(childId);
@@ -2400,6 +3052,7 @@ function dashboardFor(childId) {
     hifz: null,
     quizzes,
     seerahQuiz,
+    seerahReview,
     wallet,
     pet,
     praiseMessages,
@@ -2425,6 +3078,7 @@ function dashboardFor(childId) {
       { icon: "🎁", title: "Reward Master", requirement: "Redeem 3 rewards" }
     ],
     streak,
+    streakRecovery,
     summary: {
       earned_points: earned.points,
       redeemed_points: redeemed.points,
@@ -2664,6 +3318,25 @@ async function api(req, res, path) {
         GROUP BY c.id
         ORDER BY hasnat DESC, completed DESC;
       `),
+      streakRecoverySettings: db(`
+        SELECT c.id AS child_id, c.name AS child_name, COALESCE(srs.enabled, 1) AS enabled,
+          COALESCE(srs.max_shields, 3) AS max_shields, COALESCE(srs.recovery_difficulty, 'normal') AS recovery_difficulty,
+          COALESCE(ss.current_streak, 28) AS current_streak, COALESCE(ss.shields, 3) AS shields,
+          COALESCE(ss.recovery_status, 'none') AS recovery_status, COALESCE(ss.missed_days, 0) AS missed_days,
+          COALESCE(ss.recovery_required, 0) AS recovery_required, COALESCE(ss.recovery_completed, 0) AS recovery_completed,
+          COALESCE(ss.tree_points, 28) AS tree_points, COALESCE(ss.tree_health, 100) AS tree_health
+        FROM children c
+        LEFT JOIN streak_recovery_settings srs ON srs.child_id = c.id
+        LEFT JOIN streak_states ss ON ss.child_id = c.id
+        WHERE ${childScope}
+        ORDER BY c.name;
+      `),
+      streakHistory: db(`
+        SELECT sh.*, c.name AS child_name
+        FROM streak_history sh JOIN children c ON c.id = sh.child_id
+        WHERE ${childScope}
+        ORDER BY sh.id DESC LIMIT 100;
+      `),
       currentUser: { id: user.id, name: user.name, role: user.role },
       users: isAdmin(user)
         ? db("SELECT id, name, email, role, child_id, created_at FROM users ORDER BY role DESC, id;")
@@ -2687,11 +3360,19 @@ async function api(req, res, path) {
           c.name AS child_name,
           COALESCE(qca.enabled, 0) AS enabled,
           MIN(${SEERAH_QUESTIONS.length}, MAX(0, COALESCE(sqp.current_question, 1) - 1)) AS completed,
-          COALESCE(sqp.current_level, 1) AS current_level
+          COALESCE(sqp.current_level, 1) AS current_level,
+          COALESCE(srs.enabled, 1) AS review_enabled,
+          COALESCE(srs.question_count, 10) AS review_question_count,
+          (SELECT COUNT(*) FROM seerah_review_sessions ssession WHERE ssession.child_id = c.id AND ssession.status = 'completed') AS review_completed,
+          (SELECT COALESCE(SUM(correct_answers), 0) FROM seerah_review_sessions ssession WHERE ssession.child_id = c.id) AS review_correct,
+          (SELECT COALESCE(SUM(wrong_answers), 0) FROM seerah_review_sessions ssession WHERE ssession.child_id = c.id) AS review_wrong,
+          (SELECT COALESCE(SUM(hasnat_earned), 0) FROM seerah_review_sessions ssession WHERE ssession.child_id = c.id) AS review_hasnat,
+          (SELECT COUNT(*) FROM seerah_review_practice srp WHERE srp.child_id = c.id AND srp.priority > 0) AS needs_practice
         FROM children c
         LEFT JOIN quiz_category_assignments qca
           ON qca.child_id = c.id AND qca.category_key = ${quote(SEERAH_CATEGORY_KEY)}
         LEFT JOIN seerah_quiz_progress sqp ON sqp.child_id = c.id
+        LEFT JOIN seerah_review_settings srs ON srs.child_id = c.id
         WHERE ${childScope}
         ORDER BY c.name;
       `),
@@ -2795,6 +3476,196 @@ async function api(req, res, path) {
         updated_at = CURRENT_TIMESTAMP;
       DELETE FROM badges
       WHERE child_id = ${childId} AND activity_id IN (-820001, -820010, -820025, -820050, -820100);
+    `);
+    return send(res, 200, { ok: true });
+  }
+  if (method === "POST" && path === "/api/seerah-review/settings") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    requireChildAccess(user, childId);
+    const questionCount = [5, 10, 15].includes(Number(body.questionCount)) ? Number(body.questionCount) : 10;
+    const enabled = boolInt(body.enabled);
+    exec(sql`
+      INSERT INTO seerah_review_settings (child_id, enabled, question_count)
+      VALUES (${childId}, ${enabled}, ${questionCount})
+      ON CONFLICT(child_id) DO UPDATE SET
+        enabled = excluded.enabled,
+        question_count = excluded.question_count,
+        updated_at = CURRENT_TIMESTAMP;
+    `);
+    return send(res, 200, { ok: true });
+  }
+  if (method === "POST" && path === "/api/seerah-review/reset") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    requireChildAccess(user, childId);
+    exec(sql`
+      DELETE FROM seerah_review_questions
+      WHERE session_id IN (SELECT id FROM seerah_review_sessions WHERE child_id = ${childId});
+      DELETE FROM seerah_review_sessions WHERE child_id = ${childId};
+      DELETE FROM seerah_review_practice WHERE child_id = ${childId};
+      DELETE FROM badges
+      WHERE child_id = ${childId} AND activity_id IN (-830003, -830007, -830030);
+    `);
+    return send(res, 200, { ok: true });
+  }
+  if (method === "POST" && path === "/api/seerah-review/start") {
+    const user = requireUser(req);
+    if (user.role !== "child") return send(res, 403, { error: "Only kids can start a daily review." });
+    startSeerahReview(Number(user.child_id), today());
+    return send(res, 200, dashboardFor(Number(user.child_id)));
+  }
+  if (method === "POST" && path === "/api/seerah-review/answer") {
+    const user = requireUser(req);
+    if (user.role !== "child") return send(res, 403, { error: "Only kids can answer a daily review." });
+    const childId = Number(user.child_id);
+    const session = db(sql`
+      SELECT * FROM seerah_review_sessions
+      WHERE child_id = ${childId} AND review_date = ${today()} AND status = 'in_progress'
+      LIMIT 1;
+    `)[0];
+    if (!session) return send(res, 409, { error: "Start today’s Seerah Review first." });
+    const question = db(sql`
+      SELECT srq.id AS review_question_id, srq.*, q.*
+      FROM seerah_review_questions srq
+      JOIN quizzes q ON q.id = srq.quiz_id
+      WHERE srq.session_id = ${session.id}
+        AND srq.position = ${Number(session.current_index || 0) + 1}
+      LIMIT 1;
+    `)[0];
+    if (!question) return send(res, 409, { error: "The next review question could not be found." });
+    if (question.correct !== null && question.correct !== undefined) return send(res, 409, { error: "This review question was already answered." });
+    const answer = String(body.answer || "").trim();
+    const correct = String(answer).toLowerCase() === String(question.correct_answer || "").trim().toLowerCase();
+    const questionReward = correct ? seerahReviewReward(question.difficulty) : 0;
+    exec(sql`
+      UPDATE seerah_review_questions
+      SET answer = ${answer},
+          correct = ${correct ? 1 : 0},
+          hasnat_earned = ${questionReward},
+          answered_at = CURRENT_TIMESTAMP
+      WHERE id = ${question.review_question_id};
+      INSERT INTO seerah_review_practice (child_id, quiz_id, wrong_count, correct_count, priority, last_wrong_at)
+      VALUES (${childId}, ${question.quiz_id}, ${correct ? 0 : 1}, ${correct ? 1 : 0}, ${correct ? 0 : 2}, ${correct ? null : new Date().toISOString()})
+      ON CONFLICT(child_id, quiz_id) DO UPDATE SET
+        wrong_count = wrong_count + ${correct ? 0 : 1},
+        correct_count = correct_count + ${correct ? 1 : 0},
+        priority = MAX(0, priority + ${correct ? -1 : 2}),
+        last_wrong_at = CASE WHEN ${correct ? 1 : 0} = 1 THEN last_wrong_at ELSE CURRENT_TIMESTAMP END,
+        updated_at = CURRENT_TIMESTAMP;
+    `);
+    if (questionReward > 0) {
+      addPoints(childId, questionReward, "seerah_review", question.review_question_id, `Daily Seerah Review: question ${question.category_question_id}`);
+    }
+
+    const nextIndex = Number(session.current_index || 0) + 1;
+    const completed = nextIndex >= Number(session.total_questions || 0);
+    let completionBonus = 0;
+    let perfectBonus = 0;
+    if (completed) {
+      completionBonus = 20;
+      const wrongCount = Number(session.wrong_answers || 0) + (correct ? 0 : 1);
+      perfectBonus = wrongCount === 0 ? 30 : 0;
+      addPoints(childId, completionBonus, "seerah_review", -Number(session.id), "Daily Seerah Review completion bonus");
+      if (perfectBonus) addPoints(childId, perfectBonus, "seerah_review", -100000 - Number(session.id), "Daily Seerah Review perfect score bonus");
+    }
+    exec(sql`
+      UPDATE seerah_review_sessions
+      SET current_index = ${nextIndex},
+          correct_answers = correct_answers + ${correct ? 1 : 0},
+          wrong_answers = wrong_answers + ${correct ? 0 : 1},
+          hasnat_earned = hasnat_earned + ${questionReward + completionBonus + perfectBonus},
+          completion_bonus = ${completionBonus},
+          perfect_bonus = ${perfectBonus},
+          status = ${completed ? "completed" : "in_progress"},
+          completed_at = ${completed ? new Date().toISOString() : null},
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${session.id};
+    `);
+    if (completed) {
+      awardSeerahReviewStreakBadges(childId, seerahReviewStreak(childId, today()));
+      advanceRecoveryMission(childId, "daily_review", "seerah_review", session.id);
+      markDailyStreakActivity(childId, "seerah_review", session.id);
+    }
+    const next = dashboardFor(childId);
+    next.seerahReviewAnswer = {
+      correct,
+      correctAnswer: question.correct_answer,
+      explanation: question.explanation,
+      earnedHasnat: questionReward,
+      completionBonus,
+      perfectBonus,
+      completed
+    };
+    return send(res, 200, next);
+  }
+  if (method === "POST" && path === "/api/rescue-quiz/start") {
+    const user = requireUser(req);
+    if (user.role !== "child") return send(res, 403, { error: "Only kids can start a rescue quiz." });
+    startRescueQuiz(Number(user.child_id));
+    return send(res, 200, dashboardFor(Number(user.child_id)));
+  }
+  if (method === "POST" && path === "/api/rescue-quiz/answer") {
+    const user = requireUser(req);
+    if (user.role !== "child") return send(res, 403, { error: "Only kids can answer a rescue quiz." });
+    const childId = Number(user.child_id);
+    const session = db(sql`
+      SELECT * FROM rescue_quiz_sessions
+      WHERE child_id = ${childId} AND status = 'in_progress'
+      ORDER BY id DESC LIMIT 1;
+    `)[0];
+    if (!session) return send(res, 409, { error: "Start the Daily Rescue Quiz first." });
+    const question = db(sql`
+      SELECT rqq.id AS rescue_question_id, rqq.*, q.correct_answer, q.explanation
+      FROM rescue_quiz_questions rqq JOIN quizzes q ON q.id = rqq.quiz_id
+      WHERE rqq.session_id = ${session.id} AND rqq.position = ${Number(session.current_index || 0) + 1}
+      LIMIT 1;
+    `)[0];
+    if (!question) return send(res, 409, { error: "The next rescue question could not be found." });
+    const answer = String(body.answer || "").trim();
+    const correct = answer.toLowerCase() === String(question.correct_answer || "").trim().toLowerCase();
+    const nextIndex = Number(session.current_index || 0) + 1;
+    const correctAnswers = Number(session.correct_answers || 0) + (correct ? 1 : 0);
+    const finished = nextIndex >= Number(session.total_questions || 0);
+    const score = finished ? Math.round((correctAnswers / Math.max(1, Number(session.total_questions || 0))) * 100) : 0;
+    const passed = finished && score >= 80;
+    exec(sql`
+      UPDATE rescue_quiz_questions SET answer = ${answer}, correct = ${correct ? 1 : 0}, answered_at = CURRENT_TIMESTAMP
+      WHERE id = ${question.rescue_question_id};
+      UPDATE rescue_quiz_sessions SET current_index = ${nextIndex}, correct_answers = ${correctAnswers},
+        status = ${finished ? (passed ? "completed" : "failed") : "in_progress"}, passed = ${passed ? 1 : 0},
+        completed_at = ${finished ? new Date().toISOString() : null}
+      WHERE id = ${session.id};
+    `);
+    if (passed) {
+      completeRecovery(childId, "Daily Rescue Quiz");
+      markDailyStreakActivity(childId, "rescue_quiz", session.id);
+      exec(sql`INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon) VALUES (${childId}, ${today()}, -840004, 'Quiz Master', '🧠');`);
+    }
+    const next = dashboardFor(childId);
+    next.rescueQuizAnswer = {
+      correct,
+      correctAnswer: question.correct_answer,
+      explanation: question.explanation,
+      finished,
+      passed,
+      score
+    };
+    return send(res, 200, next);
+  }
+  if (method === "POST" && path === "/api/streak-recovery/settings") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    requireChildAccess(user, childId);
+    const maxShields = Math.max(0, Math.min(3, Number(body.maxShields ?? 3)));
+    const shields = Math.max(0, Math.min(maxShields, Number(body.shields ?? maxShields)));
+    const difficulty = ["easy", "normal", "hard"].includes(body.difficulty) ? body.difficulty : "normal";
+    exec(sql`
+      INSERT INTO streak_recovery_settings (child_id, enabled, max_shields, recovery_difficulty)
+      VALUES (${childId}, ${boolInt(body.enabled)}, ${maxShields}, ${difficulty})
+      ON CONFLICT(child_id) DO UPDATE SET enabled = excluded.enabled, max_shields = excluded.max_shields,
+        recovery_difficulty = excluded.recovery_difficulty, updated_at = CURRENT_TIMESTAMP;
+      UPDATE streak_states SET shields = ${shields}, updated_at = CURRENT_TIMESTAMP WHERE child_id = ${childId};
     `);
     return send(res, 200, { ok: true });
   }
@@ -2960,6 +3831,7 @@ async function api(req, res, path) {
       correct,
       passed,
       feedback: quiz.category_key === SEERAH_CATEGORY_KEY ? seerahMessage : feedback,
+      correctAnswer: correct ? null : quiz.correct_answer,
       earnedHasnat: coinsEarned,
       alreadyRewarded: correct && !categoryRewardAvailable,
       levelCompleted,
@@ -2980,6 +3852,10 @@ async function api(req, res, path) {
     exec(sql`INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled) SELECT ${child.id}, id, 1 FROM activities WHERE active = 1;`);
     exec(sql`
       INSERT OR IGNORE INTO seerah_quiz_progress (child_id) VALUES (${child.id});
+      INSERT OR IGNORE INTO seerah_review_settings (child_id, enabled, question_count) VALUES (${child.id}, 1, 10);
+      INSERT OR IGNORE INTO streak_recovery_settings (child_id, enabled, max_shields, recovery_difficulty) VALUES (${child.id}, 1, 3, 'normal');
+      INSERT OR IGNORE INTO streak_states (child_id, current_streak, shields, last_active_date, last_processed_date, tree_points, tree_health)
+      VALUES (${child.id}, 28, 3, ${dateOffset(today(), -1)}, ${today()}, 28, 100);
       INSERT OR IGNORE INTO quiz_category_assignments (category_key, child_id, assigned_by_parent_id, enabled)
       VALUES (${SEERAH_CATEGORY_KEY}, ${child.id}, ${user.id}, 1);
     `);
@@ -3057,6 +3933,16 @@ async function api(req, res, path) {
       DELETE FROM hifz_plan WHERE user_id = ${id};
       DELETE FROM quiz_attempts WHERE kid_id = ${id};
       DELETE FROM quiz_category_assignments WHERE child_id = ${id};
+      DELETE FROM seerah_review_questions WHERE session_id IN (SELECT id FROM seerah_review_sessions WHERE child_id = ${id});
+      DELETE FROM seerah_review_sessions WHERE child_id = ${id};
+      DELETE FROM seerah_review_practice WHERE child_id = ${id};
+      DELETE FROM seerah_review_settings WHERE child_id = ${id};
+      DELETE FROM rescue_quiz_questions WHERE session_id IN (SELECT id FROM rescue_quiz_sessions WHERE child_id = ${id});
+      DELETE FROM rescue_quiz_sessions WHERE child_id = ${id};
+      DELETE FROM recovery_missions WHERE child_id = ${id};
+      DELETE FROM streak_history WHERE child_id = ${id};
+      DELETE FROM streak_states WHERE child_id = ${id};
+      DELETE FROM streak_recovery_settings WHERE child_id = ${id};
       DELETE FROM seerah_quiz_progress WHERE child_id = ${id};
       UPDATE parent_challenges SET active = 0 WHERE child_id = ${id};
       DELETE FROM activity_assignments WHERE child_id = ${id};
@@ -3125,6 +4011,8 @@ async function api(req, res, path) {
       if (delta !== 0) addPoints(childId, delta, "activity", log.id, `${activity.title} prayer update`);
       log = db(sql`SELECT * FROM activity_logs WHERE id = ${log.id};`)[0];
       awardDailyBadgeIfNeeded(log, activity);
+      advanceRecoveryMission(childId, activityRecoveryType(activity), "activity", log.id);
+      markDailyStreakActivity(childId, "activity", log.id);
       awardStreakBadgesIfNeeded(childId);
       return send(res, 200, dashboardFor(childId));
     }
@@ -3133,6 +4021,10 @@ async function api(req, res, path) {
     exec(sql`UPDATE activity_logs SET status = ${status}, proof = ${body.proof || ""}, interactive_answer = ${interactiveAnswer}, interactive_score = ${interactiveScore}, updated_at = CURRENT_TIMESTAMP WHERE id = ${log.id};`);
     log = db(sql`SELECT * FROM activity_logs WHERE id = ${log.id};`)[0];
     awardActivityIfNeeded(log, activity);
+    if (log.status === "approved") {
+      advanceRecoveryMission(childId, activityRecoveryType(activity), "activity", log.id);
+      markDailyStreakActivity(childId, "activity", log.id);
+    }
     if (activity.subject === SPORTS_SUBJECT && log.status === "approved") awardSportsBonusesIfNeeded(childId);
     return send(res, 200, dashboardFor(childId));
   }
@@ -3556,7 +4448,11 @@ async function api(req, res, path) {
     const activity = db(sql`SELECT * FROM activities WHERE id = ${log.activity_id};`)[0];
     const status = body.approved ? "approved" : "rejected";
     exec(sql`UPDATE activity_logs SET status = ${status}, updated_at = CURRENT_TIMESTAMP WHERE id = ${log.id};`);
-    if (body.approved) awardActivityIfNeeded({ ...log, status: "approved" }, activity);
+    if (body.approved) {
+      awardActivityIfNeeded({ ...log, status: "approved" }, activity);
+      advanceRecoveryMission(log.child_id, activityRecoveryType(activity), "activity", log.id);
+      markDailyStreakActivity(log.child_id, "activity", log.id);
+    }
     return send(res, 200, { ok: true });
   }
   if (method === "POST" && path === "/api/reward-approvals") {
@@ -3618,6 +4514,16 @@ async function api(req, res, path) {
       quiz_attempts: db("SELECT * FROM quiz_attempts ORDER BY id;"),
       quiz_category_assignments: db("SELECT * FROM quiz_category_assignments ORDER BY category_key, child_id;"),
       seerah_quiz_progress: db("SELECT * FROM seerah_quiz_progress ORDER BY child_id;"),
+      seerah_review_settings: db("SELECT * FROM seerah_review_settings ORDER BY child_id;"),
+      seerah_review_sessions: db("SELECT * FROM seerah_review_sessions ORDER BY child_id, review_date;"),
+      seerah_review_questions: db("SELECT * FROM seerah_review_questions ORDER BY session_id, position;"),
+      seerah_review_practice: db("SELECT * FROM seerah_review_practice ORDER BY child_id, priority DESC;"),
+      streak_recovery_settings: db("SELECT * FROM streak_recovery_settings ORDER BY child_id;"),
+      streak_states: db("SELECT * FROM streak_states ORDER BY child_id;"),
+      streak_history: db("SELECT * FROM streak_history ORDER BY id;"),
+      recovery_missions: db("SELECT * FROM recovery_missions ORDER BY id;"),
+      rescue_quiz_sessions: db("SELECT * FROM rescue_quiz_sessions ORDER BY id;"),
+      rescue_quiz_questions: db("SELECT * FROM rescue_quiz_questions ORDER BY session_id, position;"),
       child_wallets: db("SELECT * FROM child_wallets ORDER BY child_id;"),
       child_pets: db("SELECT * FROM child_pets ORDER BY child_id;"),
       child_moods: db("SELECT * FROM child_moods ORDER BY id;"),

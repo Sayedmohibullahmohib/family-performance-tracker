@@ -580,6 +580,55 @@ function ChildDashboard({ api }) {
     }
   }
 
+  async function startSeerahReview() {
+    try {
+      const next = await api("/api/seerah-review/start", { method: "POST", body: JSON.stringify({}) });
+      setData(next);
+      setChildTab("quizzes");
+      setMessage("Your Daily Seerah Review is ready.");
+    } catch (err) {
+      setMessage(err.message);
+    }
+  }
+
+  async function answerSeerahReview(answer) {
+    try {
+      const next = await api("/api/seerah-review/answer", { method: "POST", body: JSON.stringify({ answer }) });
+      setData(next);
+      const result = next.seerahReviewAnswer;
+      setMessage(result?.correct ? "Excellent review answer!" : "Good effort. This question will return for more practice.");
+      if (result?.correct) playSound("success", soundOn);
+      return result;
+    } catch (err) {
+      setMessage(err.message);
+      return null;
+    }
+  }
+
+  async function startRescueQuiz() {
+    try {
+      const next = await api("/api/rescue-quiz/start", { method: "POST", body: JSON.stringify({}) });
+      setData(next);
+      setMessage("Your Daily Rescue Quiz is ready.");
+    } catch (err) {
+      setMessage(err.message);
+    }
+  }
+
+  async function answerRescueQuiz(answer) {
+    try {
+      const next = await api("/api/rescue-quiz/answer", { method: "POST", body: JSON.stringify({ answer }) });
+      setData(next);
+      const result = next.rescueQuizAnswer;
+      setMessage(result?.passed ? "Your streak is restored!" : result?.correct ? "Correct rescue answer!" : "Keep practising. You can do this.");
+      if (result?.correct) playSound("success", soundOn);
+      return result;
+    } catch (err) {
+      setMessage(err.message);
+      return null;
+    }
+  }
+
   function maybeShowDailyComplete(nextData = data) {
     const key = `daily-complete-${nextData.child.id}-${nextData.date}`;
     if (localStorage.getItem(key) === "seen") return;
@@ -709,6 +758,12 @@ function ChildDashboard({ api }) {
             <MilestoneProgress entries={progressMilestones} value={progressPercent} />
           </section>
 
+          <StreakRecoveryDashboard
+            recovery={data.streakRecovery}
+            onStartQuiz={startRescueQuiz}
+            onAnswerQuiz={answerRescueQuiz}
+          />
+
           <section className="next-task-card" aria-label="Next task">
             <div className="next-task-copy">
               <span className="next-task-icon" aria-hidden="true">{nextJourneyEntry ? icons[nextJourneyEntry.activity?.title] || "🎯" : "🏆"}</span>
@@ -726,6 +781,12 @@ function ChildDashboard({ api }) {
           <section className="nudge-list" aria-label="Helpful reminders">
             {nudgeMessages.slice(0, 2).map((item) => <p key={item}>{item}</p>)}
           </section>
+
+          <SeerahReviewSummaryCard
+            review={data.seerahReview}
+            onStart={startSeerahReview}
+            onOpen={() => setChildTab("quizzes")}
+          />
 
           {data.activityOfTheDay && (
             <section className={data.todayChallengeCompleted ? "daily-challenge earned" : "daily-challenge"}>
@@ -759,6 +820,7 @@ function ChildDashboard({ api }) {
             <h2>Quizzes</h2>
             <p>Work through one question at a time.</p>
           </header>
+          <SeerahDailyReview review={data.seerahReview} onStart={startSeerahReview} onAnswer={answerSeerahReview} />
           <SeerahQuizJourney
             quizzes={(data.quizzes || []).filter((quiz) => quiz.category_key === "prophet-muhammad-100-de")}
             progress={data.seerahQuiz}
@@ -1235,6 +1297,270 @@ const quizTypes = [
   ["adaptive_difficulty", "Adaptive difficulty"]
 ];
 
+function StreakRecoveryDashboard({ recovery, onStartQuiz, onAnswerQuiz }) {
+  const [selectedAnswer, setSelectedAnswer] = useState("");
+  const [answeredQuestion, setAnsweredQuestion] = useState(null);
+  const [result, setResult] = useState(null);
+  const [saving, setSaving] = useState(false);
+  if (!recovery) return null;
+  const rescue = recovery.rescue_quiz;
+  const question = result && answeredQuestion ? answeredQuestion : rescue?.current_question;
+  const progress = recovery.recovery_required
+    ? Math.round((recovery.recovery_completed / recovery.recovery_required) * 100)
+    : 100;
+
+  async function chooseAnswer(option) {
+    if (!question || saving || result) return;
+    setSelectedAnswer(option);
+    setAnsweredQuestion(question);
+    setSaving(true);
+    setResult(await onAnswerQuiz(option));
+    setSaving(false);
+  }
+
+  function continueQuiz() {
+    setSelectedAnswer("");
+    setAnsweredQuestion(null);
+    setResult(null);
+  }
+
+  return (
+    <section className={`streak-recovery-card ${recovery.recovery_status}`} aria-label="Streak Recovery and Learning Tree">
+      <div className="streak-recovery-heading">
+        <div>
+          <p className="eyebrow">Streak Recovery</p>
+          <h2>{recovery.recovery_status === "active" ? "Your comeback is ready" : "Your streak is protected"}</h2>
+          <p>{recovery.recovery_status === "active" ? `${recovery.missed_days} missed day(s). Complete your recovery to restore full growth.` : "Stay active today and keep your Learning Tree strong."}</p>
+        </div>
+        <div className="shield-counter" aria-label={`${recovery.shields} streak shields`}>
+          <span>🛡️</span>
+          <strong>{recovery.shields}/{recovery.max_shields}</strong>
+          <small>shields</small>
+        </div>
+      </div>
+
+      <div className="streak-recovery-stats">
+        <div><span>🔥</span><strong>{recovery.current_streak}</strong><small>current streak</small></div>
+        <div><span>👨‍👩‍👧‍👦</span><strong>{recovery.family_streak}</strong><small>family streak</small></div>
+        <div className={recovery.tree.weak ? "learning-tree weak" : "learning-tree"}>
+          <span>{recovery.tree.icon}</span>
+          <strong>{recovery.tree.stage}</strong>
+          <small>{recovery.tree.health}% healthy</small>
+        </div>
+      </div>
+
+      {result?.finished && (
+        <div className={result.passed ? "rescue-final-result passed" : "rescue-final-result retry"}>
+          <strong>{result.passed ? "Comeback complete!" : "Almost there. Try once more."}</strong>
+          <p>
+            {result.passed
+              ? `You scored ${result.score}% and restored your streak.`
+              : `You scored ${result.score}%. Reach 80% to restore your streak.`}
+          </p>
+          <button type="button" onClick={continueQuiz}>
+            {result.passed ? "Back to dashboard" : "Choose Try Rescue Quiz Again"}
+          </button>
+        </div>
+      )}
+
+      {recovery.recovery_status === "active" && (
+        <div className="recovery-work">
+          <div className="recovery-progress-row">
+            <strong>{recovery.recovery_completed}/{recovery.recovery_required} recovery activities</strong>
+            <span>{progress}%</span>
+          </div>
+          <Progress value={progress} />
+          <div className="recovery-missions">
+            {recovery.missions.map((mission) => (
+              <article className={mission.completed ? "complete" : ""} key={mission.id}>
+                <span>{mission.completed ? "✓" : mission.mission_type === "sports" ? "⚽" : mission.mission_type === "islamic" ? "🕌" : mission.mission_type === "reading" ? "📚" : mission.mission_type === "family_helping" ? "🏠" : "❓"}</span>
+                <strong>{mission.title}</strong>
+              </article>
+            ))}
+          </div>
+
+          {!rescue && <button className="rescue-quiz-start" type="button" onClick={onStartQuiz}>Start Daily Rescue Quiz</button>}
+          {rescue?.status === "failed" && <button className="rescue-quiz-start" type="button" onClick={onStartQuiz}>Try Rescue Quiz Again</button>}
+          {rescue?.status === "in_progress" && question && (
+            <article className="rescue-question-card">
+              <div className="recovery-progress-row">
+                <strong>Daily Rescue Quiz · {question.position}/{rescue.total_questions}</strong>
+                <span>{rescue.correct_answers} correct · pass 80%</span>
+              </div>
+              <h3>{question.question_text}</h3>
+              <div className="seerah-options" role="radiogroup" aria-label="Rescue quiz answers">
+                {(question.options || []).map((option, index) => {
+                  const selected = selectedAnswer === option;
+                  const stateClass = result && selected ? (result.correct ? "correct" : "wrong") : "";
+                  const revealCorrect = result && !result.correct && option === result.correctAnswer ? "correct-answer" : "";
+                  return (
+                    <button type="button" className={`${stateClass} ${revealCorrect}`} key={option} onClick={() => chooseAnswer(option)} disabled={saving || Boolean(result)}>
+                      <span>{String.fromCharCode(65 + index)}</span>{option}
+                    </button>
+                  );
+                })}
+              </div>
+              {result && !result.finished && (
+                <div className={result.correct ? "seerah-feedback correct" : "seerah-feedback wrong"}>
+                  <strong>{result.correct ? "Correct!" : `Correct answer: ${result.correctAnswer}`}</strong>
+                  <p>{result.explanation}</p>
+                  <button type="button" onClick={continueQuiz}>Next question</button>
+                </div>
+              )}
+            </article>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SeerahReviewSummaryCard({ review, onStart, onOpen }) {
+  if (!review?.enabled) return null;
+  const statusLabel = review.status === "completed" ? "Completed" : review.status === "in_progress" ? "In progress" : "Not started";
+  return (
+    <section className={`seerah-review-summary ${review.status}`} aria-label="Daily Seerah Review Quiz">
+      <div className="seerah-review-symbol" aria-hidden="true">📚</div>
+      <div>
+        <p className="eyebrow">Daily consolidation</p>
+        <h2>Daily Seerah Review Quiz</h2>
+        <p>{statusLabel} · {review.total_questions || review.question_count} questions · 🔥 {review.streak}-day streak</p>
+        <small>Review reward: question Hasnat + 20 completion bonus + 30 perfect-score bonus.</small>
+      </div>
+      {review.status === "not_started" ? (
+        <button type="button" onClick={onStart}>Start Daily Review</button>
+      ) : review.status === "in_progress" ? (
+        <button type="button" onClick={onOpen}>Continue {review.current_index}/{review.total_questions}</button>
+      ) : (
+        <button className="ghost" type="button" onClick={onOpen}>See today’s result</button>
+      )}
+    </section>
+  );
+}
+
+function SeerahDailyReview({ review, onStart, onAnswer }) {
+  const [selectedAnswer, setSelectedAnswer] = useState("");
+  const [result, setResult] = useState(null);
+  const [answeredQuestion, setAnsweredQuestion] = useState(null);
+  const [saving, setSaving] = useState(false);
+  if (!review?.enabled) return null;
+  const question = review.current_question;
+  const displayQuestion = result && answeredQuestion ? answeredQuestion : question;
+
+  async function chooseAnswer(option) {
+    if (!displayQuestion || saving || result) return;
+    setSelectedAnswer(option);
+    setAnsweredQuestion(displayQuestion);
+    setSaving(true);
+    const nextResult = await onAnswer(option);
+    setResult(nextResult);
+    setSaving(false);
+  }
+
+  function continueReview() {
+    setSelectedAnswer("");
+    setResult(null);
+    setAnsweredQuestion(null);
+  }
+
+  return (
+    <section className="dashboard-section seerah-daily-review" aria-label="Daily Seerah Review Quiz">
+      <div className="seerah-review-heading">
+        <div>
+          <p className="eyebrow">Repeat and remember</p>
+          <h2>Daily Seerah Review Quiz</h2>
+          <p>Only questions you have already reached appear here.</p>
+        </div>
+        <div className="seerah-review-streak">
+          <span>🔥</span>
+          <strong>{review.streak}</strong>
+          <small>day streak</small>
+        </div>
+      </div>
+
+      {review.status === "not_started" && (
+        <div className="seerah-review-start">
+          <div>
+            <strong>{Math.min(review.question_count, review.unlocked_questions)} review questions today</strong>
+            <p>Previously missed questions receive extra practice.</p>
+          </div>
+          <button type="button" disabled={review.unlocked_questions < 1} onClick={onStart}>Start Daily Review</button>
+        </div>
+      )}
+
+      {(review.status === "in_progress" || result) && displayQuestion && (
+        <>
+          <div className="seerah-review-progress">
+            <span>{review.current_index}/{review.total_questions} review questions completed</span>
+            <strong>{review.correct_answers} correct · {review.wrong_answers} to practise</strong>
+          </div>
+          <Progress value={Math.round((review.current_index / Math.max(1, review.total_questions)) * 100)} />
+          <article className="seerah-question-card review-question-card">
+            <div className="seerah-question-meta">
+              <span>Review {displayQuestion.position} of {review.total_questions}</span>
+              <span className={`difficulty ${displayQuestion.difficulty}`}>{displayQuestion.difficulty} · {displayQuestion.reward_hasnat} Hasnat</span>
+            </div>
+            <h3>{displayQuestion.question_text}</h3>
+            <div className="seerah-options" role="radiogroup" aria-label="Daily review answer options">
+              {(displayQuestion.options || []).map((option, index) => {
+                const selected = selectedAnswer === option;
+                const stateClass = result && selected ? (result.correct ? "correct" : "wrong") : "";
+                const revealCorrect = result && !result.correct && option === result.correctAnswer ? "correct-answer" : "";
+                return (
+                  <button
+                    type="button"
+                    className={`${stateClass} ${revealCorrect}`}
+                    key={option}
+                    onClick={() => chooseAnswer(option)}
+                    disabled={saving || Boolean(result)}
+                    aria-label={`Review answer ${index + 1}: ${option}`}
+                  >
+                    <span>{String.fromCharCode(65 + index)}</span>{option}
+                  </button>
+                );
+              })}
+            </div>
+            {saving ? <p className="seerah-feedback waiting">Checking your answer...</p> : null}
+            {result ? (
+              <div className={result.correct ? "seerah-feedback correct" : "seerah-feedback wrong"}>
+                <strong>{result.correct ? "Correct! Your memory is getting stronger." : `The correct answer is: ${result.correctAnswer}`}</strong>
+                <p>{result.explanation}</p>
+                {result.earnedHasnat ? <span>+{result.earnedHasnat} Hasnat</span> : null}
+                <button type="button" onClick={continueReview}>
+                  {result.completed ? "See my result" : "Next review question"}
+                </button>
+              </div>
+            ) : null}
+          </article>
+        </>
+      )}
+
+      {review.status === "completed" && !result && (
+        <div className="seerah-review-result">
+          <span aria-hidden="true">🏅</span>
+          <div>
+            <p className="eyebrow">Today’s review complete</p>
+            <h3>{review.correct_answers}/{review.total_questions} correct</h3>
+            <p>{review.wrong_answers} wrong · {review.hasnat_earned} Hasnat earned</p>
+            <strong>{review.wrong_answers === 0 ? "Perfect review! MaschaAllah." : "Well done. Your practice list is ready for tomorrow."}</strong>
+          </div>
+        </div>
+      )}
+
+      {review.needs_practice?.length > 0 && (
+        <details className="needs-practice-list">
+          <summary>Needs More Practice <strong>{review.needs_practice.length}</strong></summary>
+          <div>
+            {review.needs_practice.map((item) => (
+              <p key={item.question_number}>Question {item.question_number}: {item.question_text}</p>
+            ))}
+          </div>
+        </details>
+      )}
+    </section>
+  );
+}
+
 function SeerahQuizJourney({ quizzes = [], progress, onSubmit }) {
   const [result, setResult] = useState(null);
   const [answeredQuiz, setAnsweredQuiz] = useState(null);
@@ -1245,6 +1571,7 @@ function SeerahQuizJourney({ quizzes = [], progress, onSubmit }) {
   const sorted = [...quizzes].sort((a, b) => Number(a.category_question_id || 0) - Number(b.category_question_id || 0));
   const currentQuiz = sorted.find((quiz) => Number(quiz.category_question_id) === Number(progress.current_question));
   const displayQuiz = result && answeredQuiz ? answeredQuiz : currentQuiz;
+  const displayOptions = displayQuiz?.options || [];
   const badgeMilestones = [
     [1, "Seerah Beginner", "🌙"],
     [10, "Prophet’s Life Learner", "📖"],
@@ -1300,10 +1627,10 @@ function SeerahQuizJourney({ quizzes = [], progress, onSubmit }) {
           </div>
           <h3>{displayQuiz.question_text}</h3>
           <div className="seerah-options" role="radiogroup" aria-label="Antwortmöglichkeiten">
-            {(displayQuiz.options || []).map((option, index) => {
+            {displayOptions.map((option, index) => {
               const selected = selectedAnswer === option;
               const stateClass = result && selected ? (result.correct ? "correct" : "wrong") : "";
-              const revealCorrect = result && !result.correct && option === displayQuiz.correct_answer ? "correct-answer" : "";
+              const revealCorrect = result && !result.correct && option === result.correctAnswer ? "correct-answer" : "";
               return (
                 <button
                   type="button"
@@ -2811,6 +3138,25 @@ function ParentDashboard({ api }) {
     load(childId);
   }
 
+  async function saveSeerahReviewSettings(row, enabled, questionCount) {
+    await api("/api/seerah-review/settings", {
+      method: "POST",
+      body: JSON.stringify({ childId: row.child_id, enabled, questionCount })
+    });
+    setNotice(`${row.child_name}'s Daily Seerah Review settings were saved.`);
+    load(childId);
+  }
+
+  async function resetSeerahReview(row) {
+    if (!window.confirm(`Reset ${row.child_name}'s Daily Seerah Review history and practice list? Earned Hasnat will remain.`)) return;
+    await api("/api/seerah-review/reset", {
+      method: "POST",
+      body: JSON.stringify({ childId: row.child_id })
+    });
+    setNotice(`${row.child_name}'s Daily Seerah Review progress was reset.`);
+    load(childId);
+  }
+
   async function remove(type, id) {
     setNotice("");
     if (type === "children" && !window.confirm("Delete this child and all related points, logs, and rewards?")) return;
@@ -2991,6 +3337,21 @@ function ParentDashboard({ api }) {
     load(childId);
   }
 
+  async function saveStreakRecoverySettings(row, changes) {
+    await api("/api/streak-recovery/settings", {
+      method: "POST",
+      body: JSON.stringify({
+        childId: row.child_id,
+        enabled: changes.enabled ?? Boolean(row.enabled),
+        maxShields: changes.maxShields ?? Number(row.max_shields || 3),
+        shields: changes.shields ?? Number(row.shields || 0),
+        difficulty: changes.difficulty ?? row.recovery_difficulty ?? "normal"
+      })
+    });
+    setNotice(`${row.child_name}'s streak recovery settings were saved.`);
+    load(childId);
+  }
+
   async function toggleQuranicVisibility(child, visible) {
     await api("/api/quranic-visibility", { method: "POST", body: JSON.stringify({ childId: child.child_id, visible }) });
     setNotice(`Quranic Motivation ${visible ? "enabled" : "hidden"} for ${child.name}.`);
@@ -3167,6 +3528,8 @@ function ParentDashboard({ api }) {
               onToggle={toggleQuizCategoryAssignment}
               onSettings={saveSeerahSettings}
               onReset={resetSeerahProgress}
+              onReviewSettings={saveSeerahReviewSettings}
+              onReviewReset={resetSeerahReview}
             />
           </Panel>
           <Panel title="Create Quiz Mission">
@@ -3194,6 +3557,13 @@ function ParentDashboard({ api }) {
         <section className="admin-grid">
           <Panel title="Seasonal Theme & Sound">
             <GameSettingsForm settings={admin.settings || {}} onSubmit={saveGameSettings} />
+          </Panel>
+          <Panel title="Streak Recovery & Learning Trees">
+            <StreakRecoveryAdmin
+              rows={admin.streakRecoverySettings || []}
+              history={admin.streakHistory || []}
+              onSave={saveStreakRecoverySettings}
+            />
           </Panel>
           <Panel title="Quranic Motivation Visibility">
             <QuranicVisibilityForm rows={admin.quranicVisibility || []} onToggle={toggleQuranicVisibility} />
@@ -3613,7 +3983,7 @@ function QuizResults({ results = [] }) {
   );
 }
 
-function QuizCategoryAssignments({ rows = [], category, onToggle, onSettings, onReset }) {
+function QuizCategoryAssignments({ rows = [], category, onToggle, onSettings, onReset, onReviewSettings, onReviewReset }) {
   return (
     <div className="quiz-category-admin">
       <p className="muted">
@@ -3633,15 +4003,38 @@ function QuizCategoryAssignments({ rows = [], category, onToggle, onSettings, on
       </form>
       <div className="mini-list">
         {rows.map((row) => (
-          <div key={row.child_id}>
-            <span>
-              {row.child_name}
-              <small>Level {row.current_level || 1} · {row.completed || 0}/{category?.question_count || 100} progress</small>
-            </span>
-            <button className={row.enabled ? "" : "ghost"} type="button" onClick={() => onToggle(row)}>
-              {row.enabled ? "Assigned" : "Not assigned"}
-            </button>
-            <button className="ghost" type="button" onClick={() => onReset(row)}>Reset progress</button>
+          <div className="seerah-child-admin" key={row.child_id}>
+            <div>
+              <strong>{row.child_name}</strong>
+              <small>Main journey: Level {row.current_level || 1} · {row.completed || 0}/{category?.question_count || 100}</small>
+              <small>Daily reviews: {row.review_completed || 0} complete · {row.review_correct || 0} correct · {row.review_wrong || 0} wrong</small>
+              <small>{row.needs_practice || 0} need more practice · {row.review_hasnat || 0} Hasnat earned</small>
+            </div>
+            <div className="seerah-admin-actions">
+              <button className={row.enabled ? "" : "ghost"} type="button" onClick={() => onToggle(row)}>
+                {row.enabled ? "Main quiz assigned" : "Main quiz hidden"}
+              </button>
+              <button
+                className={row.review_enabled ? "" : "ghost"}
+                type="button"
+                onClick={() => onReviewSettings(row, !Boolean(row.review_enabled), Number(row.review_question_count || 10))}
+              >
+                {row.review_enabled ? "Daily review enabled" : "Daily review disabled"}
+              </button>
+              <label>
+                Daily questions
+                <select
+                  value={Number(row.review_question_count || 10)}
+                  onChange={(event) => onReviewSettings(row, Boolean(row.review_enabled), Number(event.target.value))}
+                >
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="15">15</option>
+                </select>
+              </label>
+              <button className="ghost" type="button" onClick={() => onReset(row)}>Reset main progress</button>
+              <button className="ghost" type="button" onClick={() => onReviewReset(row)}>Reset daily review</button>
+            </div>
           </div>
         ))}
       </div>
@@ -3664,6 +4057,56 @@ function GameSettingsForm({ settings = {}, onSubmit }) {
       <label className="check"><input name="sound_enabled" type="checkbox" defaultChecked={settings.sound_enabled !== "false"} /> Sound effects enabled by default</label>
       <button>Save game settings</button>
     </form>
+  );
+}
+
+function StreakRecoveryAdmin({ rows = [], history = [], onSave }) {
+  return (
+    <div className="streak-admin">
+      <p className="muted">Shields protect missed days automatically. Recovery missions appear only when no shield is available.</p>
+      <div className="streak-admin-list">
+        {rows.map((row) => (
+          <article key={row.child_id}>
+            <div>
+              <strong>{row.child_name}</strong>
+              <small>🔥 {row.current_streak} days · 🛡️ {row.shields}/{row.max_shields} · Tree health {row.tree_health}%</small>
+              <small>{row.recovery_status === "active" ? `Recovery: ${row.recovery_completed}/${row.recovery_required}` : "No recovery needed"}</small>
+            </div>
+            <button className={row.enabled ? "" : "ghost"} type="button" onClick={() => onSave(row, { enabled: !Boolean(row.enabled) })}>
+              {row.enabled ? "Recovery enabled" : "Recovery disabled"}
+            </button>
+            <label>
+              Available shields
+              <select value={Number(row.shields || 0)} onChange={(event) => onSave(row, { shields: Number(event.target.value) })}>
+                {[0, 1, 2, 3].filter((value) => value <= Number(row.max_shields || 3)).map((value) => <option value={value} key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label>
+              Maximum shields
+              <select value={Number(row.max_shields || 3)} onChange={(event) => onSave(row, { maxShields: Number(event.target.value), shields: Math.min(Number(row.shields || 0), Number(event.target.value)) })}>
+                {[0, 1, 2, 3].map((value) => <option value={value} key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label>
+              Recovery difficulty
+              <select value={row.recovery_difficulty || "normal"} onChange={(event) => onSave(row, { difficulty: event.target.value })}>
+                <option value="easy">Easy · 5 quiz questions</option>
+                <option value="normal">Normal · 7 quiz questions</option>
+                <option value="hard">Hard · 10 quiz questions</option>
+              </select>
+            </label>
+          </article>
+        ))}
+      </div>
+      <details className="streak-history">
+        <summary>View streak history <strong>{history.length}</strong></summary>
+        <div>
+          {history.length ? history.map((event) => (
+            <p key={event.id}><strong>{event.child_name}</strong> · {event.event_date} · {event.event_type.replaceAll("_", " ")}<small>{event.note}</small></p>
+          )) : <p className="muted">No streak events recorded yet.</p>}
+        </div>
+      </details>
+    </div>
   );
 }
 
