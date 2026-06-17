@@ -3389,6 +3389,21 @@ function ParentDashboard({ api }) {
     load(childId);
   }
 
+  async function setChildProgress(event) {
+    event.preventDefault();
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    await api("/api/child-progress", {
+      method: "POST",
+      body: JSON.stringify({
+        childId,
+        hasanat: Number(form.hasanat || 0),
+        streakDays: Number(form.streakDays || 0)
+      })
+    });
+    setNotice(`${selectedChildName}'s Hasanat and streak were updated.`);
+    load(childId);
+  }
+
   async function saveSportsVideo(event) {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget));
@@ -3487,6 +3502,13 @@ function ParentDashboard({ api }) {
               </>
             )}
             <ChildAccountForm item={editingChild} users={admin.users} onSubmit={saveChild} />
+            <SetChildProgressForm
+              key={childId}
+              childName={selectedChildName}
+              hasanat={dashboard.points.total}
+              streak={dashboard.streak}
+              onSubmit={setChildProgress}
+            />
             <div className="mini-list">
               {admin.children.map((child) => {
                 const account = admin.users.find((user) => user.child_id === child.id);
@@ -4166,6 +4188,24 @@ function BonusHasnatForm({ childName, onSubmit }) {
       <input name="amount" type="number" min="1" max="1000" placeholder="Hasanat amount" required />
       <input name="note" placeholder="Reason, for example: Excellent sports effort" />
       <button>Award bonus</button>
+    </form>
+  );
+}
+
+function SetChildProgressForm({ childName, hasanat = 0, streak = 0, onSubmit }) {
+  return (
+    <form className="editor progress-editor" onSubmit={onSubmit}>
+      <h3>Set Hasanat & Streak</h3>
+      <p className="muted">Use this when you want an exact final value for {childName || "the selected child"}.</p>
+      <label>
+        Total Hasanat
+        <input name="hasanat" type="number" min="0" max="1000000" defaultValue={Number(hasanat || 0)} required />
+      </label>
+      <label>
+        Streak days
+        <input name="streakDays" type="number" min="0" max="3650" defaultValue={Number(streak || 0)} required />
+      </label>
+      <button>Save exact values</button>
     </form>
   );
 }

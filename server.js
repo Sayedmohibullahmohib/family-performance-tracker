@@ -975,8 +975,23 @@ function initDb() {
       UPDATE activities SET show_weekends = 0 WHERE show_weekends IS NULL;
       ${addedPlannerColumns ? "UPDATE activities SET day_1 = show_weekdays, day_2 = show_weekdays, day_3 = show_weekdays, day_4 = show_weekdays, day_5 = show_weekdays, day_0 = show_weekends, day_6 = show_weekends;" : ""}
       INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled)
-      SELECT c.id, a.id, 1 FROM children c CROSS JOIN activities a WHERE a.active = 1;
+      SELECT c.id, a.id, CASE WHEN a.subject = ${quote(SPORTS_SUBJECT)} OR a.task_type = 'sports' THEN 0 ELSE 1 END
+      FROM children c CROSS JOIN activities a
+      WHERE a.active = 1;
     `);
+    const sportsDisabledApplied = db(sql`SELECT setting_value FROM app_settings WHERE setting_key = 'sports_default_disabled_applied';`)[0];
+    if (!sportsDisabledApplied) {
+      exec(sql`
+        UPDATE activity_assignments
+        SET enabled = 0
+        WHERE activity_id IN (
+          SELECT id FROM activities WHERE subject = ${SPORTS_SUBJECT} OR task_type = 'sports'
+        );
+        INSERT INTO app_settings (setting_key, setting_value)
+        VALUES ('sports_default_disabled_applied', 'true')
+        ON CONFLICT(setting_key) DO UPDATE SET setting_value = 'true', updated_at = CURRENT_TIMESTAMP;
+      `);
+    }
     return;
   }
 
@@ -1028,7 +1043,15 @@ function initDb() {
   seedSportsActivities();
   seedSeerahQuiz();
   migrateSeerahProgress();
-  exec("INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled) SELECT c.id, a.id, 1 FROM children c CROSS JOIN activities a WHERE a.active = 1;");
+  exec(sql`
+    INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled)
+    SELECT c.id, a.id, CASE WHEN a.subject = ${SPORTS_SUBJECT} OR a.task_type = 'sports' THEN 0 ELSE 1 END
+    FROM children c CROSS JOIN activities a
+    WHERE a.active = 1;
+    INSERT INTO app_settings (setting_key, setting_value)
+    VALUES ('sports_default_disabled_applied', 'true')
+    ON CONFLICT(setting_key) DO UPDATE SET setting_value = 'true', updated_at = CURRENT_TIMESTAMP;
+  `);
 }
 
 function addPoints(childId, points, sourceType, sourceId, note) {
@@ -1170,7 +1193,7 @@ function seedSportsActivities() {
   }
   exec(sql`
     INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled)
-    SELECT c.id, a.id, 1 FROM children c CROSS JOIN activities a WHERE a.active = 1 AND a.subject = ${SPORTS_SUBJECT};
+    SELECT c.id, a.id, 0 FROM children c CROSS JOIN activities a WHERE a.active = 1 AND a.subject = ${SPORTS_SUBJECT};
     INSERT OR IGNORE INTO child_quranic_settings (child_id, visible)
     SELECT id, 1 FROM children;
   `);
@@ -2650,9 +2673,11 @@ function activityOfTheDay() {
 }
 
 function ensureActivityAssignments() {
-  exec(`
+  exec(sql`
     INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled)
-    SELECT c.id, a.id, 1 FROM children c CROSS JOIN activities a WHERE a.active = 1;
+    SELECT c.id, a.id, CASE WHEN a.subject = ${SPORTS_SUBJECT} OR a.task_type = 'sports' THEN 0 ELSE 1 END
+    FROM children c CROSS JOIN activities a
+    WHERE a.active = 1;
   `);
 }
 
@@ -3879,7 +3904,12 @@ async function api(req, res, path) {
     exec(sql`INSERT INTO children (name, avatar, total_points, parent_id) VALUES (${name}, ${body.avatar || "star"}, 0, ${user.id});`);
     const child = db("SELECT id FROM children ORDER BY id DESC LIMIT 1;")[0];
     exec(sql`INSERT INTO users (name, email, password_hash, role, child_id) VALUES (${name}, ${localEmailFor(name, "child", child.id)}, ${hashPassword(password)}, 'child', ${child.id});`);
-    exec(sql`INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled) SELECT ${child.id}, id, 1 FROM activities WHERE active = 1;`);
+    exec(sql`
+      INSERT OR IGNORE INTO activity_assignments (child_id, activity_id, enabled)
+      SELECT ${child.id}, id, CASE WHEN subject = ${SPORTS_SUBJECT} OR task_type = 'sports' THEN 0 ELSE 1 END
+      FROM activities
+      WHERE active = 1;
+    `);
     exec(sql`
       INSERT OR IGNORE INTO seerah_quiz_progress (child_id) VALUES (${child.id});
       INSERT OR IGNORE INTO seerah_review_settings (child_id, enabled, question_count) VALUES (${child.id}, 1, 10);
@@ -4381,6 +4411,43 @@ async function api(req, res, path) {
     const note = String(body.note || "Parent bonus Hasanat").trim().slice(0, 120);
     addPoints(childId, amount, "parent_bonus", user.id, note);
     return send(res, 200, { ok: true });
+  }
+  if (method === "POST" && path === "/api/child-progress") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    requireChildAccess(user, childId);
+    const hasanat = Math.max(0, Math.min(1000000, Math.floor(Number(body.hasanat || 0))));
+    const streakDays = Math.max(0, Math.min(3650, Math.floor(Number(body.streakDays || 0))));
+    const child = db(sql`SELECT id, name FROM children WHERE id = ${childId};`)[0];
+    if (!child) return send(res, 404, { error: "Child not found." });
+    exec(sql`
+      UPDATE children SET total_points = ${hasanat} WHERE id = ${childId};
+      INSERT INTO child_wallets (child_id, xp, coins, gems, keys, treasure_tickets)
+      VALUES (${childId}, ${hasanat}, ${hasanat}, 0, 0, 0)
+      ON CONFLICT(child_id) DO UPDATE SET
+        xp = MAX(xp, ${hasanat}),
+        coins = ${hasanat},
+        updated_at = CURRENT_TIMESTAMP;
+      INSERT INTO streak_states (
+        child_id, current_streak, shields, last_active_date, last_processed_date,
+        active_days_since_shield, tree_points, tree_health, updated_at
+      )
+      VALUES (${childId}, ${streakDays}, 0, ${today()}, ${today()}, 0, ${streakDays}, 100, CURRENT_TIMESTAMP)
+      ON CONFLICT(child_id) DO UPDATE SET
+        current_streak = ${streakDays},
+        last_active_date = ${today()},
+        last_processed_date = ${today()},
+        tree_points = MAX(tree_points, ${streakDays}),
+        tree_health = 100,
+        recovery_status = 'none',
+        missed_days = 0,
+        recovery_required = 0,
+        recovery_completed = 0,
+        updated_at = CURRENT_TIMESTAMP;
+      INSERT INTO streak_history (child_id, event_date, event_type, streak_before, streak_after, shields_before, shields_after, note)
+      VALUES (${childId}, ${today()}, 'admin_adjusted', ${streakDays}, ${streakDays}, 0, 0, ${`Admin set ${child.name}'s Hasanat to ${hasanat} and streak to ${streakDays} days.`});
+    `);
+    return send(res, 200, { ok: true, hasanat, streakDays });
   }
   if (method === "POST" && path === "/api/sports-videos") {
     const user = requireParent(req);

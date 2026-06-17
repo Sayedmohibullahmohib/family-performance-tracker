@@ -5239,11 +5239,11 @@ function ParentDashboard(_ref63) {
     }));
     return _awardBonusHasnat.apply(this, arguments);
   }
-  function saveSportsVideo(_x63) {
-    return _saveSportsVideo.apply(this, arguments);
+  function setChildProgress(_x63) {
+    return _setChildProgress.apply(this, arguments);
   }
-  function _saveSportsVideo() {
-    _saveSportsVideo = _asyncToGenerator(_regeneratorRuntime().mark(function _callee55(event) {
+  function _setChildProgress() {
+    _setChildProgress = _asyncToGenerator(_regeneratorRuntime().mark(function _callee55(event) {
       var form;
       return _regeneratorRuntime().wrap(function _callee55$(_context55) {
         while (1) switch (_context55.prev = _context55.next) {
@@ -5251,6 +5251,37 @@ function ParentDashboard(_ref63) {
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
             _context55.next = 4;
+            return api("/api/child-progress", {
+              method: "POST",
+              body: JSON.stringify({
+                childId: childId,
+                hasanat: Number(form.hasanat || 0),
+                streakDays: Number(form.streakDays || 0)
+              })
+            });
+          case 4:
+            setNotice("".concat(selectedChildName, "'s Hasanat and streak were updated."));
+            load(childId);
+          case 6:
+          case "end":
+            return _context55.stop();
+        }
+      }, _callee55);
+    }));
+    return _setChildProgress.apply(this, arguments);
+  }
+  function saveSportsVideo(_x64) {
+    return _saveSportsVideo.apply(this, arguments);
+  }
+  function _saveSportsVideo() {
+    _saveSportsVideo = _asyncToGenerator(_regeneratorRuntime().mark(function _callee56(event) {
+      var form;
+      return _regeneratorRuntime().wrap(function _callee56$(_context56) {
+        while (1) switch (_context56.prev = _context56.next) {
+          case 0:
+            event.preventDefault();
+            form = Object.fromEntries(new FormData(event.currentTarget));
+            _context56.next = 4;
             return api("/api/sports-videos", {
               method: "POST",
               body: JSON.stringify(_objectSpread(_objectSpread({}, form), {}, {
@@ -5264,9 +5295,9 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 7:
           case "end":
-            return _context55.stop();
+            return _context56.stop();
         }
-      }, _callee55);
+      }, _callee56);
     }));
     return _saveSportsVideo.apply(this, arguments);
   }
@@ -5387,6 +5418,12 @@ function ParentDashboard(_ref63) {
     item: editingChild,
     users: admin.users,
     onSubmit: saveChild
+  }), React.createElement(SetChildProgressForm, {
+    key: childId,
+    childName: selectedChildName,
+    hasanat: dashboard.points.total,
+    streak: dashboard.streak,
+    onSubmit: setChildProgress
   }), React.createElement("div", {
     className: "mini-list"
   }, admin.children.map(function (child) {
@@ -5692,19 +5729,19 @@ function ParentHifzPanel(_ref71) {
     return _saveEdit.apply(this, arguments);
   }
   function _saveEdit() {
-    _saveEdit = _asyncToGenerator(_regeneratorRuntime().mark(function _callee56() {
-      return _regeneratorRuntime().wrap(function _callee56$(_context56) {
-        while (1) switch (_context56.prev = _context56.next) {
+    _saveEdit = _asyncToGenerator(_regeneratorRuntime().mark(function _callee57() {
+      return _regeneratorRuntime().wrap(function _callee57$(_context57) {
+        while (1) switch (_context57.prev = _context57.next) {
           case 0:
-            _context56.next = 2;
+            _context57.next = 2;
             return onUpdate(editing, form);
           case 2:
             setEditing(null);
           case 3:
           case "end":
-            return _context56.stop();
+            return _context57.stop();
         }
-      }, _callee56);
+      }, _callee57);
     }));
     return _saveEdit.apply(this, arguments);
   }
@@ -6418,9 +6455,37 @@ function BonusHasnatForm(_ref88) {
     placeholder: "Reason, for example: Excellent sports effort"
   }), React.createElement("button", null, "Award bonus"));
 }
-function SportsReportsPanel(_ref89) {
-  var _ref89$rows = _ref89.rows,
-    rows = _ref89$rows === void 0 ? [] : _ref89$rows;
+function SetChildProgressForm(_ref89) {
+  var childName = _ref89.childName,
+    _ref89$hasanat = _ref89.hasanat,
+    hasanat = _ref89$hasanat === void 0 ? 0 : _ref89$hasanat,
+    _ref89$streak = _ref89.streak,
+    streak = _ref89$streak === void 0 ? 0 : _ref89$streak,
+    onSubmit = _ref89.onSubmit;
+  return React.createElement("form", {
+    className: "editor progress-editor",
+    onSubmit: onSubmit
+  }, React.createElement("h3", null, "Set Hasanat & Streak"), React.createElement("p", {
+    className: "muted"
+  }, "Use this when you want an exact final value for ", childName || "the selected child", "."), React.createElement("label", null, "Total Hasanat", React.createElement("input", {
+    name: "hasanat",
+    type: "number",
+    min: "0",
+    max: "1000000",
+    defaultValue: Number(hasanat || 0),
+    required: true
+  })), React.createElement("label", null, "Streak days", React.createElement("input", {
+    name: "streakDays",
+    type: "number",
+    min: "0",
+    max: "3650",
+    defaultValue: Number(streak || 0),
+    required: true
+  })), React.createElement("button", null, "Save exact values"));
+}
+function SportsReportsPanel(_ref90) {
+  var _ref90$rows = _ref90.rows,
+    rows = _ref90$rows === void 0 ? [] : _ref90$rows;
   if (!rows.length) return React.createElement("p", {
     className: "muted"
   }, "No sports report data yet.");
@@ -6432,12 +6497,12 @@ function SportsReportsPanel(_ref89) {
     }, React.createElement("span", null, row.child_name), React.createElement("small", null, row.completed, " completed \xB7 ", row.duration, " min \xB7 ", row.hasnat, " Hasanat"));
   }));
 }
-function SportsVideoLibrary(_ref90) {
-  var _ref90$videos = _ref90.videos,
-    videos = _ref90$videos === void 0 ? [] : _ref90$videos,
-    _ref90$activities = _ref90.activities,
-    activities = _ref90$activities === void 0 ? [] : _ref90$activities,
-    _onSubmit = _ref90.onSubmit;
+function SportsVideoLibrary(_ref91) {
+  var _ref91$videos = _ref91.videos,
+    videos = _ref91$videos === void 0 ? [] : _ref91$videos,
+    _ref91$activities = _ref91.activities,
+    activities = _ref91$activities === void 0 ? [] : _ref91$activities,
+    _onSubmit = _ref91.onSubmit;
   var sportsActivities = activities.filter(function (activity) {
     return activity.subject === "Sports & Physical Development";
   });
@@ -6473,10 +6538,10 @@ function SportsVideoLibrary(_ref90) {
     required: true
   }, React.createElement("option", {
     value: ""
-  }, "Choose exercise"), exerciseOptions.map(function (_ref91) {
-    var _ref92 = _slicedToArray(_ref91, 2),
-      value = _ref92[0],
-      label = _ref92[1];
+  }, "Choose exercise"), exerciseOptions.map(function (_ref92) {
+    var _ref93 = _slicedToArray(_ref92, 2),
+      value = _ref93[0],
+      label = _ref93[1];
     return React.createElement("option", {
       value: value,
       key: value
@@ -6547,9 +6612,9 @@ function SportsVideoLibrary(_ref90) {
     }, React.createElement("span", null, video.enabled ? "✅" : "⏸️", " ", video.title, " \xB7 ", video.exercise_key, " \xB7 ", video.source_type, React.createElement("small", null, video.duration_seconds, "s \xB7 ", video.difficulty)));
   })));
 }
-function PraiseForm(_ref93) {
-  var childName = _ref93.childName,
-    onSubmit = _ref93.onSubmit;
+function PraiseForm(_ref94) {
+  var childName = _ref94.childName,
+    onSubmit = _ref94.onSubmit;
   return React.createElement("form", {
     className: "editor",
     onSubmit: onSubmit
@@ -6562,9 +6627,9 @@ function PraiseForm(_ref93) {
     required: true
   }), React.createElement("button", null, "Send praise"));
 }
-function PraiseList(_ref94) {
-  var _ref94$messages = _ref94.messages,
-    messages = _ref94$messages === void 0 ? [] : _ref94$messages;
+function PraiseList(_ref95) {
+  var _ref95$messages = _ref95.messages,
+    messages = _ref95$messages === void 0 ? [] : _ref95$messages;
   if (!messages.length) return React.createElement("p", {
     className: "muted"
   }, "No praise messages yet.");
@@ -6576,9 +6641,9 @@ function PraiseList(_ref94) {
     }, React.createElement("span", null, item.child_name, " \xB7 ", item.message, React.createElement("small", null, item.status, " \xB7 ", item.created_at)));
   }));
 }
-function MoodReport(_ref95) {
-  var _ref95$moods = _ref95.moods,
-    moods = _ref95$moods === void 0 ? [] : _ref95$moods;
+function MoodReport(_ref96) {
+  var _ref96$moods = _ref96.moods,
+    moods = _ref96$moods === void 0 ? [] : _ref96$moods;
   if (!moods.length) return React.createElement("p", {
     className: "muted"
   }, "No mood check-ins yet.");
@@ -6598,10 +6663,10 @@ function MoodReport(_ref95) {
     }, React.createElement("span", null, avatarFor(item.avatar), " ", item.child_name, " \xB7 ", icon[item.mood] || "💭", " ", item.mood, React.createElement("small", null, item.mood_date)));
   }));
 }
-function ChildAccountForm(_ref96) {
-  var item = _ref96.item,
-    users = _ref96.users,
-    onSubmit = _ref96.onSubmit;
+function ChildAccountForm(_ref97) {
+  var item = _ref97.item,
+    users = _ref97.users,
+    onSubmit = _ref97.onSubmit;
   var childUser = item ? users.find(function (user) {
     return user.child_id === item.id;
   }) : null;
@@ -6628,11 +6693,11 @@ function ChildAccountForm(_ref96) {
     }, avatar);
   })), React.createElement("button", null, item ? "Update child" : "Add child"));
 }
-function EditorForm(_ref97) {
+function EditorForm(_ref98) {
   var _item$task_data, _item$task_data2, _item$task_data3, _item$task_data4, _item$task_data5;
-  var item = _ref97.item,
-    type = _ref97.type,
-    onSubmit = _ref97.onSubmit;
+  var item = _ref98.item,
+    type = _ref98.type,
+    onSubmit = _ref98.onSubmit;
   var isReward = type === "reward";
   return React.createElement("form", {
     className: "editor",
@@ -6725,10 +6790,10 @@ function EditorForm(_ref97) {
     defaultChecked: Boolean(item === null || item === void 0 ? void 0 : item.show_weekends)
   }), " Weekends"), React.createElement("div", {
     className: "day-checkboxes"
-  }, [["Sun", 0], ["Mon", 1], ["Tue", 2], ["Wed", 3], ["Thu", 4], ["Fri", 5], ["Sat", 6]].map(function (_ref98) {
-    var _ref99 = _slicedToArray(_ref98, 2),
-      label = _ref99[0],
-      day = _ref99[1];
+  }, [["Sun", 0], ["Mon", 1], ["Tue", 2], ["Wed", 3], ["Thu", 4], ["Fri", 5], ["Sat", 6]].map(function (_ref99) {
+    var _ref100 = _slicedToArray(_ref99, 2),
+      label = _ref100[0],
+      day = _ref100[1];
     return React.createElement("label", {
       className: "check",
       key: day
@@ -6755,9 +6820,9 @@ function EditorForm(_ref97) {
     defaultChecked: Boolean(item === null || item === void 0 ? void 0 : item.requires_approval)
   }), " Approval")), React.createElement("button", null, item ? "Update" : "Add"));
 }
-function ReportView(_ref100) {
+function ReportView(_ref101) {
   var _reports$best, _reports$sports, _reports$sports2, _reports$sports3, _reports$sports4, _reports$sports5, _reports$sports6, _reports$sports7;
-  var reports = _ref100.reports;
+  var reports = _ref101.reports;
   return React.createElement("div", {
     className: "reports"
   }, React.createElement("p", null, React.createElement("strong", null, "Best activity:"), " ", ((_reports$best = reports.best) === null || _reports$best === void 0 ? void 0 : _reports$best.title) || "Not enough data yet"), React.createElement("p", null, React.createElement("strong", null, "Missed today:"), " ", reports.missed.map(function (item) {
@@ -6788,28 +6853,28 @@ function ReportView(_ref100) {
     }, row.title, " \xB7 ", row.points_spent, " Hasanat");
   }));
 }
-function Panel(_ref101) {
-  var title = _ref101.title,
-    children = _ref101.children;
+function Panel(_ref102) {
+  var title = _ref102.title,
+    children = _ref102.children;
   return React.createElement("section", {
     className: "panel"
   }, React.createElement("h2", null, title), children);
 }
-function Stat(_ref102) {
-  var label = _ref102.label,
-    value = _ref102.value,
-    icon = _ref102.icon,
-    pulse = _ref102.pulse,
-    _ref102$power = _ref102.power,
-    power = _ref102$power === void 0 ? 1 : _ref102$power;
+function Stat(_ref103) {
+  var label = _ref103.label,
+    value = _ref103.value,
+    icon = _ref103.icon,
+    pulse = _ref103.pulse,
+    _ref103$power = _ref103.power,
+    power = _ref103$power === void 0 ? 1 : _ref103$power;
   return React.createElement("article", {
     className: "stat"
   }, React.createElement("span", null, label), React.createElement("strong", null, React.createElement("span", {
     className: pulse ? "stat-icon pulse-fire fire-power-".concat(power) : "stat-icon"
   }, icon), value));
 }
-function Progress(_ref103) {
-  var value = _ref103.value;
+function Progress(_ref104) {
+  var value = _ref104.value;
   return React.createElement("div", {
     className: "progress"
   }, React.createElement("span", {
@@ -6818,9 +6883,9 @@ function Progress(_ref103) {
     }
   }));
 }
-function QuranDashboardProgress(_ref104) {
+function QuranDashboardProgress(_ref105) {
   var _quran$surahs;
-  var quran = _ref104.quran;
+  var quran = _ref105.quran;
   if (!(quran !== null && quran !== void 0 && (_quran$surahs = quran.surahs) !== null && _quran$surahs !== void 0 && _quran$surahs.length)) return null;
   return React.createElement("div", {
     className: "quran-dashboard-progress",
@@ -6838,9 +6903,9 @@ function QuranDashboardProgress(_ref104) {
     });
   })));
 }
-function MilestoneProgress(_ref105) {
-  var entries = _ref105.entries,
-    value = _ref105.value;
+function MilestoneProgress(_ref106) {
+  var entries = _ref106.entries,
+    value = _ref106.value;
   var milestones = entries || [];
   return React.createElement("div", {
     className: "milestone-progress",
@@ -6862,9 +6927,9 @@ function MilestoneProgress(_ref105) {
     }, complete ? "✓" : index + 1);
   })));
 }
-function Bar(_ref106) {
-  var label = _ref106.label,
-    value = _ref106.value;
+function Bar(_ref107) {
+  var label = _ref107.label,
+    value = _ref107.value;
   return React.createElement("div", {
     className: "bar"
   }, React.createElement("span", null, label), React.createElement(Progress, {
