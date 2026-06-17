@@ -3208,6 +3208,25 @@ function ParentDashboard({ api }) {
     const assignment = admin.activityAssignments.find((item) => Number(item.child_id) === Number(childId) && Number(item.activity_id) === Number(activity.id));
     const enabled = assignment ? !assignment.enabled : false;
     await api("/api/activity-assignments", { method: "POST", body: JSON.stringify({ childId, activityId: activity.id, enabled }) });
+    setNotice(`${activity.title} is now ${enabled ? "permanently assigned" : "permanently hidden"} for ${selectedChildName}.`);
+    load(childId);
+  }
+
+  async function toggleTodayActivity(activity) {
+    const skip = (admin.activityDailySkips || []).find((item) => Number(item.child_id) === Number(childId) && Number(item.activity_id) === Number(activity.id));
+    const hidden = !skip;
+    await api("/api/activity-daily-skips", {
+      method: "POST",
+      body: JSON.stringify({
+        childId,
+        activityId: activity.id,
+        hidden,
+        reason: hidden ? "Parent hid this activity for today" : ""
+      })
+    });
+    setNotice(hidden
+      ? `${activity.title} is hidden for ${selectedChildName} today only. It will appear again tomorrow.`
+      : `${activity.title} is back on ${selectedChildName}'s dashboard today.`);
     load(childId);
   }
 
@@ -3490,16 +3509,30 @@ function ParentDashboard({ api }) {
             <TodayTaskForm childName={selectedChildName} onSubmit={addTodayTask} />
           </Panel>
           <Panel title="Child Activity Planner">
-            <p className="muted">Choose which activities are shown for {selectedChildName}.</p>
-            <div className="mini-list">
+            <p className="muted">Use “Hide today” for a one-day break. The activity returns automatically tomorrow. Use “Assigned/Hidden” only for permanent changes.</p>
+            <div className="activity-admin-list">
               {admin.activities.map((activity) => {
                 const assignment = admin.activityAssignments.find((item) => Number(item.child_id) === Number(childId) && Number(item.activity_id) === Number(activity.id));
                 const enabled = assignment ? Boolean(assignment.enabled) : true;
+                const todaySkip = (admin.activityDailySkips || []).find((item) => Number(item.child_id) === Number(childId) && Number(item.activity_id) === Number(activity.id));
                 return (
-                  <div key={activity.id}>
-                    <span>{activity.title}</span>
-                    <button className={enabled ? "" : "ghost"} onClick={() => toggleChildActivity(activity)}>{enabled ? "Assigned" : "Hidden"}</button>
-                  </div>
+                  <article className={!enabled ? "permanent-hidden" : todaySkip ? "today-hidden" : ""} key={activity.id}>
+                    <div>
+                      <strong>{activity.title}</strong>
+                      <small>
+                        {activity.points} Hasanat · {activity.subject || "Activity"}
+                        {!enabled ? " · permanently hidden" : todaySkip ? " · hidden today only" : " · visible today"}
+                      </small>
+                    </div>
+                    <div className="activity-admin-actions">
+                      <button className={todaySkip ? "" : "ghost"} disabled={!enabled} onClick={() => toggleTodayActivity(activity)}>
+                        {todaySkip ? "Show today" : "Hide today"}
+                      </button>
+                      <button className={enabled ? "" : "ghost"} onClick={() => toggleChildActivity(activity)}>
+                        {enabled ? "Hide always" : "Show always"}
+                      </button>
+                    </div>
+                  </article>
                 );
               })}
             </div>

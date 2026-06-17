@@ -2138,6 +2138,45 @@ img.race-avatar {
   gap: 12px;
 }
 
+.activity-admin-list {
+  display: grid;
+  gap: 10px;
+}
+
+.activity-admin-list article {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.activity-admin-list article.today-hidden {
+  background: #fff7ed;
+  border-color: #f59e0b;
+}
+
+.activity-admin-list article.permanent-hidden {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.activity-admin-list small {
+  color: var(--muted);
+  display: block;
+  margin-top: 4px;
+}
+
+.activity-admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .activity, .reward {
   display: grid;
   gap: 14px;

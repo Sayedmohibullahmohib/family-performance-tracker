@@ -11,8 +11,8 @@ const DATA_DIR = join(__dirname, "data");
 const DB_PATH = join(DATA_DIR, "app.db");
 const STATIC_DIR = join(__dirname, "static");
 const SPORTS_VIDEO_DIR = join(STATIC_DIR, "media", "sports-videos");
-const PORT = Number(process.env.PORT || 3000);
-const HOST = "0.0.0.0";
+const PORT = Number(process.env.PORT || 3002);
+const HOST = process.env.HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
 const TOKEN_SECRET = process.env.TOKEN_SECRET || "change-this-secret-before-hosting";
 const SQLITE_MAX_BUFFER = 200 * 1024 * 1024;
 
@@ -310,6 +310,18 @@ function initDb() {
       activity_id INTEGER NOT NULL,
       enabled INTEGER DEFAULT 1,
       PRIMARY KEY(child_id, activity_id),
+      FOREIGN KEY(child_id) REFERENCES children(id),
+      FOREIGN KEY(activity_id) REFERENCES activities(id)
+    );
+    CREATE TABLE IF NOT EXISTS activity_daily_skips (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      child_id INTEGER NOT NULL,
+      activity_id INTEGER NOT NULL,
+      skip_date TEXT NOT NULL,
+      reason TEXT DEFAULT '',
+      created_by INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(child_id, activity_id, skip_date),
       FOREIGN KEY(child_id) REFERENCES children(id),
       FOREIGN KEY(activity_id) REFERENCES activities(id)
     );
@@ -1208,7 +1220,8 @@ function sportsStatsFor(childId, date = today()) {
     FROM activities a
     LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = ${childId}
     LEFT JOIN activity_logs l ON l.activity_id = a.id AND l.child_id = ${childId} AND l.log_date = ${date}
-    WHERE a.active = 1 AND a.subject = ${SPORTS_SUBJECT} AND a.${dayColumn(date)} = 1 AND COALESCE(aa.enabled, 1) = 1;
+    LEFT JOIN activity_daily_skips ads ON ads.activity_id = a.id AND ads.child_id = ${childId} AND ads.skip_date = ${date}
+    WHERE a.active = 1 AND a.subject = ${SPORTS_SUBJECT} AND a.${dayColumn(date)} = 1 AND COALESCE(aa.enabled, 1) = 1 AND ads.id IS NULL;
   `);
   const totalHasanat = db(sql`
     SELECT COALESCE(SUM(pt.points), 0) AS total
@@ -2174,8 +2187,9 @@ function restoreBackup(backup) {
     DELETE FROM badges;
     DELETE FROM point_transactions;
     DELETE FROM reward_redemptions;
-    DELETE FROM rewards;
-    DELETE FROM activity_assignments;
+      DELETE FROM rewards;
+      DELETE FROM activity_daily_skips;
+      DELETE FROM activity_assignments;
     DELETE FROM activity_logs;
     DELETE FROM activities;
     DELETE FROM users;
@@ -2186,6 +2200,7 @@ function restoreBackup(backup) {
   insertRows("activities", backup.activities, ["id", "title", "description", "points", "duration_minutes", "frequency", "show_weekdays", "show_weekends", "day_0", "day_1", "day_2", "day_3", "day_4", "day_5", "day_6", "task_date", "proof_required", "requires_approval", "is_prayer", "active", "created_at", "parent_id", "subject", "task_type", "task_data"]);
   insertRows("activity_logs", backup.activity_logs, ["id", "child_id", "activity_id", "log_date", "status", "proof", "prayer_state", "awarded_points", "created_at", "updated_at", "interactive_answer", "interactive_score"]);
   insertRows("activity_assignments", backup.activity_assignments, ["child_id", "activity_id", "enabled"]);
+  insertRows("activity_daily_skips", backup.activity_daily_skips || [], ["id", "child_id", "activity_id", "skip_date", "reason", "created_by", "created_at"]);
   insertRows("rewards", backup.rewards, ["id", "title", "description", "required_points", "active", "created_at", "parent_id"]);
   insertRows("reward_redemptions", backup.reward_redemptions, ["id", "child_id", "reward_id", "points_spent", "status", "redeemed_at"]);
   insertRows("point_transactions", backup.point_transactions, ["id", "child_id", "source_type", "source_id", "points", "note", "created_at"]);
@@ -2924,7 +2939,8 @@ function dashboardFor(childId) {
     FROM activities a
     LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = ${Number(childId)}
     LEFT JOIN activity_logs l ON l.activity_id = a.id AND l.child_id = ${Number(childId)} AND l.log_date = ${quote(date)}
-    WHERE a.active = 1 AND ${familyActivityScope} AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND (a.task_date IS NULL OR a.task_date = ${quote(date)})
+    LEFT JOIN activity_daily_skips ads ON ads.activity_id = a.id AND ads.child_id = ${Number(childId)} AND ads.skip_date = ${quote(date)}
+    WHERE a.active = 1 AND ${familyActivityScope} AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND ads.id IS NULL AND (a.task_date IS NULL OR a.task_date = ${quote(date)})
     ORDER BY
       CASE COALESCE(l.status, 'pending')
         WHEN 'pending' THEN 0
@@ -2961,7 +2977,8 @@ function dashboardFor(childId) {
     SELECT COUNT(*) AS count
     FROM activities a
     LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = ${Number(childId)}
-    WHERE a.active = 1 AND ${familyActivityScope} AND a.frequency = 'daily' AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND (a.task_date IS NULL OR a.task_date = ${quote(date)});
+    LEFT JOIN activity_daily_skips ads ON ads.activity_id = a.id AND ads.child_id = ${Number(childId)} AND ads.skip_date = ${quote(date)}
+    WHERE a.active = 1 AND ${familyActivityScope} AND a.frequency = 'daily' AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND ads.id IS NULL AND (a.task_date IS NULL OR a.task_date = ${quote(date)});
   `);
   const discounts = rewardDiscountsOfPeriod();
   const rewards = db(`SELECT * FROM rewards WHERE active = 1 AND (parent_id IS NULL OR parent_id = ${Number(child.parent_id || 0)}) ORDER BY required_points;`).map((reward) => ({
@@ -3114,15 +3131,19 @@ function parentTodayOverview(date = today(), user = null) {
         SELECT COUNT(*) FROM activities a
         LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = c.id
         LEFT JOIN activity_logs l ON l.activity_id = a.id AND l.child_id = c.id AND l.log_date = ${quote(date)}
+        LEFT JOIN activity_daily_skips ads ON ads.activity_id = a.id AND ads.child_id = c.id AND ads.skip_date = ${quote(date)}
         WHERE a.active = 1 AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 ${activityScope}
           AND (a.task_date IS NULL OR a.task_date = ${quote(date)})
+          AND ads.id IS NULL
           AND COALESCE(l.status, 'pending') IN ('pending','rejected')
       ) AS missed_today,
       (
         SELECT COUNT(*) FROM activities a
         LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = c.id
+        LEFT JOIN activity_daily_skips ads ON ads.activity_id = a.id AND ads.child_id = c.id AND ads.skip_date = ${quote(date)}
         WHERE a.active = 1 AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 ${activityScope}
           AND (a.task_date IS NULL OR a.task_date = ${quote(date)})
+          AND ads.id IS NULL
       ) AS target_today,
       (
         SELECT COUNT(*) FROM activity_logs l
@@ -3238,7 +3259,8 @@ function reports(childId) {
     SELECT a.title FROM activities a
     LEFT JOIN activity_assignments aa ON aa.activity_id = a.id AND aa.child_id = ${Number(childId)}
     LEFT JOIN activity_logs l ON l.activity_id = a.id AND l.child_id = ${Number(childId)} AND l.log_date = ${quote(today())}
-    WHERE a.active = 1 AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND a.frequency = 'daily' AND (a.task_date IS NULL OR a.task_date = ${quote(today())}) AND COALESCE(l.status, 'pending') = 'pending';
+    LEFT JOIN activity_daily_skips ads ON ads.activity_id = a.id AND ads.child_id = ${Number(childId)} AND ads.skip_date = ${quote(today())}
+    WHERE a.active = 1 AND a.${scheduleColumn} = 1 AND COALESCE(aa.enabled, 1) = 1 AND ads.id IS NULL AND a.frequency = 'daily' AND (a.task_date IS NULL OR a.task_date = ${quote(today())}) AND COALESCE(l.status, 'pending') = 'pending';
   `);
   const redeemed = db(sql`
     SELECT rr.redeemed_at, r.title, rr.points_spent
@@ -3343,6 +3365,14 @@ async function api(req, res, path) {
         : db(`SELECT id, name, email, role, child_id, created_at FROM users WHERE id = ${Number(user.id)} OR child_id IN (${childIdList}) ORDER BY role DESC, id;`),
       activities: db(`SELECT * FROM activities a WHERE active = 1 AND ${activityScope} AND (task_date IS NULL OR task_date >= ${quote(today())}) ORDER BY task_date IS NOT NULL DESC, id;`),
       activityAssignments: db(`SELECT aa.child_id, aa.activity_id, aa.enabled FROM activity_assignments aa JOIN children c ON c.id = aa.child_id JOIN activities a ON a.id = aa.activity_id WHERE ${childScope} AND ${activityScope};`),
+      activityDailySkips: db(`
+        SELECT ads.*, c.name AS child_name, a.title AS activity_title
+        FROM activity_daily_skips ads
+        JOIN children c ON c.id = ads.child_id
+        JOIN activities a ON a.id = ads.activity_id
+        WHERE ads.skip_date = ${quote(today())} AND ${childScope} AND ${activityScope}
+        ORDER BY c.name, a.title;
+      `),
       todayOverview: parentTodayOverview(today(), user),
       smartInsights: parentSmartInsights(today(), user),
       reflections: parentReflections(user),
@@ -3916,6 +3946,7 @@ async function api(req, res, path) {
     if (count <= 1) return send(res, 400, { error: "Keep at least one child account" });
     exec(sql`
       DELETE FROM activity_logs WHERE child_id = ${id};
+      DELETE FROM activity_daily_skips WHERE child_id = ${id};
       DELETE FROM reward_redemptions WHERE child_id = ${id};
       DELETE FROM point_transactions WHERE child_id = ${id};
       DELETE FROM badges WHERE child_id = ${id};
@@ -3978,6 +4009,29 @@ async function api(req, res, path) {
     `);
     return send(res, 200, { ok: true });
   }
+  if (method === "POST" && path === "/api/activity-daily-skips") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    const activityId = Number(body.activityId);
+    const skipDate = body.date || today();
+    const hidden = body.hidden !== false;
+    if (!childId || !activityId) return send(res, 400, { error: "Child and activity are required" });
+    requireChildAccess(user, childId);
+    const activity = db(sql`SELECT * FROM activities WHERE id = ${activityId};`)[0];
+    if (!activity || (!isAdmin(user) && activity.parent_id && Number(activity.parent_id) !== Number(user.id))) {
+      return send(res, 403, { error: "You can only manage activities available to your family." });
+    }
+    if (hidden) {
+      exec(sql`
+        INSERT INTO activity_daily_skips (child_id, activity_id, skip_date, reason, created_by)
+        VALUES (${childId}, ${activityId}, ${skipDate}, ${body.reason || "Hidden for today by parent"}, ${user.id})
+        ON CONFLICT(child_id, activity_id, skip_date) DO UPDATE SET reason = excluded.reason, created_by = excluded.created_by, created_at = CURRENT_TIMESTAMP;
+      `);
+    } else {
+      exec(sql`DELETE FROM activity_daily_skips WHERE child_id = ${childId} AND activity_id = ${activityId} AND skip_date = ${skipDate};`);
+    }
+    return send(res, 200, { ok: true });
+  }
   if (method === "PUT" && path === "/api/my-avatar") {
     const user = requireUser(req);
     if (user.role !== "child") return send(res, 403, { error: "Child access required" });
@@ -3992,6 +4046,12 @@ async function api(req, res, path) {
     const activity = db(sql`SELECT * FROM activities WHERE id = ${body.activityId} AND active = 1;`)[0];
     if (!activity) return send(res, 404, { error: "Activity not found" });
     if (activity.parent_id && Number(activity.parent_id) !== Number(child?.parent_id || 0)) return send(res, 403, { error: "This activity is not assigned to your family." });
+    const hiddenToday = db(sql`
+      SELECT id FROM activity_daily_skips
+      WHERE child_id = ${childId} AND activity_id = ${activity.id} AND skip_date = ${today()}
+      LIMIT 1;
+    `)[0];
+    if (hiddenToday) return send(res, 409, { error: "This activity is hidden for today and will return tomorrow." });
     let log = ensureLog(childId, activity.id);
     let status = activity.requires_approval || activity.proof_required ? "completed" : "approved";
     let prayerState = log.prayer_state || "{}";
@@ -4496,6 +4556,7 @@ async function api(req, res, path) {
       activities: db("SELECT * FROM activities ORDER BY id;"),
       activity_logs: db("SELECT * FROM activity_logs ORDER BY id;"),
       activity_assignments: db("SELECT * FROM activity_assignments ORDER BY child_id, activity_id;"),
+      activity_daily_skips: db("SELECT * FROM activity_daily_skips ORDER BY skip_date, child_id, activity_id;"),
       rewards: db("SELECT * FROM rewards ORDER BY id;"),
       reward_redemptions: db("SELECT * FROM reward_redemptions ORDER BY id;"),
       point_transactions: db("SELECT * FROM point_transactions ORDER BY id;"),
@@ -4560,7 +4621,7 @@ function serveStatic(req, res) {
       ".html": "text/html",
       ".css": "text/css",
       ".js": "text/javascript",
-      ".jsx": "text/babel",
+      ".jsx": "text/javascript",
       ".jpg": "image/jpeg",
       ".jpeg": "image/jpeg",
       ".png": "image/png",
@@ -4570,7 +4631,11 @@ function serveStatic(req, res) {
       ".mov": "video/quicktime"
     }[extname(filePath)] || "text/plain";
     const file = readFileSync(filePath);
-    res.writeHead(200, { "Content-Type": mime });
+    const headers = { "Content-Type": mime };
+    if (extname(filePath) === ".html" || requested === "/service-worker.js" || requested === "/app.jsx" || requested === "/app.bundle.js" || requested === "/quranicMotivations.js") {
+      headers["Cache-Control"] = "no-cache";
+    }
+    res.writeHead(200, headers);
     res.end(file);
   } catch {
     if (res.headersSent) return;

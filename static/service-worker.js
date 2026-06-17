@@ -1,10 +1,12 @@
-const CACHE_NAME = "kids-tracker-shell-v9";
+const CACHE_NAME = "kids-tracker-shell-v12";
 const SHELL_FILES = [
   "/",
   "/index.html",
   "/styles.css",
-  "/app.jsx",
+  "/app.bundle.js",
   "/quranicMotivations.js",
+  "/vendor/react.production.min.js",
+  "/vendor/react-dom.production.min.js",
   "/manifest.json",
   "/app.webmanifest",
   "/icon.svg",
