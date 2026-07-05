@@ -3824,6 +3824,129 @@ img.race-avatar {
   box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.16);
 }
 
+.quran-reading-card,
+.quran-reading-panel,
+.quran-parent-item,
+.quran-report-box {
+  border: 1px solid #bbf7d0;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfeff 100%);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(15, 118, 110, 0.08);
+}
+
+.quran-reading-card {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.arabic-surah,
+.quran-reading-surah h3,
+.quran-parent-item small {
+  color: #14532d;
+  font-size: 1.4rem;
+  line-height: 1.6;
+}
+
+.quran-reading-actions,
+.quran-reading-stats,
+.quran-report-summary {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.quran-reading-grid,
+.quran-parent-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.quran-reading-surah {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #d1fae5;
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.quran-reading-surah.submitted,
+.quran-parent-item.submitted {
+  background: #fefce8;
+  border-color: #facc15;
+}
+
+.quran-reading-surah.approved,
+.quran-parent-item.approved {
+  background: #f0fdf4;
+  border-color: #22c55e;
+}
+
+.quran-reading-surah.repeat,
+.quran-parent-item.repeat {
+  background: #fff7ed;
+  border-color: #fb923c;
+}
+
+.quran-encouragement {
+  color: #166534;
+  font-weight: 800;
+}
+
+.quran-assignment-form details {
+  background: #f8fffb;
+  border: 1px solid #d1fae5;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.quran-check-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 10px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.quran-check-grid .check {
+  align-items: center;
+  background: white;
+  border: 1px solid #dcfce7;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: auto 1fr;
+  padding: 8px;
+}
+
+.quran-check-grid .check small {
+  color: #166534;
+  grid-column: 2;
+}
+
+.quran-check-grid .check.assigned {
+  opacity: 0.65;
+}
+
+.quran-parent-item {
+  display: grid;
+  gap: 10px;
+}
+
+.success-pill {
+  background: #dcfce7;
+  border-radius: 999px;
+  color: #166534;
+  font-weight: 900;
+  padding: 8px 12px;
+  width: max-content;
+}
+
 .nudge-list {
   display: grid;
   gap: 8px;
@@ -4289,6 +4412,313 @@ img.race-avatar {
   background: #e8f3ff;
   border-color: #93c5fd;
   color: #1556a8;
+}
+
+.dashboard {
+  background: #f7f8fb;
+}
+
+.simple-child-hero {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+.simple-top-metrics {
+  display: grid;
+  gap: 8px;
+  min-width: 210px;
+}
+
+.simple-top-metrics span {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #1f2937;
+  display: flex;
+  font-weight: 900;
+  gap: 6px;
+  justify-content: center;
+  padding: 10px 12px;
+}
+
+.simple-page {
+  display: grid;
+  gap: 14px;
+}
+
+.continue-goal-card,
+.simple-page-header,
+.mission-hub,
+.simple-reward-shop,
+.profile-overview,
+.simple-race-board,
+.simple-sports-card,
+.streak-rescue-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+  padding: 16px;
+}
+
+.continue-goal-card {
+  display: grid;
+  gap: 12px;
+  min-height: 330px;
+}
+
+.continue-icon {
+  align-items: center;
+  background: #f5f3ff;
+  border-radius: 16px;
+  display: inline-flex;
+  font-size: 2.4rem;
+  height: 72px;
+  justify-content: center;
+  width: 72px;
+}
+
+.continue-goal-card h2 {
+  color: #111827;
+  font-size: clamp(1.7rem, 4vw, 2.7rem);
+  margin: 0;
+}
+
+.continue-goal-card p,
+.continue-goal-card small {
+  color: #6b7280;
+}
+
+.continue-goal-card strong,
+.simple-reward-card p {
+  color: #b45309;
+  font-weight: 900;
+}
+
+.continue-task-button,
+.continue-mini-button,
+.simple-sports-card button,
+.simple-reward-card button {
+  background: #6d28d9;
+  border: 0;
+  border-radius: 12px;
+  color: white;
+  cursor: pointer;
+  font-weight: 950;
+  min-height: 48px;
+  padding: 12px 18px;
+}
+
+.continue-task-button {
+  font-size: 1.15rem;
+  width: 100%;
+}
+
+.simple-page-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.simple-page-header h2 {
+  margin: 0;
+}
+
+.mission-category-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+}
+
+.mission-category-grid button {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  color: #1f2937;
+  display: grid;
+  gap: 4px;
+  min-height: 96px;
+  padding: 12px;
+  text-align: left;
+}
+
+.mission-category-grid button span {
+  font-size: 1.6rem;
+}
+
+.mission-category-grid button.active {
+  border-color: #6d28d9;
+  box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.12);
+}
+
+.mission-focus-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.simple-sports-card {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr auto;
+}
+
+.simple-sports-card > span {
+  font-size: 2rem;
+}
+
+.streak-rescue-card {
+  border-color: #fed7aa;
+  margin-top: 14px;
+}
+
+.streak-rescue-card h2 {
+  color: #9a3412;
+}
+
+.simple-reward-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin-top: 14px;
+}
+
+.simple-reward-card {
+  background: #fff;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.simple-reward-card > span {
+  font-size: 2rem;
+}
+
+.simple-reward-card h3,
+.simple-reward-card p {
+  margin: 0;
+}
+
+.simple-reward-card.available {
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+}
+
+.simple-reward-card button:disabled {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+.profile-overview {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.profile-progress,
+.profile-overview details {
+  grid-column: 1 / -1;
+}
+
+.simple-race-board {
+  display: grid;
+  gap: 10px;
+}
+
+.simple-race-board article {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(70px, 120px) 1fr;
+}
+
+.simple-race-board article > div:last-child {
+  background: #edf2f7;
+  border-radius: 999px;
+  height: 12px;
+  overflow: hidden;
+}
+
+.simple-race-board article > div:last-child span {
+  background: #6d28d9;
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.simple-race-board article.current > div:last-child span,
+.activity.approved,
+.activity.completed,
+.quran-reading-surah.approved {
+  border-color: #16a34a;
+}
+
+.simple-race-board article.current > div:last-child span {
+  background: #16a34a;
+}
+
+.child-bottom-nav {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.child-bottom-nav button {
+  border-radius: 10px;
+  color: #4b5563;
+}
+
+.child-bottom-nav button.active {
+  background: #6d28d9;
+  border-color: #6d28d9;
+  color: white;
+}
+
+@media (max-width: 720px) {
+  .simple-child-hero,
+  .simple-page-header,
+  .simple-sports-card {
+    grid-template-columns: 1fr;
+  }
+
+  .simple-page-header {
+    align-items: stretch;
+  }
+
+  .simple-top-metrics {
+    grid-template-columns: repeat(3, 1fr);
+    min-width: 0;
+  }
+
+  .simple-top-metrics span {
+    font-size: 0.82rem;
+    padding: 8px;
+  }
+
+  .continue-goal-card {
+    min-height: 0;
+  }
+
+  .mission-category-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .child-bottom-nav {
+    left: 8px;
+    right: 8px;
+  }
+
+  .child-bottom-nav button {
+    font-size: 0.72rem;
+    padding: 8px 4px;
+  }
 }
 
 .journey-step {

@@ -283,8 +283,8 @@ window.quranicMotivations = [
   },
   {
     id: 29,
-    english: "The mercy of Allah is near.",
-    arabic: "إِنَّ رَحْمَتَ اللَّهِ قَرِيبٌ مِّنَ الْمُحْسِنِينَ",
+    english: "Indeed, Allah’s mercy is close to those who do good.",
+    arabic: "إِنَّ رَحْمَتَ اللَّهِ قَرِيبٌ منَ الْمُحْسِنِينَ",
     surahEnglish: "Surah Al-A'raf",
     surahArabic: "سورة الأعراف",
     verse: "7:56",

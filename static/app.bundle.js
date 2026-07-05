@@ -393,7 +393,7 @@ function Shell(_ref4) {
   }, "Logout"))), children);
 }
 function ChildDashboard(_ref5) {
-  var _data$settings2, _data$rewards$, _data$rewards, _nextJourneyEntry$act, _data$wallet, _data$wallet2, _data$wallet3, _data$wallet4, _data$wallet5;
+  var _data$settings2, _data$rewards$, _data$rewards, _data$quranReading, _data$seerahReview, _data$seerahReview2, _nextJourneyEntry$act, _nextJourneyEntry$act2;
   var api = _ref5.api;
   var _useState11 = useState(null),
     _useState12 = _slicedToArray(_useState11, 2),
@@ -1081,32 +1081,28 @@ function ChildDashboard(_ref5) {
     }));
     return _toggleFavoriteSurah.apply(this, arguments);
   }
-  function updateHifzPage(_x15, _x16) {
-    return _updateHifzPage.apply(this, arguments);
+  function submitQuranRecitation(_x15) {
+    return _submitQuranRecitation.apply(this, arguments);
   }
-  function _updateHifzPage() {
-    _updateHifzPage = _asyncToGenerator(_regeneratorRuntime().mark(function _callee16(page, changes) {
+  function _submitQuranRecitation() {
+    _submitQuranRecitation = _asyncToGenerator(_regeneratorRuntime().mark(function _callee16(assignment) {
       var next;
       return _regeneratorRuntime().wrap(function _callee16$(_context16) {
         while (1) switch (_context16.prev = _context16.next) {
           case 0:
             _context16.prev = 0;
             _context16.next = 3;
-            return api("/api/hifz/update", {
+            return api("/api/quran-reading/submit", {
               method: "POST",
-              body: JSON.stringify(_objectSpread({
-                id: page.id
-              }, changes))
+              body: JSON.stringify({
+                assignmentId: assignment.id
+              })
             });
           case 3:
             next = _context16.sent;
             setData(next);
-            setMessage(next.hifzMessage || "Hifz plan updated.");
-            if (["juz", "final", "surah"].includes(next.hifzCelebration)) {
-              celebrate("badge", next.hifzMessage || "Juz completed!");
-            } else if (next.hifzCelebration === "page") {
-              celebrate("success", next.hifzMessage || "Page completed!");
-            }
+            setMessage(next.quranReadingMessage || "Waiting for parent approval.");
+            celebrate("success", "Recitation sent to parent!");
             _context16.next = 12;
             break;
           case 9:
@@ -1119,28 +1115,68 @@ function ChildDashboard(_ref5) {
         }
       }, _callee16, null, [[0, 9]]);
     }));
+    return _submitQuranRecitation.apply(this, arguments);
+  }
+  function updateHifzPage(_x16, _x17) {
     return _updateHifzPage.apply(this, arguments);
   }
-  function submitQuiz(_x17, _x18) {
+  function _updateHifzPage() {
+    _updateHifzPage = _asyncToGenerator(_regeneratorRuntime().mark(function _callee17(page, changes) {
+      var next;
+      return _regeneratorRuntime().wrap(function _callee17$(_context17) {
+        while (1) switch (_context17.prev = _context17.next) {
+          case 0:
+            _context17.prev = 0;
+            _context17.next = 3;
+            return api("/api/hifz/update", {
+              method: "POST",
+              body: JSON.stringify(_objectSpread({
+                id: page.id
+              }, changes))
+            });
+          case 3:
+            next = _context17.sent;
+            setData(next);
+            setMessage(next.hifzMessage || "Hifz plan updated.");
+            if (["juz", "final", "surah"].includes(next.hifzCelebration)) {
+              celebrate("badge", next.hifzMessage || "Juz completed!");
+            } else if (next.hifzCelebration === "page") {
+              celebrate("success", next.hifzMessage || "Page completed!");
+            }
+            _context17.next = 12;
+            break;
+          case 9:
+            _context17.prev = 9;
+            _context17.t0 = _context17["catch"](0);
+            setMessage(_context17.t0.message);
+          case 12:
+          case "end":
+            return _context17.stop();
+        }
+      }, _callee17, null, [[0, 9]]);
+    }));
+    return _updateHifzPage.apply(this, arguments);
+  }
+  function submitQuiz(_x18, _x19) {
     return _submitQuiz.apply(this, arguments);
   }
   function _submitQuiz() {
-    _submitQuiz = _asyncToGenerator(_regeneratorRuntime().mark(function _callee17(quiz, answer) {
+    _submitQuiz = _asyncToGenerator(_regeneratorRuntime().mark(function _callee18(quiz, answer) {
       var selectedAnswers,
         timeUsedSeconds,
         heartsLeft,
         _next$quizAnswer,
         _next$quizFeedback,
         next,
-        _args17 = arguments;
-      return _regeneratorRuntime().wrap(function _callee17$(_context17) {
-        while (1) switch (_context17.prev = _context17.next) {
+        _args18 = arguments;
+      return _regeneratorRuntime().wrap(function _callee18$(_context18) {
+        while (1) switch (_context18.prev = _context18.next) {
           case 0:
-            selectedAnswers = _args17.length > 2 && _args17[2] !== undefined ? _args17[2] : [];
-            timeUsedSeconds = _args17.length > 3 && _args17[3] !== undefined ? _args17[3] : 0;
-            heartsLeft = _args17.length > 4 && _args17[4] !== undefined ? _args17[4] : 0;
-            _context17.prev = 3;
-            _context17.next = 6;
+            selectedAnswers = _args18.length > 2 && _args18[2] !== undefined ? _args18[2] : [];
+            timeUsedSeconds = _args18.length > 3 && _args18[3] !== undefined ? _args18[3] : 0;
+            heartsLeft = _args18.length > 4 && _args18[4] !== undefined ? _args18[4] : 0;
+            _context18.prev = 3;
+            _context18.next = 6;
             return api("/api/quizzes/".concat(quiz.id, "/submit"), {
               method: "POST",
               body: JSON.stringify({
@@ -1151,7 +1187,7 @@ function ChildDashboard(_ref5) {
               })
             });
           case 6:
-            next = _context17.sent;
+            next = _context18.sent;
             setData(next);
             setMessage(next.quizFeedback || "Quiz saved.");
             if ((_next$quizAnswer = next.quizAnswer) !== null && _next$quizAnswer !== void 0 && _next$quizAnswer.correct || (_next$quizFeedback = next.quizFeedback) !== null && _next$quizFeedback !== void 0 && _next$quizFeedback.startsWith("Correct")) {
@@ -1165,17 +1201,17 @@ function ChildDashboard(_ref5) {
                 return setDiamondBurst(false);
               }, 1400);
             }
-            return _context17.abrupt("return", next);
+            return _context18.abrupt("return", next);
           case 13:
-            _context17.prev = 13;
-            _context17.t0 = _context17["catch"](3);
-            setMessage(_context17.t0.message);
-            return _context17.abrupt("return", null);
+            _context18.prev = 13;
+            _context18.t0 = _context18["catch"](3);
+            setMessage(_context18.t0.message);
+            return _context18.abrupt("return", null);
           case 17:
           case "end":
-            return _context17.stop();
+            return _context18.stop();
         }
-      }, _callee17, null, [[3, 13]]);
+      }, _callee18, null, [[3, 13]]);
     }));
     return _submitQuiz.apply(this, arguments);
   }
@@ -1183,47 +1219,47 @@ function ChildDashboard(_ref5) {
     return _startSeerahReview.apply(this, arguments);
   }
   function _startSeerahReview() {
-    _startSeerahReview = _asyncToGenerator(_regeneratorRuntime().mark(function _callee18() {
+    _startSeerahReview = _asyncToGenerator(_regeneratorRuntime().mark(function _callee19() {
       var next;
-      return _regeneratorRuntime().wrap(function _callee18$(_context18) {
-        while (1) switch (_context18.prev = _context18.next) {
-          case 0:
-            _context18.prev = 0;
-            _context18.next = 3;
-            return api("/api/seerah-review/start", {
-              method: "POST",
-              body: JSON.stringify({})
-            });
-          case 3:
-            next = _context18.sent;
-            setData(next);
-            setChildTab("quizzes");
-            setMessage("Your Daily Seerah Review is ready.");
-            _context18.next = 12;
-            break;
-          case 9:
-            _context18.prev = 9;
-            _context18.t0 = _context18["catch"](0);
-            setMessage(_context18.t0.message);
-          case 12:
-          case "end":
-            return _context18.stop();
-        }
-      }, _callee18, null, [[0, 9]]);
-    }));
-    return _startSeerahReview.apply(this, arguments);
-  }
-  function answerSeerahReview(_x19) {
-    return _answerSeerahReview.apply(this, arguments);
-  }
-  function _answerSeerahReview() {
-    _answerSeerahReview = _asyncToGenerator(_regeneratorRuntime().mark(function _callee19(answer) {
-      var next, result;
       return _regeneratorRuntime().wrap(function _callee19$(_context19) {
         while (1) switch (_context19.prev = _context19.next) {
           case 0:
             _context19.prev = 0;
             _context19.next = 3;
+            return api("/api/seerah-review/start", {
+              method: "POST",
+              body: JSON.stringify({})
+            });
+          case 3:
+            next = _context19.sent;
+            setData(next);
+            setChildTab("quizzes");
+            setMessage("Your Daily Seerah Review is ready.");
+            _context19.next = 12;
+            break;
+          case 9:
+            _context19.prev = 9;
+            _context19.t0 = _context19["catch"](0);
+            setMessage(_context19.t0.message);
+          case 12:
+          case "end":
+            return _context19.stop();
+        }
+      }, _callee19, null, [[0, 9]]);
+    }));
+    return _startSeerahReview.apply(this, arguments);
+  }
+  function answerSeerahReview(_x20) {
+    return _answerSeerahReview.apply(this, arguments);
+  }
+  function _answerSeerahReview() {
+    _answerSeerahReview = _asyncToGenerator(_regeneratorRuntime().mark(function _callee20(answer) {
+      var next, result;
+      return _regeneratorRuntime().wrap(function _callee20$(_context20) {
+        while (1) switch (_context20.prev = _context20.next) {
+          case 0:
+            _context20.prev = 0;
+            _context20.next = 3;
             return api("/api/seerah-review/answer", {
               method: "POST",
               body: JSON.stringify({
@@ -1231,22 +1267,22 @@ function ChildDashboard(_ref5) {
               })
             });
           case 3:
-            next = _context19.sent;
+            next = _context20.sent;
             setData(next);
             result = next.seerahReviewAnswer;
             setMessage(result !== null && result !== void 0 && result.correct ? "Excellent review answer!" : "Good effort. This question will return for more practice.");
             if (result !== null && result !== void 0 && result.correct) playSound("success", soundOn);
-            return _context19.abrupt("return", result);
+            return _context20.abrupt("return", result);
           case 11:
-            _context19.prev = 11;
-            _context19.t0 = _context19["catch"](0);
-            setMessage(_context19.t0.message);
-            return _context19.abrupt("return", null);
+            _context20.prev = 11;
+            _context20.t0 = _context20["catch"](0);
+            setMessage(_context20.t0.message);
+            return _context20.abrupt("return", null);
           case 15:
           case "end":
-            return _context19.stop();
+            return _context20.stop();
         }
-      }, _callee19, null, [[0, 11]]);
+      }, _callee20, null, [[0, 11]]);
     }));
     return _answerSeerahReview.apply(this, arguments);
   }
@@ -1254,46 +1290,46 @@ function ChildDashboard(_ref5) {
     return _startRescueQuiz.apply(this, arguments);
   }
   function _startRescueQuiz() {
-    _startRescueQuiz = _asyncToGenerator(_regeneratorRuntime().mark(function _callee20() {
+    _startRescueQuiz = _asyncToGenerator(_regeneratorRuntime().mark(function _callee21() {
       var next;
-      return _regeneratorRuntime().wrap(function _callee20$(_context20) {
-        while (1) switch (_context20.prev = _context20.next) {
-          case 0:
-            _context20.prev = 0;
-            _context20.next = 3;
-            return api("/api/rescue-quiz/start", {
-              method: "POST",
-              body: JSON.stringify({})
-            });
-          case 3:
-            next = _context20.sent;
-            setData(next);
-            setMessage("Your Daily Rescue Quiz is ready.");
-            _context20.next = 11;
-            break;
-          case 8:
-            _context20.prev = 8;
-            _context20.t0 = _context20["catch"](0);
-            setMessage(_context20.t0.message);
-          case 11:
-          case "end":
-            return _context20.stop();
-        }
-      }, _callee20, null, [[0, 8]]);
-    }));
-    return _startRescueQuiz.apply(this, arguments);
-  }
-  function answerRescueQuiz(_x20) {
-    return _answerRescueQuiz.apply(this, arguments);
-  }
-  function _answerRescueQuiz() {
-    _answerRescueQuiz = _asyncToGenerator(_regeneratorRuntime().mark(function _callee21(answer) {
-      var next, result;
       return _regeneratorRuntime().wrap(function _callee21$(_context21) {
         while (1) switch (_context21.prev = _context21.next) {
           case 0:
             _context21.prev = 0;
             _context21.next = 3;
+            return api("/api/rescue-quiz/start", {
+              method: "POST",
+              body: JSON.stringify({})
+            });
+          case 3:
+            next = _context21.sent;
+            setData(next);
+            setMessage("Your Daily Rescue Quiz is ready.");
+            _context21.next = 11;
+            break;
+          case 8:
+            _context21.prev = 8;
+            _context21.t0 = _context21["catch"](0);
+            setMessage(_context21.t0.message);
+          case 11:
+          case "end":
+            return _context21.stop();
+        }
+      }, _callee21, null, [[0, 8]]);
+    }));
+    return _startRescueQuiz.apply(this, arguments);
+  }
+  function answerRescueQuiz(_x21) {
+    return _answerRescueQuiz.apply(this, arguments);
+  }
+  function _answerRescueQuiz() {
+    _answerRescueQuiz = _asyncToGenerator(_regeneratorRuntime().mark(function _callee22(answer) {
+      var next, result;
+      return _regeneratorRuntime().wrap(function _callee22$(_context22) {
+        while (1) switch (_context22.prev = _context22.next) {
+          case 0:
+            _context22.prev = 0;
+            _context22.next = 3;
             return api("/api/rescue-quiz/answer", {
               method: "POST",
               body: JSON.stringify({
@@ -1301,22 +1337,22 @@ function ChildDashboard(_ref5) {
               })
             });
           case 3:
-            next = _context21.sent;
+            next = _context22.sent;
             setData(next);
             result = next.rescueQuizAnswer;
             setMessage(result !== null && result !== void 0 && result.passed ? "Your streak is restored!" : result !== null && result !== void 0 && result.correct ? "Correct rescue answer!" : "Keep practising. You can do this.");
             if (result !== null && result !== void 0 && result.correct) playSound("success", soundOn);
-            return _context21.abrupt("return", result);
+            return _context22.abrupt("return", result);
           case 11:
-            _context21.prev = 11;
-            _context21.t0 = _context21["catch"](0);
-            setMessage(_context21.t0.message);
-            return _context21.abrupt("return", null);
+            _context22.prev = 11;
+            _context22.t0 = _context22["catch"](0);
+            setMessage(_context22.t0.message);
+            return _context22.abrupt("return", null);
           case 15:
           case "end":
-            return _context21.stop();
+            return _context22.stop();
         }
-      }, _callee21, null, [[0, 11]]);
+      }, _callee22, null, [[0, 11]]);
     }));
     return _answerRescueQuiz.apply(this, arguments);
   }
@@ -1348,6 +1384,51 @@ function ChildDashboard(_ref5) {
   var nextJourneyEntry = progressMilestones.find(function (entry) {
     return !journeyEntryComplete(entry);
   });
+  var quranNext = (_data$quranReading = data.quranReading) !== null && _data$quranReading !== void 0 && _data$quranReading.current_surah && !["submitted", "approved"].includes(data.quranReading.current_surah.status) ? data.quranReading.current_surah : null;
+  var sportsToday = (data.activities || []).find(function (activity) {
+    return activity.subject === "Sports & Physical Development" && !["completed", "approved"].includes(activity.status);
+  });
+  var nextGoal = quranNext ? {
+    icon: "📖",
+    title: "Read Surah ".concat(quranNext.surah_name_english),
+    sentence: "".concat(quranNext.ayah_count, " Ayahs. Parent approval awards ").concat(quranNext.possible_hasanat, " Hasanat."),
+    reward: "+".concat(quranNext.possible_hasanat, " Hasanat"),
+    action: function action() {
+      return setChildTab("missions");
+    }
+  } : ((_data$seerahReview = data.seerahReview) === null || _data$seerahReview === void 0 ? void 0 : _data$seerahReview.status) !== "completed" && ((_data$seerahReview2 = data.seerahReview) === null || _data$seerahReview2 === void 0 ? void 0 : _data$seerahReview2.enabled) !== false ? {
+    icon: "❓",
+    title: "Daily Seerah Review Quiz",
+    sentence: "Practise what you already learned.",
+    reward: "+20 bonus Hasanat",
+    action: function action() {
+      return setChildTab("quizzes");
+    }
+  } : sportsToday ? {
+    icon: "🏃",
+    title: sportsToday.title,
+    sentence: "".concat(sportsToday.duration_minutes || 10, " minutes. Move safely and do your best."),
+    reward: "+".concat(sportsToday.points, " Hasanat"),
+    action: function action() {
+      return setChildTab("missions");
+    }
+  } : nextJourneyEntry ? {
+    icon: icons[(_nextJourneyEntry$act = nextJourneyEntry.activity) === null || _nextJourneyEntry$act === void 0 ? void 0 : _nextJourneyEntry$act.title] || "🎯",
+    title: nextJourneyEntry.title,
+    sentence: "One clear task. Give it your best.",
+    reward: "+".concat(((_nextJourneyEntry$act2 = nextJourneyEntry.activity) === null || _nextJourneyEntry$act2 === void 0 ? void 0 : _nextJourneyEntry$act2.points) || 0, " Hasanat"),
+    action: function action() {
+      return openTask(nextJourneyEntry);
+    }
+  } : {
+    icon: "🏆",
+    title: "Amazing! Today is complete",
+    sentence: "You finished your main missions.",
+    reward: "Great job",
+    action: function action() {
+      return maybeShowDailyComplete(data);
+    }
+  };
   function openTask() {
     var entry = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : nextJourneyEntry;
     if (!entry) {
@@ -1356,23 +1437,23 @@ function ChildDashboard(_ref5) {
     }
     setFocusEntryKey(entry.key);
   }
-  function completeFocused(_x21, _x22) {
+  function completeFocused(_x22, _x23) {
     return _completeFocused.apply(this, arguments);
   }
   function _completeFocused() {
-    _completeFocused = _asyncToGenerator(_regeneratorRuntime().mark(function _callee22(activity, payload) {
-      return _regeneratorRuntime().wrap(function _callee22$(_context22) {
-        while (1) switch (_context22.prev = _context22.next) {
+    _completeFocused = _asyncToGenerator(_regeneratorRuntime().mark(function _callee23(activity, payload) {
+      return _regeneratorRuntime().wrap(function _callee23$(_context23) {
+        while (1) switch (_context23.prev = _context23.next) {
           case 0:
-            _context22.next = 2;
+            _context23.next = 2;
             return complete(activity, payload);
           case 2:
             setFocusEntryKey("");
           case 3:
           case "end":
-            return _context22.stop();
+            return _context23.stop();
         }
-      }, _callee22);
+      }, _callee23);
     }));
     return _completeFocused.apply(this, arguments);
   }
@@ -1420,13 +1501,11 @@ function ChildDashboard(_ref5) {
       return setDailyComplete(false);
     },
     onReflect: saveReflection
-  }), React.createElement(Mascot, {
-    message: message
   }), React.createElement("section", {
-    className: "hero child-hero"
+    className: "hero child-hero simple-child-hero"
   }, React.createElement("div", null, React.createElement("p", {
     className: "eyebrow"
-  }, calendar.weekday, " \xB7 ", calendar.gregorian, " \xB7 ", calendar.islamic), React.createElement("div", {
+  }, calendar.weekday, " \xB7 ", calendar.gregorian), React.createElement("div", {
     className: "child-title-row"
   }, React.createElement("details", {
     className: "avatar-menu"
@@ -1457,91 +1536,41 @@ function ChildDashboard(_ref5) {
       },
       title: "Choose ".concat(avatar)
     }, avatar);
-  }))), React.createElement("h1", null, "Hi ", data.child.name, ", ", message)), React.createElement("p", null, "You are close to your reward!")), React.createElement("div", {
-    className: "score-card"
-  }, React.createElement("span", null, "Total Hasanat \xB7 Level ", level.level), React.createElement("strong", {
-    className: pointPulse ? "point-bounce" : ""
-  }, React.createElement(CoinIcon, null), data.points.total), React.createElement(Progress, {
-    value: progressToReward
-  }))), childTab === "today" && React.createElement("div", {
-    className: "child-tab-panel",
+  }))), React.createElement("h1", null, "Hi ", data.child.name)), React.createElement("p", null, message)), React.createElement("div", {
+    className: "simple-top-metrics"
+  }, React.createElement("span", null, React.createElement(CoinIcon, null), " ", data.points.total, " Hasanat"), React.createElement("span", null, "\uD83D\uDD25 ", data.streak, " days"), React.createElement("span", null, "\uD83C\uDFC6 Level ", level.level))), childTab === "today" && React.createElement("div", {
+    className: "child-tab-panel simple-page",
     id: "child-today-panel"
-  }, data.quranicMotivationVisible ? React.createElement(QuranicMotivationCard, null) : null, React.createElement(PraiseBanner, {
-    messages: data.praiseMessages || [],
-    onSeen: markPraiseSeen
-  }), React.createElement("section", {
-    className: "today-progress-card",
-    "aria-label": "Today\u2019s progress"
-  }, React.createElement("div", null, React.createElement("p", {
-    className: "eyebrow"
-  }, "Today\u2019s Progress"), React.createElement("h2", null, completedToday, " / ", totalToday, " activities"), React.createElement("p", null, progressMessage(completedToday, totalToday))), React.createElement("strong", null, progressPercent, "%"), React.createElement(MilestoneProgress, {
-    entries: progressMilestones,
-    value: progressPercent
-  })), React.createElement(StreakRecoveryDashboard, {
+  }, data.quranicMotivationVisible ? React.createElement(QuranicMotivationCard, null) : null, React.createElement(ContinueGoalCard, {
+    goal: nextGoal,
+    progress: progressPercent,
+    completed: completedToday,
+    total: totalToday
+  })), childTab === "missions" && React.createElement("div", {
+    className: "child-tab-panel simple-page",
+    id: "child-missions-panel"
+  }, React.createElement(PageContinueHeader, {
+    title: "Missions",
+    subtitle: "Choose one mission group.",
+    goal: nextGoal
+  }), React.createElement(MissionCategoryHub, {
+    activities: data.activities,
+    quranReading: data.quranReading,
+    sports: data.sports,
+    onFocus: openTask,
+    onQuranSubmit: submitQuranRecitation,
+    onSportsComplete: complete,
     recovery: data.streakRecovery,
     onStartQuiz: startRescueQuiz,
     onAnswerQuiz: answerRescueQuiz
-  }), React.createElement("section", {
-    className: "next-task-card",
-    "aria-label": "Next task"
-  }, React.createElement("div", {
-    className: "next-task-copy"
-  }, React.createElement("span", {
-    className: "next-task-icon",
-    "aria-hidden": "true"
-  }, nextJourneyEntry ? icons[(_nextJourneyEntry$act = nextJourneyEntry.activity) === null || _nextJourneyEntry$act === void 0 ? void 0 : _nextJourneyEntry$act.title] || "🎯" : "🏆"), React.createElement("div", null, React.createElement("p", {
-    className: "eyebrow"
-  }, nextJourneyEntry ? "Next activity" : "Today complete"), React.createElement("h2", null, (nextJourneyEntry === null || nextJourneyEntry === void 0 ? void 0 : nextJourneyEntry.title) || "Amazing work!"), React.createElement("p", null, nextJourneyEntry ? "Open one task at a time and give it your best." : "You finished all your activities today."))), React.createElement("button", {
-    className: "continue-task-button",
-    type: "button",
-    onClick: function onClick() {
-      return openTask();
-    }
-  }, nextJourneyEntry ? "Continue Next Task" : "Celebrate Today")), React.createElement("section", {
-    className: "nudge-list",
-    "aria-label": "Helpful reminders"
-  }, nudgeMessages.slice(0, 2).map(function (item) {
-    return React.createElement("p", {
-      key: item
-    }, item);
-  })), React.createElement(SeerahReviewSummaryCard, {
-    review: data.seerahReview,
-    onStart: startSeerahReview,
-    onOpen: function onOpen() {
-      return setChildTab("quizzes");
-    }
-  }), data.activityOfTheDay && React.createElement("section", {
-    className: data.todayChallengeCompleted ? "daily-challenge earned" : "daily-challenge"
-  }, React.createElement("div", {
-    className: "flag-pole",
-    "aria-hidden": "true"
-  }), React.createElement("div", {
-    className: "challenge-icon"
-  }, data.todayChallengeCompleted ? "✅" : icons[data.activityOfTheDay.title] || "🎯"), React.createElement("div", null, React.createElement("p", {
-    className: "eyebrow"
-  }, "Activity of the day"), React.createElement("h2", null, data.activityOfTheDay.title), React.createElement("p", null, data.todayChallengeCompleted ? "Completed today. Great job!" : "Badge of the Week progress: ".concat(challengeProgress, "/5")))), React.createElement("section", {
-    className: "dashboard-section",
-    id: "today-tasks"
-  }, React.createElement("div", {
-    className: "section-heading"
-  }, React.createElement("p", {
-    className: "eyebrow"
-  }, "Today\u2019s Tasks"), React.createElement("h2", null, "Choose your next activity"), React.createElement("p", {
-    className: "muted"
-  }, "Unfinished activities stay at the top. Finished activities move below.")), React.createElement(ActivityJourney, {
-    activities: data.activities,
-    onFocus: openTask
-  })), React.createElement(EarlyBirdCard, {
-    earlyBird: data.earlyBird,
-    onCheckIn: checkEarlyBird
   })), childTab === "quizzes" && React.createElement("div", {
-    className: "child-tab-panel",
+    className: "child-tab-panel simple-page",
     id: "child-quizzes-panel"
-  }, React.createElement("header", {
-    className: "tab-page-heading"
-  }, React.createElement("p", {
-    className: "eyebrow"
-  }, "Learn and practise"), React.createElement("h2", null, "Quizzes"), React.createElement("p", null, "Work through one question at a time.")), React.createElement(SeerahDailyReview, {
+  }, React.createElement(PageContinueHeader, {
+    title: "Quizzes",
+    subtitle: "One question at a time.",
+    goal: nextGoal
+  }), React.createElement(SeerahDailyReview, {
     review: data.seerahReview,
     onStart: startSeerahReview,
     onAnswer: answerSeerahReview
@@ -1557,144 +1586,60 @@ function ChildDashboard(_ref5) {
     }),
     onSubmit: submitQuiz
   })), childTab === "rewards" && React.createElement("div", {
-    className: "child-tab-panel",
+    className: "child-tab-panel simple-page",
     id: "child-rewards-panel"
-  }, React.createElement("header", {
-    className: "tab-page-heading"
-  }, React.createElement("p", {
-    className: "eyebrow"
-  }, "Celebrate your effort"), React.createElement("h2", null, "Rewards and Badges"), React.createElement("p", null, "See what you earned and what you are close to unlocking.")), React.createElement("section", {
-    className: "split secondary-split"
-  }, React.createElement("div", {
-    id: "rewards-section"
-  }, React.createElement(AchievementsPanel, {
-    achievements: data.achievements,
-    badges: data.badges,
-    futureBadges: data.futureBadges
+  }, React.createElement(PageContinueHeader, {
+    title: "Rewards",
+    subtitle: "Choose a reward when it is unlocked.",
+    goal: nextGoal
+  }), React.createElement(SimpleRewardShop, {
+    rewards: data.rewards,
+    points: data.points.total,
+    onRedeem: redeem
+  })), childTab === "profile" && React.createElement("div", {
+    className: "child-tab-panel simple-page",
+    id: "child-profile-panel"
+  }, React.createElement(PageContinueHeader, {
+    title: "Profile",
+    subtitle: "Your progress and badges.",
+    goal: nextGoal
+  }), React.createElement(ProfileOverview, {
+    data: data,
+    level: level
+  }), React.createElement(PraiseBanner, {
+    messages: data.praiseMessages || [],
+    onSeen: markPraiseSeen
+  }), React.createElement(SimpleProgressRace, {
+    children: data.leaderboard,
+    currentChildId: data.child.id
   }), React.createElement(BadgeCollection, {
     childName: data.child.name,
     badges: data.badges,
     futureBadges: data.futureBadges
-  })), React.createElement("div", null, React.createElement("h2", {
-    className: "section-title"
-  }, "Reward Shop"), React.createElement("div", {
-    className: "reward-list"
-  }, data.rewards.map(function (reward) {
-    return React.createElement("article", {
-      className: "reward ".concat(reward.status),
-      key: reward.id
-    }, React.createElement("div", {
-      className: "reward-icon"
-    }, rewardIcons[reward.title] || rewardIcons["default"]), React.createElement("div", null, React.createElement("h3", null, reward.title, " ", React.createElement("span", {
-      className: "rarity-label"
-    }, reward.required_points >= 150 ? "legendary" : reward.required_points >= 90 ? "rare" : "common"), " ", reward.is_discounted ? React.createElement("span", {
-      className: "discount-badge"
-    }, reward.discount_percent, "% off") : null), React.createElement("p", null, reward.description), reward.is_discounted ? React.createElement("strong", null, React.createElement("span", {
-      className: "old-price"
-    }, reward.required_points), React.createElement(CoinIcon, null), reward.discounted_points, " Hasanat \xB7 ", reward.status) : React.createElement("strong", null, React.createElement(CoinIcon, null), reward.required_points, " Hasanat \xB7 ", reward.status), React.createElement(RewardProgress, {
-      reward: reward,
-      points: data.points.total
-    })), React.createElement("button", {
-      disabled: reward.status !== "available",
-      onClick: function onClick() {
-        return redeem(reward);
-      }
-    }, reward.status === "requested" ? "Requested" : "Request"));
-  }))))), childTab === "progress" && React.createElement("div", {
-    className: "child-tab-panel",
-    id: "child-progress-panel"
-  }, React.createElement("header", {
-    className: "tab-page-heading"
-  }, React.createElement("p", {
-    className: "eyebrow"
-  }, "Your growth"), React.createElement("h2", null, "My Progress"), React.createElement("p", null, "Review your Hasanat, streak, learning, and family ranking.")), React.createElement("section", {
-    className: "stats progress-summary",
-    "aria-label": "My progress"
-  }, React.createElement(Stat, {
-    label: "Daily Hasanat",
-    value: data.points.daily,
-    icon: React.createElement(CoinIcon, null)
-  }), React.createElement(Stat, {
-    label: "Weekly Hasanat",
-    value: data.points.weekly,
-    icon: React.createElement(CoinIcon, null)
-  }), React.createElement(Stat, {
-    label: "Day streak",
-    value: "".concat(data.streak, " ").concat(data.streak === 1 ? "day" : "days"),
-    icon: "\uD83D\uDD25",
-    pulse: data.streak > 0,
-    power: Math.min(3, Math.floor(data.streak / 3) + 1)
-  }), React.createElement(Stat, {
-    label: "Level",
-    value: level.level,
-    icon: "\uD83C\uDFC6"
-  })), React.createElement("section", {
-    className: "stats currency-strip",
-    "aria-label": "Game currencies"
-  }, React.createElement(Stat, {
-    label: "XP",
-    value: ((_data$wallet = data.wallet) === null || _data$wallet === void 0 ? void 0 : _data$wallet.xp) || data.points.total,
-    icon: "\u26A1"
-  }), React.createElement(Stat, {
-    label: "Hasanat",
-    value: ((_data$wallet2 = data.wallet) === null || _data$wallet2 === void 0 ? void 0 : _data$wallet2.coins) || data.points.total,
-    icon: React.createElement(CoinIcon, null)
-  }), React.createElement(Stat, {
-    label: "Gems",
-    value: ((_data$wallet3 = data.wallet) === null || _data$wallet3 === void 0 ? void 0 : _data$wallet3.gems) || 0,
-    icon: "\uD83D\uDCA0"
-  }), React.createElement(Stat, {
-    label: "Keys",
-    value: ((_data$wallet4 = data.wallet) === null || _data$wallet4 === void 0 ? void 0 : _data$wallet4.keys) || 0,
-    icon: "\uD83D\uDDDD\uFE0F"
-  }), React.createElement(Stat, {
-    label: "Tickets",
-    value: ((_data$wallet5 = data.wallet) === null || _data$wallet5 === void 0 ? void 0 : _data$wallet5.treasure_tickets) || 0,
-    icon: "\uD83C\uDF9F\uFE0F"
-  })), React.createElement("section", {
-    className: "top-ranking-board"
-  }, React.createElement(Leaderboard, {
-    children: data.leaderboard,
-    currentChildId: data.child.id
-  })), React.createElement(QuranDashboardProgress, {
+  }), React.createElement(CollapsibleSection, {
+    title: "Quran"
+  }, React.createElement(QuranReadingPanel, {
+    quranReading: data.quranReading,
+    onSubmit: submitQuranRecitation
+  }), React.createElement(QuranDashboardProgress, {
     quran: data.quran
-  }), React.createElement(SportsDashboard, {
+  })), React.createElement(CollapsibleSection, {
+    title: "Sports"
+  }, React.createElement(SportsDashboard, {
     sports: data.sports,
     activities: data.activities.filter(function (activity) {
       return activity.subject === "Sports & Physical Development";
     }),
     onComplete: complete
-  }), React.createElement(QuranMemorizationPanel, {
-    quran: data.quran,
-    filter: quranFilter,
-    sort: quranSort,
-    onFilter: setQuranFilter,
-    onSort: setQuranSort,
-    onMemorize: memorizeSurah,
-    onRevise: reviseSurah,
-    onFavorite: toggleFavoriteSurah
-  }), React.createElement(CollapsibleSection, {
-    title: "Daily Missions"
-  }, React.createElement("section", {
-    className: "game-grid compact-grid"
-  }, React.createElement(MissionBoard, {
-    missions: data.missions
-  }))), React.createElement(CollapsibleSection, {
-    title: "Family & Ranking"
-  }, React.createElement("section", {
-    className: "split secondary-split"
-  }, React.createElement("div", null, React.createElement(ParentChallengeBoard, {
-    challenges: data.parentChallenges
-  })), React.createElement("div", null, React.createElement(ProgressRace, {
-    children: data.leaderboard,
-    currentChildId: data.child.id
-  }), React.createElement(RedemptionBoard, {
+  })), React.createElement(CollapsibleSection, {
+    title: "Family and Ranking"
+  }, React.createElement(RedemptionBoard, {
     children: data.redemptionBoard,
     currentChildId: data.child.id
-  }))))), React.createElement("nav", {
+  }))), React.createElement("nav", {
     className: "child-bottom-nav",
     "aria-label": "Child dashboard navigation"
-  }, [["today", "☀️", "Today"], ["quizzes", "❓", "Quizzes"], ["rewards", "🎁", "Rewards"], ["progress", "📈", "My Progress"]].map(function (_ref7) {
+  }, [["today", "🏠", "Today"], ["missions", "🎯", "Missions"], ["quizzes", "❓", "Quizzes"], ["rewards", "🏆", "Rewards"], ["profile", "👤", "Profile"]].map(function (_ref7) {
     var _ref8 = _slicedToArray(_ref7, 3),
       key = _ref8[0],
       icon = _ref8[1],
@@ -1716,16 +1661,296 @@ function ChildDashboard(_ref5) {
     }, icon), label);
   })));
 }
-function MegaCelebration(_ref9) {
-  var text = _ref9.text;
+function ContinueGoalCard(_ref9) {
+  var goal = _ref9.goal,
+    progress = _ref9.progress,
+    completed = _ref9.completed,
+    total = _ref9.total;
+  return React.createElement("section", {
+    className: "continue-goal-card",
+    "aria-label": "Today\u2019s mission"
+  }, React.createElement("span", {
+    className: "continue-icon",
+    "aria-hidden": "true"
+  }, goal.icon), React.createElement("div", null, React.createElement("p", {
+    className: "eyebrow"
+  }, "Today\u2019s Mission"), React.createElement("h2", null, goal.title), React.createElement("p", null, goal.sentence), React.createElement("strong", null, goal.reward)), React.createElement(Progress, {
+    value: progress
+  }), React.createElement("small", null, completed, "/", total, " complete"), React.createElement("button", {
+    className: "continue-task-button",
+    type: "button",
+    onClick: goal.action
+  }, "Continue"));
+}
+function PageContinueHeader(_ref10) {
+  var title = _ref10.title,
+    subtitle = _ref10.subtitle,
+    goal = _ref10.goal;
+  return React.createElement("header", {
+    className: "simple-page-header"
+  }, React.createElement("div", null, React.createElement("p", {
+    className: "eyebrow"
+  }, subtitle), React.createElement("h2", null, title)), React.createElement("button", {
+    className: "continue-mini-button",
+    type: "button",
+    onClick: goal.action
+  }, goal.icon, " Continue"));
+}
+function missionCategoryFor(activity) {
+  var text = "".concat(activity.title || "", " ").concat(activity.subject || "").toLowerCase();
+  if (text.includes("quran")) return "Islam";
+  if (activity.is_prayer || text.includes("prayer") || text.includes("fajr") || text.includes("isha") || text.includes("dhuhr") || text.includes("asr") || text.includes("maghrib")) return "Prayer";
+  if (text.includes("sport") || text.includes("fitness") || activity.subject === "Sports & Physical Development") return "Sports";
+  if (text.includes("help") || text.includes("mother") || text.includes("clean") || text.includes("bedroom") || text.includes("teamwork")) return "Family Help";
+  return "Learning";
+}
+function MissionCategoryHub(_ref11) {
+  var _ref11$activities = _ref11.activities,
+    activities = _ref11$activities === void 0 ? [] : _ref11$activities,
+    quranReading = _ref11.quranReading,
+    sports = _ref11.sports,
+    onFocus = _ref11.onFocus,
+    onQuranSubmit = _ref11.onQuranSubmit,
+    onSportsComplete = _ref11.onSportsComplete,
+    recovery = _ref11.recovery,
+    onStartQuiz = _ref11.onStartQuiz,
+    onAnswerQuiz = _ref11.onAnswerQuiz;
+  var _useState49 = useState("Quran Reading"),
+    _useState50 = _slicedToArray(_useState49, 2),
+    openCategory = _useState50[0],
+    setOpenCategory = _useState50[1];
+  var unfinished = activities.filter(function (activity) {
+    return !["completed", "approved"].includes(activity.status);
+  });
+  var categories = [["Islam", "🌙", unfinished.filter(function (activity) {
+    return missionCategoryFor(activity) === "Islam";
+  })], ["Quran Reading", "📖", (quranReading === null || quranReading === void 0 ? void 0 : quranReading.assignments) || []], ["Prayer", "🕌", unfinished.filter(function (activity) {
+    return missionCategoryFor(activity) === "Prayer";
+  })], ["Sports", "🏃", unfinished.filter(function (activity) {
+    return missionCategoryFor(activity) === "Sports";
+  })], ["Family Help", "🤝", unfinished.filter(function (activity) {
+    return missionCategoryFor(activity) === "Family Help";
+  })], ["Learning", "✏️", unfinished.filter(function (activity) {
+    return missionCategoryFor(activity) === "Learning";
+  })]];
+  var selected = categories.find(function (_ref12) {
+    var _ref13 = _slicedToArray(_ref12, 1),
+      name = _ref13[0];
+    return name === openCategory;
+  }) || categories[0];
+  var sportsActivities = selected[0] === "Sports" ? unfinished.filter(function (activity) {
+    return activity.subject === "Sports & Physical Development";
+  }) : [];
+  return React.createElement("section", {
+    className: "mission-hub"
+  }, React.createElement("div", {
+    className: "mission-category-grid"
+  }, categories.map(function (_ref14) {
+    var _ref15 = _slicedToArray(_ref14, 3),
+      name = _ref15[0],
+      icon = _ref15[1],
+      items = _ref15[2];
+    return React.createElement("button", {
+      className: openCategory === name ? "active" : "",
+      key: name,
+      type: "button",
+      onClick: function onClick() {
+        return setOpenCategory(name);
+      }
+    }, React.createElement("span", null, icon), React.createElement("strong", null, name), React.createElement("small", null, items.length, " task", items.length === 1 ? "" : "s"));
+  })), React.createElement("div", {
+    className: "mission-focus-list"
+  }, React.createElement("h3", null, selected[1], " ", selected[0]), selected[0] === "Quran Reading" ? React.createElement(QuranReadingPanel, {
+    quranReading: quranReading,
+    onSubmit: onQuranSubmit
+  }) : selected[0] === "Sports" ? React.createElement(SimpleSportsToday, {
+    sports: sports,
+    activities: sportsActivities,
+    onComplete: onSportsComplete
+  }) : selected[2].length ? React.createElement(ActivityJourney, {
+    activities: selected[2],
+    onFocus: onFocus
+  }) : React.createElement("p", {
+    className: "muted"
+  }, "No open missions in this category today.")), React.createElement(StreakRecoveryRescue, {
+    recovery: recovery,
+    onStartQuiz: onStartQuiz,
+    onAnswerQuiz: onAnswerQuiz
+  }));
+}
+function SimpleSportsToday(_ref16) {
+  var sports = _ref16.sports,
+    _ref16$activities = _ref16.activities,
+    activities = _ref16$activities === void 0 ? [] : _ref16$activities,
+    onComplete = _ref16.onComplete;
+  var activity = activities.find(function (item) {
+    return !["completed", "approved"].includes(item.status);
+  });
+  if (!activity) return React.createElement("p", {
+    className: "muted"
+  }, "No sports exercise assigned for today.");
+  return React.createElement("section", {
+    className: "simple-sports-card"
+  }, React.createElement("span", {
+    "aria-hidden": "true"
+  }, "\uD83C\uDFC3"), React.createElement("div", null, React.createElement("h3", null, activity.title), React.createElement("p", null, activity.duration_minutes || 10, " minutes \xB7 +", activity.points, " Hasanat")), React.createElement("button", {
+    onClick: function onClick() {
+      return onComplete(activity);
+    }
+  }, "Start"));
+}
+function StreakRecoveryRescue(_ref17) {
+  var recovery = _ref17.recovery,
+    onStartQuiz = _ref17.onStartQuiz,
+    onAnswerQuiz = _ref17.onAnswerQuiz;
+  if (!recovery || recovery.recovery_status !== "active") return null;
+  return React.createElement("section", {
+    className: "streak-rescue-card"
+  }, React.createElement("div", null, React.createElement("p", {
+    className: "eyebrow"
+  }, "\uD83D\uDD25 Save Your Streak"), React.createElement("h2", null, "You missed ", recovery.missed_days, " day", Number(recovery.missed_days) === 1 ? "" : "s", "."), React.createElement("p", null, "Complete ", recovery.recovery_required, " recovery activities.")), React.createElement(Progress, {
+    value: Math.round(Number(recovery.recovery_completed || 0) / Math.max(1, Number(recovery.recovery_required || 1)) * 100)
+  }), React.createElement("small", null, "Progress: ", recovery.recovery_completed, "/", recovery.recovery_required), React.createElement(StreakRecoveryDashboard, {
+    recovery: recovery,
+    onStartQuiz: onStartQuiz,
+    onAnswerQuiz: onAnswerQuiz
+  }));
+}
+function rewardCategoryFor(reward) {
+  var title = String(reward.title || "").toLowerCase();
+  if (title.includes("ipad") || title.includes("ps5") || title.includes("park")) return "Fun";
+  if (title.includes("chess") || title.includes("book")) return "Learning";
+  if (title.includes("ice") || title.includes("restaurant")) return "Treats";
+  if (title.includes("swim") || title.includes("family")) return "Family";
+  return "Special";
+}
+function SimpleRewardShop(_ref18) {
+  var _ref18$rewards = _ref18.rewards,
+    rewards = _ref18$rewards === void 0 ? [] : _ref18$rewards,
+    points = _ref18.points,
+    onRedeem = _ref18.onRedeem;
+  var _useState51 = useState("Fun"),
+    _useState52 = _slicedToArray(_useState51, 2),
+    category = _useState52[0],
+    setCategory = _useState52[1];
+  var categories = ["Fun", "Learning", "Treats", "Family", "Special"];
+  var visible = rewards.filter(function (reward) {
+    return rewardCategoryFor(reward) === category;
+  }).slice(0, 6);
+  return React.createElement("section", {
+    className: "simple-reward-shop"
+  }, React.createElement("div", {
+    className: "segmented-control"
+  }, categories.map(function (item) {
+    return React.createElement("button", {
+      className: category === item ? "active" : "",
+      key: item,
+      onClick: function onClick() {
+        return setCategory(item);
+      }
+    }, item);
+  })), React.createElement("div", {
+    className: "simple-reward-grid"
+  }, visible.map(function (reward) {
+    return React.createElement("article", {
+      className: "simple-reward-card ".concat(reward.status),
+      key: reward.id
+    }, React.createElement("span", null, rewardIcons[reward.title] || rewardIcons["default"]), React.createElement("h3", null, reward.title), React.createElement("p", null, React.createElement(CoinIcon, null), " ", reward.is_discounted ? reward.discounted_points : reward.required_points, " Hasanat"), React.createElement("button", {
+      disabled: reward.status !== "available",
+      onClick: function onClick() {
+        return onRedeem(reward);
+      }
+    }, reward.status === "requested" ? "Requested" : "Request"));
+  })), React.createElement("p", {
+    className: "muted"
+  }, "You have ", points, " Hasanat."));
+}
+function ProfileOverview(_ref19) {
+  var _data$wallet, _data$wallet2, _data$wallet3, _data$wallet4;
+  var data = _ref19.data,
+    level = _ref19.level;
+  var overall = Math.min(100, Math.round(Number(data.points.total || 0) % 1000 / 10));
+  return React.createElement("section", {
+    className: "profile-overview"
+  }, React.createElement(Stat, {
+    label: "Level",
+    value: level.level,
+    icon: "\uD83C\uDFC6"
+  }), React.createElement(Stat, {
+    label: "Current streak",
+    value: "".concat(data.streak, " days"),
+    icon: "\uD83D\uDD25",
+    pulse: data.streak > 0
+  }), React.createElement(Stat, {
+    label: "Total Hasanat",
+    value: data.points.total,
+    icon: React.createElement(CoinIcon, null)
+  }), React.createElement(Stat, {
+    label: "Badges earned",
+    value: (data.badges || []).length,
+    icon: "\uD83C\uDFC5"
+  }), React.createElement("div", {
+    className: "profile-progress"
+  }, React.createElement("strong", null, "Overall progress"), React.createElement(Progress, {
+    value: overall
+  })), React.createElement("details", null, React.createElement("summary", null, "More numbers"), React.createElement("section", {
+    className: "stats currency-strip"
+  }, React.createElement(Stat, {
+    label: "XP",
+    value: ((_data$wallet = data.wallet) === null || _data$wallet === void 0 ? void 0 : _data$wallet.xp) || data.points.total,
+    icon: "\u26A1"
+  }), React.createElement(Stat, {
+    label: "Gems",
+    value: ((_data$wallet2 = data.wallet) === null || _data$wallet2 === void 0 ? void 0 : _data$wallet2.gems) || 0,
+    icon: "\uD83D\uDCA0"
+  }), React.createElement(Stat, {
+    label: "Keys",
+    value: ((_data$wallet3 = data.wallet) === null || _data$wallet3 === void 0 ? void 0 : _data$wallet3.keys) || 0,
+    icon: "\uD83D\uDDDD\uFE0F"
+  }), React.createElement(Stat, {
+    label: "Tickets",
+    value: ((_data$wallet4 = data.wallet) === null || _data$wallet4 === void 0 ? void 0 : _data$wallet4.treasure_tickets) || 0,
+    icon: "\uD83C\uDF9F\uFE0F"
+  }), React.createElement(Stat, {
+    label: "Weekly Hasanat",
+    value: data.points.weekly,
+    icon: React.createElement(CoinIcon, null)
+  }))));
+}
+function SimpleProgressRace(_ref20) {
+  var _ref20$children = _ref20.children,
+    children = _ref20$children === void 0 ? [] : _ref20$children,
+    currentChildId = _ref20.currentChildId;
+  var maxPoints = Math.max.apply(Math, [1].concat(_toConsumableArray(children.map(function (child) {
+    return Number(child.total_points || 0);
+  }))));
+  return React.createElement("section", {
+    className: "simple-race-board"
+  }, React.createElement("h2", null, "Family Progress Race"), children.map(function (child) {
+    return React.createElement("article", {
+      className: Number(child.id) === Number(currentChildId) ? "current" : "",
+      key: child.id
+    }, React.createElement(AvatarDisplay, {
+      value: child.avatar,
+      className: "leader-avatar",
+      label: "".concat(child.name, " avatar")
+    }), React.createElement("strong", null, child.name), React.createElement("div", null, React.createElement("span", {
+      style: {
+        width: "".concat(Math.min(100, Math.round(Number(child.total_points || 0) / maxPoints * 100)), "%")
+      }
+    })));
+  }));
+}
+function MegaCelebration(_ref21) {
+  var text = _ref21.text;
   return React.createElement("div", {
     className: "mega-celebration",
     "aria-live": "polite"
   }, React.createElement("div", null, React.createElement("span", null, "\u2728"), React.createElement("strong", null, text), React.createElement("span", null, "\uD83D\uDC8E")));
 }
-function ActivityCelebrationModal(_ref10) {
-  var details = _ref10.details,
-    onClose = _ref10.onClose;
+function ActivityCelebrationModal(_ref22) {
+  var details = _ref22.details,
+    onClose = _ref22.onClose;
   useEffect(function () {
     var timer = setTimeout(onClose, 2200);
     return function () {
@@ -1776,9 +2001,9 @@ function MiniFireworks() {
     });
   }));
 }
-function LevelUpOverlay(_ref11) {
-  var level = _ref11.level,
-    title = _ref11.title;
+function LevelUpOverlay(_ref23) {
+  var level = _ref23.level,
+    title = _ref23.title;
   return React.createElement("div", {
     className: "level-up-overlay",
     "aria-live": "polite"
@@ -1786,26 +2011,26 @@ function LevelUpOverlay(_ref11) {
     className: "eyebrow"
   }, "Level up"), React.createElement("h2", null, "Level ", level), React.createElement("strong", null, title)));
 }
-function ComboToast(_ref12) {
-  var combo = _ref12.combo;
+function ComboToast(_ref24) {
+  var combo = _ref24.combo;
   return React.createElement("div", {
     className: "combo-toast"
   }, combo, "x Combo!");
 }
-function QuestBanner(_ref13) {
-  var text = _ref13.text;
+function QuestBanner(_ref25) {
+  var text = _ref25.text;
   return React.createElement("div", {
     className: "quest-banner"
   }, text);
 }
-function RewardUnlockToast(_ref14) {
-  var text = _ref14.text;
+function RewardUnlockToast(_ref26) {
+  var text = _ref26.text;
   return React.createElement("div", {
     className: "reward-unlock-toast"
   }, "\uD83D\uDD13 ", text);
 }
-function DailyWelcome(_ref15) {
-  var text = _ref15.text;
+function DailyWelcome(_ref27) {
+  var text = _ref27.text;
   return React.createElement("div", {
     className: "daily-welcome"
   }, "\uD83C\uDF1F ", text);
@@ -1818,22 +2043,22 @@ function encouragementFor(activity) {
   if (title.includes("reading") || title.includes("writing")) return "Excellent effort. You are building a strong habit.";
   return "Great job! You completed your task.";
 }
-function CollapsibleSection(_ref16) {
-  var id = _ref16.id,
-    title = _ref16.title,
-    children = _ref16.children,
-    _ref16$defaultOpen = _ref16.defaultOpen,
-    defaultOpen = _ref16$defaultOpen === void 0 ? false : _ref16$defaultOpen;
+function CollapsibleSection(_ref28) {
+  var id = _ref28.id,
+    title = _ref28.title,
+    children = _ref28.children,
+    _ref28$defaultOpen = _ref28.defaultOpen,
+    defaultOpen = _ref28$defaultOpen === void 0 ? false : _ref28$defaultOpen;
   return React.createElement("details", {
     id: id,
     className: "ux-section",
     open: defaultOpen
   }, React.createElement("summary", null, React.createElement("strong", null, title), React.createElement("span", null, "Open")), children);
 }
-function PraiseBanner(_ref17) {
-  var _ref17$messages = _ref17.messages,
-    messages = _ref17$messages === void 0 ? [] : _ref17$messages,
-    onSeen = _ref17.onSeen;
+function PraiseBanner(_ref29) {
+  var _ref29$messages = _ref29.messages,
+    messages = _ref29$messages === void 0 ? [] : _ref29$messages,
+    onSeen = _ref29.onSeen;
   var latest = messages.find(function (message) {
     return message.status === "unread";
   }) || messages[0];
@@ -1854,9 +2079,9 @@ var petIcons = {
   dragon: "🐉",
   puppy: "🐶"
 };
-function PetCompanion(_ref18) {
-  var pet = _ref18.pet,
-    onChoose = _ref18.onChoose;
+function PetCompanion(_ref30) {
+  var pet = _ref30.pet,
+    onChoose = _ref30.onChoose;
   var current = pet || {
     pet_type: "puppy",
     pet_name: "Buddy",
@@ -1875,10 +2100,10 @@ function PetCompanion(_ref18) {
     value: Number(current.happiness || 0)
   }), React.createElement("p", null, Number(current.happiness || 0) >= 80 ? "Your pet is super happy!" : "Complete activities to make your pet happier."), React.createElement("div", {
     className: "pet-picker"
-  }, Object.entries(petIcons).map(function (_ref19) {
-    var _ref20 = _slicedToArray(_ref19, 2),
-      key = _ref20[0],
-      icon = _ref20[1];
+  }, Object.entries(petIcons).map(function (_ref31) {
+    var _ref32 = _slicedToArray(_ref31, 2),
+      key = _ref32[0],
+      icon = _ref32[1];
     return React.createElement("button", {
       className: current.pet_type === key ? "selected" : "ghost",
       key: key,
@@ -1888,9 +2113,9 @@ function PetCompanion(_ref18) {
     }, icon);
   })));
 }
-function MoodCheckIn(_ref21) {
-  var mood = _ref21.mood,
-    onMood = _ref21.onMood;
+function MoodCheckIn(_ref33) {
+  var mood = _ref33.mood,
+    onMood = _ref33.onMood;
   var moods = [["happy", "😊"], ["tired", "😴"], ["excited", "🤩"], ["sad", "😔"], ["angry", "😠"], ["calm", "😌"]];
   return React.createElement("section", {
     className: "game-card mood-card"
@@ -1900,10 +2125,10 @@ function MoodCheckIn(_ref21) {
     className: "eyebrow"
   }, "Mood check-in"), React.createElement("h2", null, mood ? "Feeling ".concat(mood.mood) : "How do you feel?"))), React.createElement("div", {
     className: "mood-options"
-  }, moods.map(function (_ref22) {
-    var _ref23 = _slicedToArray(_ref22, 2),
-      key = _ref23[0],
-      icon = _ref23[1];
+  }, moods.map(function (_ref34) {
+    var _ref35 = _slicedToArray(_ref34, 2),
+      key = _ref35[0],
+      icon = _ref35[1];
     return React.createElement("button", {
       className: (mood === null || mood === void 0 ? void 0 : mood.mood) === key ? "selected" : "ghost",
       key: key,
@@ -1914,15 +2139,15 @@ function MoodCheckIn(_ref21) {
     }, icon);
   })));
 }
-function SportsDashboard(_ref24) {
-  var sports = _ref24.sports,
-    _ref24$activities = _ref24.activities,
-    activities = _ref24$activities === void 0 ? [] : _ref24$activities,
-    onComplete = _ref24.onComplete;
-  var _useState49 = useState(null),
-    _useState50 = _slicedToArray(_useState49, 2),
-    demo = _useState50[0],
-    setDemo = _useState50[1];
+function SportsDashboard(_ref36) {
+  var sports = _ref36.sports,
+    _ref36$activities = _ref36.activities,
+    activities = _ref36$activities === void 0 ? [] : _ref36$activities,
+    onComplete = _ref36.onComplete;
+  var _useState53 = useState(null),
+    _useState54 = _slicedToArray(_useState53, 2),
+    demo = _useState54[0],
+    setDemo = _useState54[1];
   if (!sports) return null;
   var percent = sports.today_total ? Math.round(sports.today_completed / sports.today_total * 100) : 0;
   return React.createElement("section", {
@@ -1995,10 +2220,10 @@ function SportsDashboard(_ref24) {
     }
   }) : null);
 }
-function SportsExerciseCard(_ref25) {
-  var activity = _ref25.activity,
-    onDemo = _ref25.onDemo,
-    onComplete = _ref25.onComplete;
+function SportsExerciseCard(_ref37) {
+  var activity = _ref37.activity,
+    onDemo = _ref37.onDemo,
+    onComplete = _ref37.onComplete;
   var taskData = activity.task_data || {};
   var video = activity.sports_video || {};
   var complete = ["completed", "approved"].includes(activity.status);
@@ -2039,9 +2264,9 @@ function SportsExerciseCard(_ref25) {
     }
   }, complete ? "Completed" : "Complete")));
 }
-function ExerciseAnimation(_ref26) {
-  var _ref26$exerciseKey = _ref26.exerciseKey,
-    exerciseKey = _ref26$exerciseKey === void 0 ? "run" : _ref26$exerciseKey;
+function ExerciseAnimation(_ref38) {
+  var _ref38$exerciseKey = _ref38.exerciseKey,
+    exerciseKey = _ref38$exerciseKey === void 0 ? "run" : _ref38$exerciseKey;
   return React.createElement("div", {
     className: "exercise-animation exercise-".concat(classSlug(exerciseKey)),
     "aria-hidden": "true"
@@ -2061,9 +2286,9 @@ function ExerciseAnimation(_ref26) {
     className: "exercise-ground"
   }));
 }
-function ExerciseDemoModal(_ref27) {
-  var activity = _ref27.activity,
-    onClose = _ref27.onClose;
+function ExerciseDemoModal(_ref39) {
+  var activity = _ref39.activity,
+    onClose = _ref39.onClose;
   var data = activity.task_data || {};
   var video = activity.sports_video || {};
   var videoRef = useRef(null);
@@ -2129,59 +2354,59 @@ function ExerciseDemoModal(_ref27) {
   }, "Start Activity"))));
 }
 var quizTypes = [["select_3", "Correct answer · 3 options"], ["select_4", "Correct answer · 4 options"], ["multiple_correct", "Multiple correct answers"], ["best_sentence", "Choose the best sentence"], ["picture_choice", "Picture multiple choice"], ["audio_choice", "Audio multiple choice"], ["timed_challenge", "Timed quiz challenge"], ["level_quiz", "Level-based quiz"], ["streak_quiz", "Streak quiz"], ["daily_quiz_mission", "Daily quiz mission"], ["survival_hearts", "Survival mode with hearts"], ["wheel_spinner", "Quiz wheel spinner"], ["true_false", "True/false quiz"], ["fill_missing_options", "Fill missing word"], ["drag_correct_answer", "Drag correct answer"], ["arrange_sentence", "Arrange the sentence"], ["find_mistake", "Find the mistake"], ["fastest_finger", "Fastest finger challenge"], ["memory_quiz", "Memory quiz"], ["emoji_quiz", "Emoji quiz"], ["story_quiz", "Story-based quiz"], ["unlock_next_level", "Unlock next level"], ["reward_box", "Reward box quiz"], ["adaptive_difficulty", "Adaptive difficulty"]];
-function StreakRecoveryDashboard(_ref28) {
-  var recovery = _ref28.recovery,
-    onStartQuiz = _ref28.onStartQuiz,
-    onAnswerQuiz = _ref28.onAnswerQuiz;
-  var _useState51 = useState(""),
-    _useState52 = _slicedToArray(_useState51, 2),
-    selectedAnswer = _useState52[0],
-    setSelectedAnswer = _useState52[1];
-  var _useState53 = useState(null),
-    _useState54 = _slicedToArray(_useState53, 2),
-    answeredQuestion = _useState54[0],
-    setAnsweredQuestion = _useState54[1];
-  var _useState55 = useState(null),
+function StreakRecoveryDashboard(_ref40) {
+  var recovery = _ref40.recovery,
+    onStartQuiz = _ref40.onStartQuiz,
+    onAnswerQuiz = _ref40.onAnswerQuiz;
+  var _useState55 = useState(""),
     _useState56 = _slicedToArray(_useState55, 2),
-    result = _useState56[0],
-    setResult = _useState56[1];
-  var _useState57 = useState(false),
+    selectedAnswer = _useState56[0],
+    setSelectedAnswer = _useState56[1];
+  var _useState57 = useState(null),
     _useState58 = _slicedToArray(_useState57, 2),
-    saving = _useState58[0],
-    setSaving = _useState58[1];
+    answeredQuestion = _useState58[0],
+    setAnsweredQuestion = _useState58[1];
+  var _useState59 = useState(null),
+    _useState60 = _slicedToArray(_useState59, 2),
+    result = _useState60[0],
+    setResult = _useState60[1];
+  var _useState61 = useState(false),
+    _useState62 = _slicedToArray(_useState61, 2),
+    saving = _useState62[0],
+    setSaving = _useState62[1];
   if (!recovery) return null;
   var rescue = recovery.rescue_quiz;
   var question = result && answeredQuestion ? answeredQuestion : rescue === null || rescue === void 0 ? void 0 : rescue.current_question;
   var progress = recovery.recovery_required ? Math.round(recovery.recovery_completed / recovery.recovery_required * 100) : 100;
-  function chooseAnswer(_x23) {
+  function chooseAnswer(_x24) {
     return _chooseAnswer.apply(this, arguments);
   }
   function _chooseAnswer() {
-    _chooseAnswer = _asyncToGenerator(_regeneratorRuntime().mark(function _callee23(option) {
-      return _regeneratorRuntime().wrap(function _callee23$(_context23) {
-        while (1) switch (_context23.prev = _context23.next) {
+    _chooseAnswer = _asyncToGenerator(_regeneratorRuntime().mark(function _callee24(option) {
+      return _regeneratorRuntime().wrap(function _callee24$(_context24) {
+        while (1) switch (_context24.prev = _context24.next) {
           case 0:
             if (!(!question || saving || result)) {
-              _context23.next = 2;
+              _context24.next = 2;
               break;
             }
-            return _context23.abrupt("return");
+            return _context24.abrupt("return");
           case 2:
             setSelectedAnswer(option);
             setAnsweredQuestion(question);
             setSaving(true);
-            _context23.t0 = setResult;
-            _context23.next = 8;
+            _context24.t0 = setResult;
+            _context24.next = 8;
             return onAnswerQuiz(option);
           case 8:
-            _context23.t1 = _context23.sent;
-            (0, _context23.t0)(_context23.t1);
+            _context24.t1 = _context24.sent;
+            (0, _context24.t0)(_context24.t1);
             setSaving(false);
           case 11:
           case "end":
-            return _context23.stop();
+            return _context24.stop();
         }
-      }, _callee23);
+      }, _callee24);
     }));
     return _chooseAnswer.apply(this, arguments);
   }
@@ -2258,10 +2483,10 @@ function StreakRecoveryDashboard(_ref28) {
     onClick: continueQuiz
   }, "Next question")))));
 }
-function SeerahReviewSummaryCard(_ref29) {
-  var review = _ref29.review,
-    onStart = _ref29.onStart,
-    onOpen = _ref29.onOpen;
+function SeerahReviewSummaryCard(_ref41) {
+  var review = _ref41.review,
+    onStart = _ref41.onStart,
+    onOpen = _ref41.onOpen;
   if (!(review !== null && review !== void 0 && review.enabled)) return null;
   var statusLabel = review.status === "completed" ? "Completed" : review.status === "in_progress" ? "In progress" : "Not started";
   return React.createElement("section", {
@@ -2284,59 +2509,59 @@ function SeerahReviewSummaryCard(_ref29) {
     onClick: onOpen
   }, "See today\u2019s result"));
 }
-function SeerahDailyReview(_ref30) {
+function SeerahDailyReview(_ref42) {
   var _review$needs_practic;
-  var review = _ref30.review,
-    onStart = _ref30.onStart,
-    onAnswer = _ref30.onAnswer;
-  var _useState59 = useState(""),
-    _useState60 = _slicedToArray(_useState59, 2),
-    selectedAnswer = _useState60[0],
-    setSelectedAnswer = _useState60[1];
-  var _useState61 = useState(null),
-    _useState62 = _slicedToArray(_useState61, 2),
-    result = _useState62[0],
-    setResult = _useState62[1];
-  var _useState63 = useState(null),
+  var review = _ref42.review,
+    onStart = _ref42.onStart,
+    onAnswer = _ref42.onAnswer;
+  var _useState63 = useState(""),
     _useState64 = _slicedToArray(_useState63, 2),
-    answeredQuestion = _useState64[0],
-    setAnsweredQuestion = _useState64[1];
-  var _useState65 = useState(false),
+    selectedAnswer = _useState64[0],
+    setSelectedAnswer = _useState64[1];
+  var _useState65 = useState(null),
     _useState66 = _slicedToArray(_useState65, 2),
-    saving = _useState66[0],
-    setSaving = _useState66[1];
+    result = _useState66[0],
+    setResult = _useState66[1];
+  var _useState67 = useState(null),
+    _useState68 = _slicedToArray(_useState67, 2),
+    answeredQuestion = _useState68[0],
+    setAnsweredQuestion = _useState68[1];
+  var _useState69 = useState(false),
+    _useState70 = _slicedToArray(_useState69, 2),
+    saving = _useState70[0],
+    setSaving = _useState70[1];
   if (!(review !== null && review !== void 0 && review.enabled)) return null;
   var question = review.current_question;
   var displayQuestion = result && answeredQuestion ? answeredQuestion : question;
-  function chooseAnswer(_x24) {
+  function chooseAnswer(_x25) {
     return _chooseAnswer2.apply(this, arguments);
   }
   function _chooseAnswer2() {
-    _chooseAnswer2 = _asyncToGenerator(_regeneratorRuntime().mark(function _callee24(option) {
+    _chooseAnswer2 = _asyncToGenerator(_regeneratorRuntime().mark(function _callee25(option) {
       var nextResult;
-      return _regeneratorRuntime().wrap(function _callee24$(_context24) {
-        while (1) switch (_context24.prev = _context24.next) {
+      return _regeneratorRuntime().wrap(function _callee25$(_context25) {
+        while (1) switch (_context25.prev = _context25.next) {
           case 0:
             if (!(!displayQuestion || saving || result)) {
-              _context24.next = 2;
+              _context25.next = 2;
               break;
             }
-            return _context24.abrupt("return");
+            return _context25.abrupt("return");
           case 2:
             setSelectedAnswer(option);
             setAnsweredQuestion(displayQuestion);
             setSaving(true);
-            _context24.next = 7;
+            _context25.next = 7;
             return onAnswer(option);
           case 7:
-            nextResult = _context24.sent;
+            nextResult = _context25.sent;
             setResult(nextResult);
             setSaving(false);
           case 10:
           case "end":
-            return _context24.stop();
+            return _context25.stop();
         }
-      }, _callee24);
+      }, _callee25);
     }));
     return _chooseAnswer2.apply(this, arguments);
   }
@@ -2409,27 +2634,27 @@ function SeerahDailyReview(_ref30) {
     }, "Question ", item.question_number, ": ", item.question_text);
   }))));
 }
-function SeerahQuizJourney(_ref31) {
-  var _ref31$quizzes = _ref31.quizzes,
-    quizzes = _ref31$quizzes === void 0 ? [] : _ref31$quizzes,
-    progress = _ref31.progress,
-    onSubmit = _ref31.onSubmit;
-  var _useState67 = useState(null),
-    _useState68 = _slicedToArray(_useState67, 2),
-    result = _useState68[0],
-    setResult = _useState68[1];
-  var _useState69 = useState(null),
-    _useState70 = _slicedToArray(_useState69, 2),
-    answeredQuiz = _useState70[0],
-    setAnsweredQuiz = _useState70[1];
-  var _useState71 = useState(""),
+function SeerahQuizJourney(_ref43) {
+  var _ref43$quizzes = _ref43.quizzes,
+    quizzes = _ref43$quizzes === void 0 ? [] : _ref43$quizzes,
+    progress = _ref43.progress,
+    onSubmit = _ref43.onSubmit;
+  var _useState71 = useState(null),
     _useState72 = _slicedToArray(_useState71, 2),
-    selectedAnswer = _useState72[0],
-    setSelectedAnswer = _useState72[1];
-  var _useState73 = useState(false),
+    result = _useState72[0],
+    setResult = _useState72[1];
+  var _useState73 = useState(null),
     _useState74 = _slicedToArray(_useState73, 2),
-    saving = _useState74[0],
-    setSaving = _useState74[1];
+    answeredQuiz = _useState74[0],
+    setAnsweredQuiz = _useState74[1];
+  var _useState75 = useState(""),
+    _useState76 = _slicedToArray(_useState75, 2),
+    selectedAnswer = _useState76[0],
+    setSelectedAnswer = _useState76[1];
+  var _useState77 = useState(false),
+    _useState78 = _slicedToArray(_useState77, 2),
+    saving = _useState78[0],
+    setSaving = _useState78[1];
   if (!(progress !== null && progress !== void 0 && progress.assigned) || !quizzes.length) return null;
   var sorted = _toConsumableArray(quizzes).sort(function (a, b) {
     return Number(a.category_question_id || 0) - Number(b.category_question_id || 0);
@@ -2440,28 +2665,28 @@ function SeerahQuizJourney(_ref31) {
   var displayQuiz = result && answeredQuiz ? answeredQuiz : currentQuiz;
   var displayOptions = (displayQuiz === null || displayQuiz === void 0 ? void 0 : displayQuiz.options) || [];
   var badgeMilestones = [[1, "Seerah Beginner", "🌙"], [10, "Prophet’s Life Learner", "📖"], [25, "Good Akhlaq Star", "⭐"], [50, "50 Questions Champion", "🏆"], [100, "100 Questions Master", "👑"]];
-  function chooseAnswer(_x25) {
+  function chooseAnswer(_x26) {
     return _chooseAnswer3.apply(this, arguments);
   }
   function _chooseAnswer3() {
-    _chooseAnswer3 = _asyncToGenerator(_regeneratorRuntime().mark(function _callee25(option) {
+    _chooseAnswer3 = _asyncToGenerator(_regeneratorRuntime().mark(function _callee26(option) {
       var next;
-      return _regeneratorRuntime().wrap(function _callee25$(_context25) {
-        while (1) switch (_context25.prev = _context25.next) {
+      return _regeneratorRuntime().wrap(function _callee26$(_context26) {
+        while (1) switch (_context26.prev = _context26.next) {
           case 0:
             if (!(saving || result || !displayQuiz)) {
-              _context25.next = 2;
+              _context26.next = 2;
               break;
             }
-            return _context25.abrupt("return");
+            return _context26.abrupt("return");
           case 2:
             setSelectedAnswer(option);
             setSaving(true);
             setAnsweredQuiz(displayQuiz);
-            _context25.next = 7;
+            _context26.next = 7;
             return onSubmit(displayQuiz, option, [], 0, 0);
           case 7:
-            next = _context25.sent;
+            next = _context26.sent;
             setResult((next === null || next === void 0 ? void 0 : next.quizAnswer) || {
               correct: false,
               feedback: "Die Antwort konnte nicht gespeichert werden.",
@@ -2470,9 +2695,9 @@ function SeerahQuizJourney(_ref31) {
             setSaving(false);
           case 10:
           case "end":
-            return _context25.stop();
+            return _context26.stop();
         }
-      }, _callee25);
+      }, _callee26);
     }));
     return _chooseAnswer3.apply(this, arguments);
   }
@@ -2533,21 +2758,21 @@ function SeerahQuizJourney(_ref31) {
     className: "seerah-complete"
   }, React.createElement("span", null, "\uD83C\uDFC6"), React.createElement("h3", null, "MaschaAllah! Alle 100 Fragen geschafft."), React.createElement("p", null, "Du hast ", progress.earned_hasnat, " Hasnat in dieser Lernreise verdient.")), React.createElement("div", {
     className: "seerah-badges"
-  }, badgeMilestones.map(function (_ref32) {
-    var _ref33 = _slicedToArray(_ref32, 3),
-      target = _ref33[0],
-      title = _ref33[1],
-      icon = _ref33[2];
+  }, badgeMilestones.map(function (_ref44) {
+    var _ref45 = _slicedToArray(_ref44, 3),
+      target = _ref45[0],
+      title = _ref45[1],
+      icon = _ref45[2];
     return React.createElement("article", {
       className: progress.completed >= target ? "unlocked" : "locked",
       key: title
     }, React.createElement("span", null, icon), React.createElement("strong", null, title), React.createElement("small", null, progress.completed >= target ? "Freigeschaltet" : "".concat(Math.max(0, target - progress.completed), " Fragen \xFCbrig")));
   })));
 }
-function QuizPanel(_ref34) {
-  var _ref34$quizzes = _ref34.quizzes,
-    quizzes = _ref34$quizzes === void 0 ? [] : _ref34$quizzes,
-    onSubmit = _ref34.onSubmit;
+function QuizPanel(_ref46) {
+  var _ref46$quizzes = _ref46.quizzes,
+    quizzes = _ref46$quizzes === void 0 ? [] : _ref46$quizzes,
+    onSubmit = _ref46.onSubmit;
   if (!quizzes.length) return null;
   var openQuiz = quizzes.find(function (quiz) {
     return !quiz.last_passed;
@@ -2574,31 +2799,31 @@ function QuizPanel(_ref34) {
     }, React.createElement("strong", null, quiz.title), React.createElement("span", null, quiz.subject, " \xB7 Level ", quiz.level, " \xB7 ", quiz.difficulty), React.createElement("small", null, quiz.attempts || 0, " attempts", quiz.last_passed ? " · passed" : ""));
   }))));
 }
-function QuizCard(_ref35) {
-  var quiz = _ref35.quiz,
-    onSubmit = _ref35.onSubmit,
-    _ref35$featured = _ref35.featured,
-    featured = _ref35$featured === void 0 ? false : _ref35$featured;
-  var _useState75 = useState(""),
-    _useState76 = _slicedToArray(_useState75, 2),
-    answer = _useState76[0],
-    setAnswer = _useState76[1];
-  var _useState77 = useState([]),
-    _useState78 = _slicedToArray(_useState77, 2),
-    selected = _useState78[0],
-    setSelected = _useState78[1];
-  var _useState79 = useState(Date.now()),
+function QuizCard(_ref47) {
+  var quiz = _ref47.quiz,
+    onSubmit = _ref47.onSubmit,
+    _ref47$featured = _ref47.featured,
+    featured = _ref47$featured === void 0 ? false : _ref47$featured;
+  var _useState79 = useState(""),
     _useState80 = _slicedToArray(_useState79, 2),
-    startedAt = _useState80[0],
-    setStartedAt = _useState80[1];
-  var _useState81 = useState(Number(quiz.timer_seconds || 0)),
+    answer = _useState80[0],
+    setAnswer = _useState80[1];
+  var _useState81 = useState([]),
     _useState82 = _slicedToArray(_useState81, 2),
-    remaining = _useState82[0],
-    setRemaining = _useState82[1];
-  var _useState83 = useState(false),
+    selected = _useState82[0],
+    setSelected = _useState82[1];
+  var _useState83 = useState(Date.now()),
     _useState84 = _slicedToArray(_useState83, 2),
-    submitted = _useState84[0],
-    setSubmitted = _useState84[1];
+    startedAt = _useState84[0],
+    setStartedAt = _useState84[1];
+  var _useState85 = useState(Number(quiz.timer_seconds || 0)),
+    _useState86 = _slicedToArray(_useState85, 2),
+    remaining = _useState86[0],
+    setRemaining = _useState86[1];
+  var _useState87 = useState(false),
+    _useState88 = _slicedToArray(_useState87, 2),
+    submitted = _useState88[0],
+    setSubmitted = _useState88[1];
   var options = quiz.quiz_type === "true_false" ? ["True", "False"] : quiz.options || [];
   var isMultiple = quiz.quiz_type === "multiple_correct";
   var hasTimer = Number(quiz.timer_seconds || 0) > 0;
@@ -2802,10 +3027,10 @@ function prayerWindowInfo(activity, prayer) {
     message: "Open today"
   };
 }
-function ActivityJourney(_ref36) {
+function ActivityJourney(_ref48) {
   var _entries$find;
-  var activities = _ref36.activities,
-    onFocus = _ref36.onFocus;
+  var activities = _ref48.activities,
+    onFocus = _ref48.onFocus;
   var entries = buildJourneyEntries(activities);
   var currentKey = (_entries$find = entries.find(function (entry) {
     return !journeyEntryComplete(entry);
@@ -2839,14 +3064,14 @@ function ActivityJourney(_ref36) {
     });
   }))));
 }
-function TaskPreviewCard(_ref37) {
+function TaskPreviewCard(_ref49) {
   var _entry$activity3, _entry$activity4;
-  var entry = _ref37.entry,
-    _ref37$current = _ref37.current,
-    current = _ref37$current === void 0 ? false : _ref37$current,
-    _ref37$complete = _ref37.complete,
-    complete = _ref37$complete === void 0 ? false : _ref37$complete,
-    onStart = _ref37.onStart;
+  var entry = _ref49.entry,
+    _ref49$current = _ref49.current,
+    current = _ref49$current === void 0 ? false : _ref49$current,
+    _ref49$complete = _ref49.complete,
+    complete = _ref49$complete === void 0 ? false : _ref49$complete,
+    onStart = _ref49.onStart;
   var points = entry.type === "prayer" ? Number(((_entry$activity3 = entry.activity) === null || _entry$activity3 === void 0 ? void 0 : _entry$activity3.prayer_points) || 10) : Number(((_entry$activity4 = entry.activity) === null || _entry$activity4 === void 0 ? void 0 : _entry$activity4.points) || 0);
   var displayActivity = entry.type === "prayer" ? _objectSpread(_objectSpread({}, entry.activity), {}, {
     title: entry.title,
@@ -2867,11 +3092,11 @@ function TaskPreviewCard(_ref37) {
     "aria-label": "Start ".concat(entry.title)
   }, "Start"));
 }
-function FocusTaskOverlay(_ref38) {
-  var entry = _ref38.entry,
-    timerScope = _ref38.timerScope,
-    onComplete = _ref38.onComplete,
-    onClose = _ref38.onClose;
+function FocusTaskOverlay(_ref50) {
+  var entry = _ref50.entry,
+    timerScope = _ref50.timerScope,
+    onComplete = _ref50.onComplete,
+    onClose = _ref50.onClose;
   useEffect(function () {
     function closeOnEscape(event) {
       if (event.key === "Escape") onClose();
@@ -2908,10 +3133,10 @@ function FocusTaskOverlay(_ref38) {
     onComplete: onComplete
   }))));
 }
-function PrayerStepCard(_ref39) {
+function PrayerStepCard(_ref51) {
   var _entry$activity5;
-  var entry = _ref39.entry,
-    onComplete = _ref39.onComplete;
+  var entry = _ref51.entry,
+    onComplete = _ref51.onComplete;
   var prayerIcons = {
     Fajr: "🌅",
     Dhuhr: "☀️",
@@ -2954,9 +3179,9 @@ function PrayerStepCard(_ref39) {
     "aria-label": "Mark ".concat(entry.prayer, " prayer complete")
   }), React.createElement("span", null, done ? "Completed" : locked ? "Not available now" : "Mark ".concat(entry.prayer, " complete")))));
 }
-function RewardProgress(_ref40) {
-  var reward = _ref40.reward,
-    points = _ref40.points;
+function RewardProgress(_ref52) {
+  var reward = _ref52.reward,
+    points = _ref52.points;
   var cost = Number(reward.discounted_points || reward.required_points || 1);
   var current = Math.min(Number(points || 0), cost);
   var remaining = Math.max(0, cost - Number(points || 0));
@@ -2992,8 +3217,8 @@ function buildNudges(data, nextActivity, nextReward) {
   if (evening && completed === 0) nudges.push("Let’s complete one small task today.");
   return nudges.slice(0, 3);
 }
-function WeeklyThemeCard(_ref41) {
-  var theme = _ref41.theme;
+function WeeklyThemeCard(_ref53) {
+  var theme = _ref53.theme;
   if (!theme) return null;
   var percent = Math.min(100, Math.round(Number(theme.progress || 0) / Math.max(1, Number(theme.goal || 1)) * 100));
   return React.createElement("section", {
@@ -3006,9 +3231,9 @@ function WeeklyThemeCard(_ref41) {
     value: percent
   }), React.createElement("strong", null, theme.progress, "/", theme.goal, " goal \xB7 ", theme.badge)), React.createElement("span", null, theme.complete ? "Unlocked" : "Locked"));
 }
-function EarlyBirdCard(_ref42) {
-  var earlyBird = _ref42.earlyBird,
-    onCheckIn = _ref42.onCheckIn;
+function EarlyBirdCard(_ref54) {
+  var earlyBird = _ref54.earlyBird,
+    onCheckIn = _ref54.onCheckIn;
   var checked = earlyBird === null || earlyBird === void 0 ? void 0 : earlyBird.checked_in;
   var leaders = (earlyBird === null || earlyBird === void 0 ? void 0 : earlyBird.rows) || [];
   return React.createElement("section", {
@@ -3035,15 +3260,15 @@ function EarlyBirdCard(_ref42) {
     }, React.createElement("span", null, "#", child.rank), React.createElement("span", null, avatarFor(child.avatar)), React.createElement("strong", null, child.name), React.createElement("small", null, child.checkin_time, " \xB7 ", child.status === "early" ? "+".concat(child.awarded_points, " Hasanat") : "late"));
   })));
 }
-function QuranMemorizationPanel(_ref43) {
-  var quran = _ref43.quran,
-    filter = _ref43.filter,
-    sort = _ref43.sort,
-    onFilter = _ref43.onFilter,
-    onSort = _ref43.onSort,
-    onMemorize = _ref43.onMemorize,
-    onRevise = _ref43.onRevise,
-    onFavorite = _ref43.onFavorite;
+function QuranMemorizationPanel(_ref55) {
+  var quran = _ref55.quran,
+    filter = _ref55.filter,
+    sort = _ref55.sort,
+    onFilter = _ref55.onFilter,
+    onSort = _ref55.onSort,
+    onMemorize = _ref55.onMemorize,
+    onRevise = _ref55.onRevise,
+    onFavorite = _ref55.onFavorite;
   if (!quran) return null;
   var surahs = _toConsumableArray(quran.surahs || []).filter(function (surah) {
     return filter === "all" || surah.revelation_place === filter;
@@ -3196,15 +3421,113 @@ function QuranMemorizationPanel(_ref43) {
     }, "Memorized 1 verse"));
   })));
 }
-function HifzTracker(_ref44) {
+function QuranReadingJourneyCard(_ref56) {
+  var _quranReading$assignm;
+  var quranReading = _ref56.quranReading,
+    onSubmit = _ref56.onSubmit;
+  if (!(quranReading !== null && quranReading !== void 0 && (_quranReading$assignm = quranReading.assignments) !== null && _quranReading$assignm !== void 0 && _quranReading$assignm.length)) return null;
+  var current = quranReading.current_surah;
+  return React.createElement("section", {
+    className: "quran-reading-card",
+    "aria-label": "My Quran Journey"
+  }, React.createElement("div", null, React.createElement("p", {
+    className: "eyebrow"
+  }, "\uD83D\uDCD6 My Quran Journey"), React.createElement("h2", null, current ? "".concat(current.surah_number, ". ").concat(current.surah_name_english) : "All assigned Surahs completed"), current !== null && current !== void 0 && current.surah_name_arabic ? React.createElement("p", {
+    className: "arabic-surah",
+    dir: "rtl",
+    lang: "ar"
+  }, current.surah_name_arabic) : null, React.createElement("p", null, quranReading.total_completed, " / ", quranReading.total_assigned, " assigned Surahs completed \xB7 ", quranReading.total_quran_hasanat, " Quran Hasanat")), React.createElement(Progress, {
+    value: quranReading.total_assigned ? Math.round(quranReading.total_completed / quranReading.total_assigned * 100) : 0
+  }), current ? React.createElement("div", {
+    className: "quran-reading-actions"
+  }, React.createElement("span", null, current.ayah_count, " Ayahs \xB7 ", current.possible_hasanat, " Hasanat after parent approval"), React.createElement("button", {
+    disabled: current.status === "submitted" || current.status === "approved",
+    onClick: function onClick() {
+      return onSubmit(current);
+    }
+  }, current.status === "submitted" ? "Waiting for Parent Approval" : current.status === "approved" ? "Approved" : "I Have Finished My Recitation")) : null);
+}
+function QuranReadingPanel(_ref57) {
+  var _quranReading$assignm2;
+  var quranReading = _ref57.quranReading,
+    onSubmit = _ref57.onSubmit;
+  if (!(quranReading !== null && quranReading !== void 0 && (_quranReading$assignm2 = quranReading.assignments) !== null && _quranReading$assignm2 !== void 0 && _quranReading$assignm2.length)) return null;
+  return React.createElement("section", {
+    className: "quran-reading-panel",
+    "aria-label": "Quran Reading and Recitation"
+  }, React.createElement("div", {
+    className: "section-heading"
+  }, React.createElement("p", {
+    className: "eyebrow"
+  }, "\uD83D\uDCD6 Quran Reading & Recitation"), React.createElement("h2", null, "Assigned Surahs from your parent"), React.createElement("p", {
+    className: "muted"
+  }, "Recite your assigned Surah, then send it for parent approval.")), React.createElement("div", {
+    className: "quran-reading-stats"
+  }, React.createElement(Stat, {
+    label: "Assigned",
+    value: quranReading.total_assigned,
+    icon: "\uD83D\uDCDA"
+  }), React.createElement(Stat, {
+    label: "Completed",
+    value: quranReading.total_completed,
+    icon: "\u2705"
+  }), React.createElement(Stat, {
+    label: "Pending Approval",
+    value: quranReading.pending_approval,
+    icon: "\uD83D\uDFE1"
+  }), React.createElement(Stat, {
+    label: "Ayahs Completed",
+    value: quranReading.total_ayahs_completed,
+    icon: "\uD83D\uDCD6"
+  }), React.createElement(Stat, {
+    label: "Quran Hasanat",
+    value: quranReading.total_quran_hasanat,
+    icon: React.createElement(CoinIcon, null)
+  })), React.createElement(Progress, {
+    value: quranReading.progress_percentage
+  }), React.createElement("div", {
+    className: "quran-reading-grid"
+  }, quranReading.assignments.map(function (item) {
+    return React.createElement("article", {
+      className: "quran-reading-surah ".concat(item.status),
+      key: item.id
+    }, React.createElement("div", {
+      className: "surah-head"
+    }, React.createElement("span", null, item.surah_number), React.createElement("div", null, React.createElement("h3", {
+      dir: "rtl",
+      lang: "ar"
+    }, item.surah_name_arabic), React.createElement("small", null, item.surah_name_english, " \xB7 ", item.ayah_count, " Ayahs"))), React.createElement(Progress, {
+      value: item.progress_percentage
+    }), React.createElement("div", {
+      className: "surah-meta"
+    }, React.createElement("span", null, "Assigned by Parent"), React.createElement("span", null, item.parent_approval_status.replaceAll("_", " ")), React.createElement("span", null, React.createElement(CoinIcon, null), " ", item.hasanat_earned, " earned")), item.parent_feedback ? React.createElement("p", {
+      className: "muted"
+    }, React.createElement("strong", null, "Parent feedback:"), " ", item.parent_feedback) : null, item.encouragement ? React.createElement("p", {
+      className: "quran-encouragement"
+    }, item.encouragement) : null, React.createElement("button", {
+      disabled: item.status === "submitted" || item.status === "approved",
+      onClick: function onClick() {
+        return onSubmit(item);
+      }
+    }, item.status === "submitted" ? "Waiting for Parent Approval" : item.status === "approved" ? "Approved" : "I Have Finished My Recitation"));
+  })), React.createElement("div", {
+    className: "hifz-badges"
+  }, (quranReading.badges || []).map(function (badge) {
+    return React.createElement("span", {
+      className: badge.earned ? "earned" : "",
+      key: badge.title
+    }, badge.icon, " ", badge.title);
+  })));
+}
+function HifzTracker(_ref58) {
   var _hifz$completed_juz;
-  var hifz = _ref44.hifz,
-    onUpdate = _ref44.onUpdate;
+  var hifz = _ref58.hifz,
+    onUpdate = _ref58.onUpdate;
   var todayPage = hifz.today;
-  var _useState85 = useState((todayPage === null || todayPage === void 0 ? void 0 : todayPage.notes) || ""),
-    _useState86 = _slicedToArray(_useState85, 2),
-    notes = _useState86[0],
-    setNotes = _useState86[1];
+  var _useState89 = useState((todayPage === null || todayPage === void 0 ? void 0 : todayPage.notes) || ""),
+    _useState90 = _slicedToArray(_useState89, 2),
+    notes = _useState90[0],
+    setNotes = _useState90[1];
   useEffect(function () {
     setNotes((todayPage === null || todayPage === void 0 ? void 0 : todayPage.notes) || "");
   }, [todayPage === null || todayPage === void 0 ? void 0 : todayPage.id, todayPage === null || todayPage === void 0 ? void 0 : todayPage.notes]);
@@ -3334,23 +3657,23 @@ function HifzTracker(_ref44) {
     }, React.createElement("span", null, "Page ", page.page_number), React.createElement("small", null, "Juz ", page.juz_number, " \xB7 ", page.surah_name_english || page.surah_name || "Select Surah", " \xB7 ", page.plan_date));
   })));
 }
-function DailyCompletionOverlay(_ref45) {
+function DailyCompletionOverlay(_ref59) {
   var _data$reflection, _data$reflection2;
-  var data = _ref45.data,
-    avatar = _ref45.avatar,
-    reward = _ref45.reward,
-    progress = _ref45.progress,
-    onRewards = _ref45.onRewards,
-    onClose = _ref45.onClose,
-    onReflect = _ref45.onReflect;
-  var _useState87 = useState(((_data$reflection = data.reflection) === null || _data$reflection === void 0 ? void 0 : _data$reflection.enjoyed_activity) || ""),
-    _useState88 = _slicedToArray(_useState87, 2),
-    enjoyed = _useState88[0],
-    setEnjoyed = _useState88[1];
-  var _useState89 = useState(((_data$reflection2 = data.reflection) === null || _data$reflection2 === void 0 ? void 0 : _data$reflection2.feeling) || ""),
-    _useState90 = _slicedToArray(_useState89, 2),
-    feeling = _useState90[0],
-    setFeeling = _useState90[1];
+  var data = _ref59.data,
+    avatar = _ref59.avatar,
+    reward = _ref59.reward,
+    progress = _ref59.progress,
+    onRewards = _ref59.onRewards,
+    onClose = _ref59.onClose,
+    onReflect = _ref59.onReflect;
+  var _useState91 = useState(((_data$reflection = data.reflection) === null || _data$reflection === void 0 ? void 0 : _data$reflection.enjoyed_activity) || ""),
+    _useState92 = _slicedToArray(_useState91, 2),
+    enjoyed = _useState92[0],
+    setEnjoyed = _useState92[1];
+  var _useState93 = useState(((_data$reflection2 = data.reflection) === null || _data$reflection2 === void 0 ? void 0 : _data$reflection2.feeling) || ""),
+    _useState94 = _slicedToArray(_useState93, 2),
+    feeling = _useState94[0],
+    setFeeling = _useState94[1];
   var enjoyedOptions = ["Quran", "Reading", "Writing", "Math", "Helping", "Sport", "Prayer", "Other"];
   var feelingOptions = ["Happy", "Proud", "Tired", "Calm", "I need help"];
   return React.createElement("div", {
@@ -3413,15 +3736,15 @@ function DailyCompletionOverlay(_ref45) {
     onClick: onClose
   }, "Back to dashboard"))));
 }
-function Mascot(_ref46) {
-  var message = _ref46.message;
+function Mascot(_ref60) {
+  var message = _ref60.message;
   return React.createElement("div", {
     className: "mascot",
     title: message
   }, React.createElement("span", null, "\uD83E\uDD81"), React.createElement("small", null, message.includes("Great") ? "Yay!" : "Go!"));
 }
-function XPBar(_ref47) {
-  var level = _ref47.level;
+function XPBar(_ref61) {
+  var level = _ref61.level;
   return React.createElement("div", {
     className: "xp-wrap"
   }, React.createElement("span", null, level.title), React.createElement("div", {
@@ -3432,9 +3755,9 @@ function XPBar(_ref47) {
     }
   })), React.createElement("strong", null, level.progress, "/100 XP"));
 }
-function AdventureMap(_ref48) {
-  var level = _ref48.level,
-    totalPoints = _ref48.totalPoints;
+function AdventureMap(_ref62) {
+  var level = _ref62.level,
+    totalPoints = _ref62.totalPoints;
   var steps = [["Learning Village", "🏡"], ["Quran Garden", "🌙"], ["Reading Castle", "🏰"], ["Math Mountain", "⛰️"], ["Fitness Arena", "🏟️"], ["Reward Island", "🏝️"]];
   var activeStep = Math.min(steps.length - 1, Math.floor(Number(totalPoints || 0) / 80));
   var walkerPosition = Math.min(92, Math.max(8, 8 + activeStep * 16.8));
@@ -3451,10 +3774,10 @@ function AdventureMap(_ref48) {
     style: {
       "--walker-left": "".concat(walkerPosition, "%")
     }
-  }, level.level >= 5 ? "🦸" : "🚶"), steps.map(function (_ref49, index) {
-    var _ref50 = _slicedToArray(_ref49, 2),
-      step = _ref50[0],
-      icon = _ref50[1];
+  }, level.level >= 5 ? "🦸" : "🚶"), steps.map(function (_ref63, index) {
+    var _ref64 = _slicedToArray(_ref63, 2),
+      step = _ref64[0],
+      icon = _ref64[1];
     return React.createElement("div", {
       className: index <= activeStep ? "map-step reached" : "map-step",
       key: step
@@ -3463,9 +3786,9 @@ function AdventureMap(_ref48) {
     value: level.progress
   }));
 }
-function MissionBoard(_ref51) {
-  var _ref51$missions = _ref51.missions,
-    missions = _ref51$missions === void 0 ? [] : _ref51$missions;
+function MissionBoard(_ref65) {
+  var _ref65$missions = _ref65.missions,
+    missions = _ref65$missions === void 0 ? [] : _ref65$missions;
   return React.createElement("section", {
     className: "game-card mission-board"
   }, React.createElement("div", {
@@ -3485,8 +3808,8 @@ function MissionBoard(_ref51) {
     }), React.createElement("small", null, mission.progress, "/", mission.target)));
   })));
 }
-function PersonalBest(_ref52) {
-  var best = _ref52.best;
+function PersonalBest(_ref66) {
+  var best = _ref66.best;
   best = best || {
     today_completed: 0,
     best_completed: 0,
@@ -3503,9 +3826,9 @@ function PersonalBest(_ref52) {
     value: Math.min(100, Math.round(best.today_completed / target * 100))
   }), React.createElement("p", null, best.remaining_to_best === 0 ? "New personal best is close or reached!" : "".concat(best.remaining_to_best, " more to beat your best day.")));
 }
-function ParentChallengeBoard(_ref53) {
-  var _ref53$challenges = _ref53.challenges,
-    challenges = _ref53$challenges === void 0 ? [] : _ref53$challenges;
+function ParentChallengeBoard(_ref67) {
+  var _ref67$challenges = _ref67.challenges,
+    challenges = _ref67$challenges === void 0 ? [] : _ref67$challenges;
   return React.createElement("section", {
     className: "leaderboard challenge-board"
   }, React.createElement("h2", {
@@ -3521,10 +3844,10 @@ function ParentChallengeBoard(_ref53) {
     }), React.createElement("small", null, challenge.progress, "/", challenge.target_count, " \xB7 bonus ", challenge.bonus_points, " Hasanat"));
   }));
 }
-function AchievementsPanel(_ref54) {
-  var achievements = _ref54.achievements,
-    badges = _ref54.badges,
-    futureBadges = _ref54.futureBadges;
+function AchievementsPanel(_ref68) {
+  var achievements = _ref68.achievements,
+    badges = _ref68.badges,
+    futureBadges = _ref68.futureBadges;
   achievements = achievements || {};
   return React.createElement("section", {
     className: "leaderboard achievements-panel"
@@ -3541,8 +3864,8 @@ function AchievementsPanel(_ref54) {
     }, React.createElement("span", null, badge.icon), React.createElement("strong", null, badge.title), React.createElement("small", null, badge.requirement));
   })));
 }
-function FamilyQuest(_ref55) {
-  var quest = _ref55.quest;
+function FamilyQuest(_ref69) {
+  var quest = _ref69.quest;
   quest = quest || {
     completed: 0,
     target: 3,
@@ -3586,10 +3909,10 @@ function Confetti() {
     });
   }));
 }
-function ActivityCard(_ref56) {
-  var activity = _ref56.activity,
-    timerScope = _ref56.timerScope,
-    onComplete = _ref56.onComplete;
+function ActivityCard(_ref70) {
+  var activity = _ref70.activity,
+    timerScope = _ref70.timerScope,
+    onComplete = _ref70.onComplete;
   var prayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
   var prayerIcons = {
     Fajr: "🌅",
@@ -3601,42 +3924,42 @@ function ActivityCard(_ref56) {
   var isDone = activity.status === "approved" || activity.status === "completed";
   var durationSeconds = Number(activity.duration_minutes || 0) * 60;
   var timerKey = "activity-timer-".concat(timerScope || "today", "-").concat(activity.id);
-  var _useState91 = useState(durationSeconds),
-    _useState92 = _slicedToArray(_useState91, 2),
-    secondsLeft = _useState92[0],
-    setSecondsLeft = _useState92[1];
-  var _useState93 = useState(false),
-    _useState94 = _slicedToArray(_useState93, 2),
-    timerRunning = _useState94[0],
-    setTimerRunning = _useState94[1];
-  var _useState95 = useState(false),
+  var _useState95 = useState(durationSeconds),
     _useState96 = _slicedToArray(_useState95, 2),
-    timerStarted = _useState96[0],
-    setTimerStarted = _useState96[1];
+    secondsLeft = _useState96[0],
+    setSecondsLeft = _useState96[1];
   var _useState97 = useState(false),
     _useState98 = _slicedToArray(_useState97, 2),
-    needsConfirmation = _useState98[0],
-    setNeedsConfirmation = _useState98[1];
-  var _useState99 = useState(null),
+    timerRunning = _useState98[0],
+    setTimerRunning = _useState98[1];
+  var _useState99 = useState(false),
     _useState100 = _slicedToArray(_useState99, 2),
-    timerEndAt = _useState100[0],
-    setTimerEndAt = _useState100[1];
+    timerStarted = _useState100[0],
+    setTimerStarted = _useState100[1];
   var _useState101 = useState(false),
     _useState102 = _slicedToArray(_useState101, 2),
-    buttonBounce = _useState102[0],
-    setButtonBounce = _useState102[1];
-  var _useState103 = useState(""),
+    needsConfirmation = _useState102[0],
+    setNeedsConfirmation = _useState102[1];
+  var _useState103 = useState(null),
     _useState104 = _slicedToArray(_useState103, 2),
-    proof = _useState104[0],
-    setProof = _useState104[1];
-  var _useState105 = useState(""),
+    timerEndAt = _useState104[0],
+    setTimerEndAt = _useState104[1];
+  var _useState105 = useState(false),
     _useState106 = _slicedToArray(_useState105, 2),
-    interactiveAnswer = _useState106[0],
-    setInteractiveAnswer = _useState106[1];
-  var _useState107 = useState(false),
+    buttonBounce = _useState106[0],
+    setButtonBounce = _useState106[1];
+  var _useState107 = useState(""),
     _useState108 = _slicedToArray(_useState107, 2),
-    demoOpen = _useState108[0],
-    setDemoOpen = _useState108[1];
+    proof = _useState108[0],
+    setProof = _useState108[1];
+  var _useState109 = useState(""),
+    _useState110 = _slicedToArray(_useState109, 2),
+    interactiveAnswer = _useState110[0],
+    setInteractiveAnswer = _useState110[1];
+  var _useState111 = useState(false),
+    _useState112 = _slicedToArray(_useState111, 2),
+    demoOpen = _useState112[0],
+    setDemoOpen = _useState112[1];
   var taskType = activity.task_type || "standard";
   var taskData = activity.task_data || {};
   var isSports = activity.subject === "Sports & Physical Development";
@@ -3911,13 +4234,13 @@ function ActivityCard(_ref56) {
     onClick: beginCompletion
   }, isDone ? activity.status : activity.proof_required && !proof ? "Add proof first" : timerRequired ? "Complete activity" : "Mark complete"))));
 }
-function InteractiveTask(_ref57) {
-  var type = _ref57.type,
-    _ref57$data = _ref57.data,
-    data = _ref57$data === void 0 ? {} : _ref57$data,
-    value = _ref57.value,
-    _onChange = _ref57.onChange,
-    disabled = _ref57.disabled;
+function InteractiveTask(_ref71) {
+  var type = _ref71.type,
+    _ref71$data = _ref71.data,
+    data = _ref71$data === void 0 ? {} : _ref71$data,
+    value = _ref71.value,
+    _onChange = _ref71.onChange,
+    disabled = _ref71.disabled;
   if (!type || type === "standard") return null;
   var options = Array.isArray(data.options) && data.options.length ? data.options : ["Option A", "Option B", "Option C"];
   var pairs = Array.isArray(data.pairs) && data.pairs.length ? data.pairs : [["Word", "Meaning"], ["Picture", "Name"]];
@@ -3985,8 +4308,8 @@ function InteractiveTask(_ref57) {
     placeholder: data.placeholder || "What is this?"
   })));
 }
-function ActivityMotionIcon(_ref58) {
-  var activity = _ref58.activity;
+function ActivityMotionIcon(_ref72) {
+  var activity = _ref72.activity;
   var title = String(activity.title || "").toLowerCase();
   var type = "default";
   if (activity.is_prayer || title.includes("five daily prayers")) type = "prayer";else if (title.includes("quran learning")) type = "quran";else if (title.includes("memorize") || title.includes("memorise")) type = "memorize";else if (title.includes("reading")) type = "reading";else if (title.includes("writing")) type = "writing";else if (title.includes("mathematics")) type = "math";else if (title.includes("helping")) type = "helping";else if (title.includes("sport")) type = "sport";else if (title.includes("sleeping")) type = "sleep";else if (title.includes("waking")) type = "wake";else if (title.includes("self-organization") || title.includes("self-organisation")) type = "organize";else if (title.includes("teamwork")) type = "teamwork";else if (title.includes("clean bedroom")) type = "bedroom";
@@ -4077,9 +4400,9 @@ function ActivityMotionIcon(_ref58) {
     className: "prayer-glow"
   }, "\uD83D\uDD4C")), type === "default" && React.createElement("span", null, icons[activity.title] || "✅"));
 }
-function Leaderboard(_ref59) {
-  var children = _ref59.children,
-    currentChildId = _ref59.currentChildId;
+function Leaderboard(_ref73) {
+  var children = _ref73.children,
+    currentChildId = _ref73.currentChildId;
   return React.createElement("section", {
     className: "leaderboard"
   }, React.createElement("h2", {
@@ -4099,9 +4422,9 @@ function Leaderboard(_ref59) {
     }, React.createElement(CoinIcon, null), child.total_points));
   })));
 }
-function ProgressRace(_ref60) {
-  var children = _ref60.children,
-    currentChildId = _ref60.currentChildId;
+function ProgressRace(_ref74) {
+  var children = _ref74.children,
+    currentChildId = _ref74.currentChildId;
   var maxPoints = Math.max.apply(Math, [1].concat(_toConsumableArray(children.map(function (child) {
     return Number(child.total_points || 0);
   }))));
@@ -4129,9 +4452,9 @@ function ProgressRace(_ref60) {
     }, avatarFor(child.avatar))), React.createElement("strong", null, child.total_points));
   })));
 }
-function RedemptionBoard(_ref61) {
-  var children = _ref61.children,
-    currentChildId = _ref61.currentChildId;
+function RedemptionBoard(_ref75) {
+  var children = _ref75.children,
+    currentChildId = _ref75.currentChildId;
   return React.createElement("section", {
     className: "leaderboard redemption-board"
   }, React.createElement("h2", {
@@ -4151,10 +4474,10 @@ function RedemptionBoard(_ref61) {
     }, React.createElement(CoinIcon, null), child.redeemed_points));
   })));
 }
-function BadgeCollection(_ref62) {
-  var childName = _ref62.childName,
-    badges = _ref62.badges,
-    futureBadges = _ref62.futureBadges;
+function BadgeCollection(_ref76) {
+  var childName = _ref76.childName,
+    badges = _ref76.badges,
+    futureBadges = _ref76.futureBadges;
   var namedBadge = function namedBadge(title) {
     return "".concat(childName || "Child", "'s ").concat(title);
   };
@@ -4182,72 +4505,72 @@ function BadgeCollection(_ref62) {
     }, React.createElement("span", null, badge.icon), React.createElement("strong", null, namedBadge(badge.title)), React.createElement("small", null, badge.requirement));
   })));
 }
-function ParentDashboard(_ref63) {
+function ParentDashboard(_ref77) {
   var _admin$children$find, _admin$currentUser, _admin$quizCategories;
-  var api = _ref63.api;
-  var _useState109 = useState(null),
-    _useState110 = _slicedToArray(_useState109, 2),
-    admin = _useState110[0],
-    setAdmin = _useState110[1];
-  var _useState111 = useState(""),
-    _useState112 = _slicedToArray(_useState111, 2),
-    childId = _useState112[0],
-    setChildId = _useState112[1];
+  var api = _ref77.api;
   var _useState113 = useState(null),
     _useState114 = _slicedToArray(_useState113, 2),
-    dashboard = _useState114[0],
-    setDashboard = _useState114[1];
-  var _useState115 = useState(null),
+    admin = _useState114[0],
+    setAdmin = _useState114[1];
+  var _useState115 = useState(""),
     _useState116 = _slicedToArray(_useState115, 2),
-    reports = _useState116[0],
-    setReports = _useState116[1];
+    childId = _useState116[0],
+    setChildId = _useState116[1];
   var _useState117 = useState(null),
     _useState118 = _slicedToArray(_useState117, 2),
-    editingActivity = _useState118[0],
-    setEditingActivity = _useState118[1];
+    dashboard = _useState118[0],
+    setDashboard = _useState118[1];
   var _useState119 = useState(null),
     _useState120 = _slicedToArray(_useState119, 2),
-    editingReward = _useState120[0],
-    setEditingReward = _useState120[1];
+    reports = _useState120[0],
+    setReports = _useState120[1];
   var _useState121 = useState(null),
     _useState122 = _slicedToArray(_useState121, 2),
-    editingQuiz = _useState122[0],
-    setEditingQuiz = _useState122[1];
+    editingActivity = _useState122[0],
+    setEditingActivity = _useState122[1];
   var _useState123 = useState(null),
     _useState124 = _slicedToArray(_useState123, 2),
-    editingChild = _useState124[0],
-    setEditingChild = _useState124[1];
+    editingReward = _useState124[0],
+    setEditingReward = _useState124[1];
   var _useState125 = useState(null),
     _useState126 = _slicedToArray(_useState125, 2),
-    editingParent = _useState126[0],
-    setEditingParent = _useState126[1];
-  var _useState127 = useState(""),
+    editingQuiz = _useState126[0],
+    setEditingQuiz = _useState126[1];
+  var _useState127 = useState(null),
     _useState128 = _slicedToArray(_useState127, 2),
-    notice = _useState128[0],
-    setNotice = _useState128[1];
-  var _useState129 = useState("overview"),
+    editingChild = _useState128[0],
+    setEditingChild = _useState128[1];
+  var _useState129 = useState(null),
     _useState130 = _slicedToArray(_useState129, 2),
-    adminTab = _useState130[0],
-    setAdminTab = _useState130[1];
+    editingParent = _useState130[0],
+    setEditingParent = _useState130[1];
+  var _useState131 = useState(""),
+    _useState132 = _slicedToArray(_useState131, 2),
+    notice = _useState132[0],
+    setNotice = _useState132[1];
+  var _useState133 = useState("overview"),
+    _useState134 = _slicedToArray(_useState133, 2),
+    adminTab = _useState134[0],
+    setAdminTab = _useState134[1];
   function load() {
     return _load.apply(this, arguments);
   }
   function _load() {
-    _load = _asyncToGenerator(_regeneratorRuntime().mark(function _callee26() {
+    _load = _asyncToGenerator(_regeneratorRuntime().mark(function _callee27() {
       var _adminData$children$;
       var preferredChildId,
         adminData,
         availableIds,
         selected,
-        _args26 = arguments;
-      return _regeneratorRuntime().wrap(function _callee26$(_context26) {
-        while (1) switch (_context26.prev = _context26.next) {
+        _args27 = arguments;
+      return _regeneratorRuntime().wrap(function _callee27$(_context27) {
+        while (1) switch (_context27.prev = _context27.next) {
           case 0:
-            preferredChildId = _args26.length > 0 && _args26[0] !== undefined ? _args26[0] : "";
-            _context26.next = 3;
+            preferredChildId = _args27.length > 0 && _args27[0] !== undefined ? _args27[0] : "";
+            _context27.next = 3;
             return api("/api/admin");
           case 3:
-            adminData = _context26.sent;
+            adminData = _context27.sent;
             adminData.activities = (adminData.activities || []).map(function (activity) {
               if (typeof activity.task_data !== "string") return activity;
               try {
@@ -4266,23 +4589,23 @@ function ParentDashboard(_ref63) {
             });
             selected = availableIds.includes(String(preferredChildId)) ? String(preferredChildId) : availableIds.includes(String(childId)) ? String(childId) : String(((_adminData$children$ = adminData.children[0]) === null || _adminData$children$ === void 0 ? void 0 : _adminData$children$.id) || "");
             setChildId(String(selected));
-            _context26.t0 = setDashboard;
-            _context26.next = 12;
+            _context27.t0 = setDashboard;
+            _context27.next = 12;
             return api("/api/dashboard?childId=".concat(selected));
           case 12:
-            _context26.t1 = _context26.sent;
-            (0, _context26.t0)(_context26.t1);
-            _context26.t2 = setReports;
-            _context26.next = 17;
+            _context27.t1 = _context27.sent;
+            (0, _context27.t0)(_context27.t1);
+            _context27.t2 = setReports;
+            _context27.next = 17;
             return api("/api/reports?childId=".concat(selected));
           case 17:
-            _context26.t3 = _context26.sent;
-            (0, _context26.t2)(_context26.t3);
+            _context27.t3 = _context27.sent;
+            (0, _context27.t2)(_context27.t3);
           case 19:
           case "end":
-            return _context26.stop();
+            return _context27.stop();
         }
-      }, _callee26);
+      }, _callee27);
     }));
     return _load.apply(this, arguments);
   }
@@ -4305,15 +4628,15 @@ function ParentDashboard(_ref63) {
   var selectedChildName = (_admin$children$find = admin.children.find(function (child) {
     return String(child.id) === String(childId);
   })) === null || _admin$children$find === void 0 ? void 0 : _admin$children$find.name;
-  var adminTabs = [["overview", "Today Overview"], ["approvals", "Approvals"], ["children", "Children & Accounts"], ["activities", "Activities"], ["quizzes", "Quizzes"], ["game", "Game Controls"], ["planner", "Weekly Planner"], ["rewards", "Rewards"], ["reports", "Reports & Backup"]];
-  function saveActivity(_x26) {
+  var adminTabs = [["overview", "Today Overview"], ["approvals", "Approvals"], ["children", "Children & Accounts"], ["activities", "Activities"], ["quran", "Quran Plan"], ["quizzes", "Quizzes"], ["game", "Game Controls"], ["planner", "Weekly Planner"], ["rewards", "Rewards"], ["reports", "Reports & Backup"]];
+  function saveActivity(_x27) {
     return _saveActivity.apply(this, arguments);
   }
   function _saveActivity() {
-    _saveActivity = _asyncToGenerator(_regeneratorRuntime().mark(function _callee27(event) {
+    _saveActivity = _asyncToGenerator(_regeneratorRuntime().mark(function _callee28(event) {
       var form, taskData, payload, url;
-      return _regeneratorRuntime().wrap(function _callee27$(_context27) {
-        while (1) switch (_context27.prev = _context27.next) {
+      return _regeneratorRuntime().wrap(function _callee28$(_context28) {
+        while (1) switch (_context28.prev = _context28.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
@@ -4352,7 +4675,7 @@ function ParentDashboard(_ref63) {
               requires_approval: form.requires_approval === "on"
             });
             url = editingActivity !== null && editingActivity !== void 0 && editingActivity.id ? "/api/activities/".concat(editingActivity.id) : "/api/activities";
-            _context27.next = 7;
+            _context28.next = 7;
             return api(url, {
               method: editingActivity !== null && editingActivity !== void 0 && editingActivity.id ? "PUT" : "POST",
               body: JSON.stringify(payload)
@@ -4362,20 +4685,20 @@ function ParentDashboard(_ref63) {
             load();
           case 9:
           case "end":
-            return _context27.stop();
+            return _context28.stop();
         }
-      }, _callee27);
+      }, _callee28);
     }));
     return _saveActivity.apply(this, arguments);
   }
-  function saveReward(_x27) {
+  function saveReward(_x28) {
     return _saveReward.apply(this, arguments);
   }
   function _saveReward() {
-    _saveReward = _asyncToGenerator(_regeneratorRuntime().mark(function _callee28(event) {
+    _saveReward = _asyncToGenerator(_regeneratorRuntime().mark(function _callee29(event) {
       var form, payload, url;
-      return _regeneratorRuntime().wrap(function _callee28$(_context28) {
-        while (1) switch (_context28.prev = _context28.next) {
+      return _regeneratorRuntime().wrap(function _callee29$(_context29) {
+        while (1) switch (_context29.prev = _context29.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
@@ -4383,7 +4706,7 @@ function ParentDashboard(_ref63) {
               required_points: Number(form.required_points)
             });
             url = editingReward !== null && editingReward !== void 0 && editingReward.id ? "/api/rewards/".concat(editingReward.id) : "/api/rewards";
-            _context28.next = 6;
+            _context29.next = 6;
             return api(url, {
               method: editingReward !== null && editingReward !== void 0 && editingReward.id ? "PUT" : "POST",
               body: JSON.stringify(payload)
@@ -4393,20 +4716,20 @@ function ParentDashboard(_ref63) {
             load();
           case 8:
           case "end":
-            return _context28.stop();
+            return _context29.stop();
         }
-      }, _callee28);
+      }, _callee29);
     }));
     return _saveReward.apply(this, arguments);
   }
-  function saveQuiz(_x28) {
+  function saveQuiz(_x29) {
     return _saveQuiz.apply(this, arguments);
   }
   function _saveQuiz() {
-    _saveQuiz = _asyncToGenerator(_regeneratorRuntime().mark(function _callee29(event) {
+    _saveQuiz = _asyncToGenerator(_regeneratorRuntime().mark(function _callee30(event) {
       var form, payload, url;
-      return _regeneratorRuntime().wrap(function _callee29$(_context29) {
-        while (1) switch (_context29.prev = _context29.next) {
+      return _regeneratorRuntime().wrap(function _callee30$(_context30) {
+        while (1) switch (_context30.prev = _context30.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
@@ -4427,7 +4750,7 @@ function ParentDashboard(_ref63) {
               unlock_next_level: form.unlock_next_level === "on"
             });
             url = editingQuiz !== null && editingQuiz !== void 0 && editingQuiz.id ? "/api/quizzes/".concat(editingQuiz.id) : "/api/quizzes";
-            _context29.next = 6;
+            _context30.next = 6;
             return api(url, {
               method: editingQuiz !== null && editingQuiz !== void 0 && editingQuiz.id ? "PUT" : "POST",
               body: JSON.stringify(payload)
@@ -4439,21 +4762,21 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 10:
           case "end":
-            return _context29.stop();
+            return _context30.stop();
         }
-      }, _callee29);
+      }, _callee30);
     }));
     return _saveQuiz.apply(this, arguments);
   }
-  function toggleQuizCategoryAssignment(_x29) {
+  function toggleQuizCategoryAssignment(_x30) {
     return _toggleQuizCategoryAssignment.apply(this, arguments);
   }
   function _toggleQuizCategoryAssignment() {
-    _toggleQuizCategoryAssignment = _asyncToGenerator(_regeneratorRuntime().mark(function _callee30(row) {
-      return _regeneratorRuntime().wrap(function _callee30$(_context30) {
-        while (1) switch (_context30.prev = _context30.next) {
+    _toggleQuizCategoryAssignment = _asyncToGenerator(_regeneratorRuntime().mark(function _callee31(row) {
+      return _regeneratorRuntime().wrap(function _callee31$(_context31) {
+        while (1) switch (_context31.prev = _context31.next) {
           case 0:
-            _context30.next = 2;
+            _context31.next = 2;
             return api("/api/quiz-categories/assign", {
               method: "POST",
               body: JSON.stringify({
@@ -4467,24 +4790,24 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 4:
           case "end":
-            return _context30.stop();
+            return _context31.stop();
         }
-      }, _callee30);
+      }, _callee31);
     }));
     return _toggleQuizCategoryAssignment.apply(this, arguments);
   }
-  function saveSeerahSettings(_x30) {
+  function saveSeerahSettings(_x31) {
     return _saveSeerahSettings.apply(this, arguments);
   }
   function _saveSeerahSettings() {
-    _saveSeerahSettings = _asyncToGenerator(_regeneratorRuntime().mark(function _callee31(event) {
+    _saveSeerahSettings = _asyncToGenerator(_regeneratorRuntime().mark(function _callee32(event) {
       var form;
-      return _regeneratorRuntime().wrap(function _callee31$(_context31) {
-        while (1) switch (_context31.prev = _context31.next) {
+      return _regeneratorRuntime().wrap(function _callee32$(_context32) {
+        while (1) switch (_context32.prev = _context32.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
-            _context31.next = 4;
+            _context32.next = 4;
             return api("/api/quiz-categories/settings", {
               method: "POST",
               body: JSON.stringify({
@@ -4497,27 +4820,27 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 6:
           case "end":
-            return _context31.stop();
+            return _context32.stop();
         }
-      }, _callee31);
+      }, _callee32);
     }));
     return _saveSeerahSettings.apply(this, arguments);
   }
-  function resetSeerahProgress(_x31) {
+  function resetSeerahProgress(_x32) {
     return _resetSeerahProgress.apply(this, arguments);
   }
   function _resetSeerahProgress() {
-    _resetSeerahProgress = _asyncToGenerator(_regeneratorRuntime().mark(function _callee32(row) {
-      return _regeneratorRuntime().wrap(function _callee32$(_context32) {
-        while (1) switch (_context32.prev = _context32.next) {
+    _resetSeerahProgress = _asyncToGenerator(_regeneratorRuntime().mark(function _callee33(row) {
+      return _regeneratorRuntime().wrap(function _callee33$(_context33) {
+        while (1) switch (_context33.prev = _context33.next) {
           case 0:
             if (window.confirm("Reset ".concat(row.child_name, "'s Seerah quiz learning position to question 1? Earned Hasnat and attempt history will remain."))) {
-              _context32.next = 2;
+              _context33.next = 2;
               break;
             }
-            return _context32.abrupt("return");
+            return _context33.abrupt("return");
           case 2:
-            _context32.next = 4;
+            _context33.next = 4;
             return api("/api/quiz-categories/reset", {
               method: "POST",
               body: JSON.stringify({
@@ -4530,21 +4853,21 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 6:
           case "end":
-            return _context32.stop();
+            return _context33.stop();
         }
-      }, _callee32);
+      }, _callee33);
     }));
     return _resetSeerahProgress.apply(this, arguments);
   }
-  function saveSeerahReviewSettings(_x32, _x33, _x34) {
+  function saveSeerahReviewSettings(_x33, _x34, _x35) {
     return _saveSeerahReviewSettings.apply(this, arguments);
   }
   function _saveSeerahReviewSettings() {
-    _saveSeerahReviewSettings = _asyncToGenerator(_regeneratorRuntime().mark(function _callee33(row, enabled, questionCount) {
-      return _regeneratorRuntime().wrap(function _callee33$(_context33) {
-        while (1) switch (_context33.prev = _context33.next) {
+    _saveSeerahReviewSettings = _asyncToGenerator(_regeneratorRuntime().mark(function _callee34(row, enabled, questionCount) {
+      return _regeneratorRuntime().wrap(function _callee34$(_context34) {
+        while (1) switch (_context34.prev = _context34.next) {
           case 0:
-            _context33.next = 2;
+            _context34.next = 2;
             return api("/api/seerah-review/settings", {
               method: "POST",
               body: JSON.stringify({
@@ -4558,27 +4881,27 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 4:
           case "end":
-            return _context33.stop();
+            return _context34.stop();
         }
-      }, _callee33);
+      }, _callee34);
     }));
     return _saveSeerahReviewSettings.apply(this, arguments);
   }
-  function resetSeerahReview(_x35) {
+  function resetSeerahReview(_x36) {
     return _resetSeerahReview.apply(this, arguments);
   }
   function _resetSeerahReview() {
-    _resetSeerahReview = _asyncToGenerator(_regeneratorRuntime().mark(function _callee34(row) {
-      return _regeneratorRuntime().wrap(function _callee34$(_context34) {
-        while (1) switch (_context34.prev = _context34.next) {
+    _resetSeerahReview = _asyncToGenerator(_regeneratorRuntime().mark(function _callee35(row) {
+      return _regeneratorRuntime().wrap(function _callee35$(_context35) {
+        while (1) switch (_context35.prev = _context35.next) {
           case 0:
             if (window.confirm("Reset ".concat(row.child_name, "'s Daily Seerah Review history and practice list? Earned Hasnat will remain."))) {
-              _context34.next = 2;
+              _context35.next = 2;
               break;
             }
-            return _context34.abrupt("return");
+            return _context35.abrupt("return");
           case 2:
-            _context34.next = 4;
+            _context35.next = 4;
             return api("/api/seerah-review/reset", {
               method: "POST",
               body: JSON.stringify({
@@ -4590,73 +4913,73 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 6:
           case "end":
-            return _context34.stop();
+            return _context35.stop();
         }
-      }, _callee34);
+      }, _callee35);
     }));
     return _resetSeerahReview.apply(this, arguments);
   }
-  function remove(_x36, _x37) {
+  function remove(_x37, _x38) {
     return _remove.apply(this, arguments);
   }
   function _remove() {
-    _remove = _asyncToGenerator(_regeneratorRuntime().mark(function _callee35(type, id) {
+    _remove = _asyncToGenerator(_regeneratorRuntime().mark(function _callee36(type, id) {
       var nextChild;
-      return _regeneratorRuntime().wrap(function _callee35$(_context35) {
-        while (1) switch (_context35.prev = _context35.next) {
+      return _regeneratorRuntime().wrap(function _callee36$(_context36) {
+        while (1) switch (_context36.prev = _context36.next) {
           case 0:
             setNotice("");
             if (!(type === "children" && !window.confirm("Delete this child and all related points, logs, and rewards?"))) {
-              _context35.next = 3;
+              _context36.next = 3;
               break;
             }
-            return _context35.abrupt("return");
+            return _context36.abrupt("return");
           case 3:
-            _context35.prev = 3;
-            _context35.next = 6;
+            _context36.prev = 3;
+            _context36.next = 6;
             return api("/api/".concat(type, "/").concat(id), {
               method: "DELETE"
             });
           case 6:
             if (!(type === "children")) {
-              _context35.next = 13;
+              _context36.next = 13;
               break;
             }
             setEditingChild(null);
             nextChild = admin.children.find(function (child) {
               return String(child.id) !== String(id);
             });
-            _context35.next = 11;
+            _context36.next = 11;
             return load((nextChild === null || nextChild === void 0 ? void 0 : nextChild.id) || "");
           case 11:
             setNotice("Child deleted.");
-            return _context35.abrupt("return");
+            return _context36.abrupt("return");
           case 13:
             if (type === "quizzes") setEditingQuiz(null);
             load();
-            _context35.next = 20;
+            _context36.next = 20;
             break;
           case 17:
-            _context35.prev = 17;
-            _context35.t0 = _context35["catch"](3);
-            setNotice(_context35.t0.message);
+            _context36.prev = 17;
+            _context36.t0 = _context36["catch"](3);
+            setNotice(_context36.t0.message);
           case 20:
           case "end":
-            return _context35.stop();
+            return _context36.stop();
         }
-      }, _callee35, null, [[3, 17]]);
+      }, _callee36, null, [[3, 17]]);
     }));
     return _remove.apply(this, arguments);
   }
-  function approve(_x38, _x39) {
+  function approve(_x39, _x40) {
     return _approve.apply(this, arguments);
   }
   function _approve() {
-    _approve = _asyncToGenerator(_regeneratorRuntime().mark(function _callee36(logId, approved) {
-      return _regeneratorRuntime().wrap(function _callee36$(_context36) {
-        while (1) switch (_context36.prev = _context36.next) {
+    _approve = _asyncToGenerator(_regeneratorRuntime().mark(function _callee37(logId, approved) {
+      return _regeneratorRuntime().wrap(function _callee37$(_context37) {
+        while (1) switch (_context37.prev = _context37.next) {
           case 0:
-            _context36.next = 2;
+            _context37.next = 2;
             return api("/api/approvals", {
               method: "POST",
               body: JSON.stringify({
@@ -4668,21 +4991,92 @@ function ParentDashboard(_ref63) {
             load();
           case 3:
           case "end":
-            return _context36.stop();
+            return _context37.stop();
         }
-      }, _callee36);
+      }, _callee37);
     }));
     return _approve.apply(this, arguments);
   }
-  function approveReward(_x40, _x41) {
+  function assignQuranSurah(_x41) {
+    return _assignQuranSurah.apply(this, arguments);
+  }
+  function _assignQuranSurah() {
+    _assignQuranSurah = _asyncToGenerator(_regeneratorRuntime().mark(function _callee38(event) {
+      var form, selectedSurahs;
+      return _regeneratorRuntime().wrap(function _callee38$(_context38) {
+        while (1) switch (_context38.prev = _context38.next) {
+          case 0:
+            event.preventDefault();
+            form = Object.fromEntries(new FormData(event.currentTarget));
+            selectedSurahs = Array.from(event.currentTarget.querySelectorAll("input[name='surahIds']:checked")).map(function (input) {
+              return Number(input.value);
+            });
+            _context38.next = 5;
+            return api("/api/quran-reading/assign", {
+              method: "POST",
+              body: JSON.stringify({
+                childId: childId,
+                surahIds: selectedSurahs.length ? selectedSurahs : [Number(form.surahId)],
+                targetDate: form.targetDate || null,
+                priority: form.priority || "normal",
+                sortOrder: Number(form.sortOrder || 0),
+                privateNotes: form.privateNotes || ""
+              })
+            });
+          case 5:
+            event.currentTarget.reset();
+            setNotice("Quran Surah assignment saved.");
+            load(childId);
+          case 8:
+          case "end":
+            return _context38.stop();
+        }
+      }, _callee38);
+    }));
+    return _assignQuranSurah.apply(this, arguments);
+  }
+  function reviewQuranRecitation(_x42, _x43, _x44) {
+    return _reviewQuranRecitation.apply(this, arguments);
+  }
+  function _reviewQuranRecitation() {
+    _reviewQuranRecitation = _asyncToGenerator(_regeneratorRuntime().mark(function _callee39(row, action, event) {
+      var _event$preventDefault;
+      var form;
+      return _regeneratorRuntime().wrap(function _callee39$(_context39) {
+        while (1) switch (_context39.prev = _context39.next) {
+          case 0:
+            event === null || event === void 0 || (_event$preventDefault = event.preventDefault) === null || _event$preventDefault === void 0 || _event$preventDefault.call(event);
+            form = event !== null && event !== void 0 && event.currentTarget ? Object.fromEntries(new FormData(event.currentTarget)) : {};
+            _context39.next = 4;
+            return api("/api/quran-reading/review", {
+              method: "POST",
+              body: JSON.stringify({
+                assignmentId: row.id,
+                action: action,
+                feedback: form.feedback || "",
+                encouragement: form.encouragement || ""
+              })
+            });
+          case 4:
+            setNotice(action === "approve" ? "Quran recitation approved and Hasanat awarded." : "Quran recitation sent back for repetition.");
+            load(childId);
+          case 6:
+          case "end":
+            return _context39.stop();
+        }
+      }, _callee39);
+    }));
+    return _reviewQuranRecitation.apply(this, arguments);
+  }
+  function approveReward(_x45, _x46) {
     return _approveReward.apply(this, arguments);
   }
   function _approveReward() {
-    _approveReward = _asyncToGenerator(_regeneratorRuntime().mark(function _callee37(redemptionId, approved) {
-      return _regeneratorRuntime().wrap(function _callee37$(_context37) {
-        while (1) switch (_context37.prev = _context37.next) {
+    _approveReward = _asyncToGenerator(_regeneratorRuntime().mark(function _callee40(redemptionId, approved) {
+      return _regeneratorRuntime().wrap(function _callee40$(_context40) {
+        while (1) switch (_context40.prev = _context40.next) {
           case 0:
-            _context37.next = 2;
+            _context40.next = 2;
             return api("/api/reward-approvals", {
               method: "POST",
               body: JSON.stringify({
@@ -4694,20 +5088,20 @@ function ParentDashboard(_ref63) {
             load();
           case 3:
           case "end":
-            return _context37.stop();
+            return _context40.stop();
         }
-      }, _callee37);
+      }, _callee40);
     }));
     return _approveReward.apply(this, arguments);
   }
-  function toggleWeekend(_x42, _x43) {
+  function toggleWeekend(_x47, _x48) {
     return _toggleWeekend.apply(this, arguments);
   }
   function _toggleWeekend() {
-    _toggleWeekend = _asyncToGenerator(_regeneratorRuntime().mark(function _callee38(activity, field) {
+    _toggleWeekend = _asyncToGenerator(_regeneratorRuntime().mark(function _callee41(activity, field) {
       var nextActivity, payload;
-      return _regeneratorRuntime().wrap(function _callee38$(_context38) {
-        while (1) switch (_context38.prev = _context38.next) {
+      return _regeneratorRuntime().wrap(function _callee41$(_context41) {
+        while (1) switch (_context41.prev = _context41.next) {
           case 0:
             nextActivity = _objectSpread(_objectSpread({}, activity), {}, _defineProperty({}, field, field === "show_weekdays" ? !activity.show_weekdays : !activity.show_weekends));
             payload = _objectSpread(_objectSpread({}, nextActivity), {}, {
@@ -4721,7 +5115,7 @@ function ParentDashboard(_ref63) {
               proof_required: Boolean(activity.proof_required),
               requires_approval: Boolean(activity.requires_approval)
             });
-            _context38.next = 4;
+            _context41.next = 4;
             return api("/api/activities/".concat(activity.id), {
               method: "PUT",
               body: JSON.stringify(payload)
@@ -4730,26 +5124,26 @@ function ParentDashboard(_ref63) {
             load();
           case 5:
           case "end":
-            return _context38.stop();
+            return _context41.stop();
         }
-      }, _callee38);
+      }, _callee41);
     }));
     return _toggleWeekend.apply(this, arguments);
   }
-  function toggleChildActivity(_x44) {
+  function toggleChildActivity(_x49) {
     return _toggleChildActivity.apply(this, arguments);
   }
   function _toggleChildActivity() {
-    _toggleChildActivity = _asyncToGenerator(_regeneratorRuntime().mark(function _callee39(activity) {
+    _toggleChildActivity = _asyncToGenerator(_regeneratorRuntime().mark(function _callee42(activity) {
       var assignment, enabled;
-      return _regeneratorRuntime().wrap(function _callee39$(_context39) {
-        while (1) switch (_context39.prev = _context39.next) {
+      return _regeneratorRuntime().wrap(function _callee42$(_context42) {
+        while (1) switch (_context42.prev = _context42.next) {
           case 0:
             assignment = admin.activityAssignments.find(function (item) {
               return Number(item.child_id) === Number(childId) && Number(item.activity_id) === Number(activity.id);
             });
             enabled = assignment ? !assignment.enabled : false;
-            _context39.next = 4;
+            _context42.next = 4;
             return api("/api/activity-assignments", {
               method: "POST",
               body: JSON.stringify({
@@ -4763,26 +5157,26 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 6:
           case "end":
-            return _context39.stop();
+            return _context42.stop();
         }
-      }, _callee39);
+      }, _callee42);
     }));
     return _toggleChildActivity.apply(this, arguments);
   }
-  function toggleTodayActivity(_x45) {
+  function toggleTodayActivity(_x50) {
     return _toggleTodayActivity.apply(this, arguments);
   }
   function _toggleTodayActivity() {
-    _toggleTodayActivity = _asyncToGenerator(_regeneratorRuntime().mark(function _callee40(activity) {
+    _toggleTodayActivity = _asyncToGenerator(_regeneratorRuntime().mark(function _callee43(activity) {
       var skip, hidden;
-      return _regeneratorRuntime().wrap(function _callee40$(_context40) {
-        while (1) switch (_context40.prev = _context40.next) {
+      return _regeneratorRuntime().wrap(function _callee43$(_context43) {
+        while (1) switch (_context43.prev = _context43.next) {
           case 0:
             skip = (admin.activityDailySkips || []).find(function (item) {
               return Number(item.child_id) === Number(childId) && Number(item.activity_id) === Number(activity.id);
             });
             hidden = !skip;
-            _context40.next = 4;
+            _context43.next = 4;
             return api("/api/activity-daily-skips", {
               method: "POST",
               body: JSON.stringify({
@@ -4797,23 +5191,23 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 6:
           case "end":
-            return _context40.stop();
+            return _context43.stop();
         }
-      }, _callee40);
+      }, _callee43);
     }));
     return _toggleTodayActivity.apply(this, arguments);
   }
-  function toggleActivityDay(_x46, _x47) {
+  function toggleActivityDay(_x51, _x52) {
     return _toggleActivityDay.apply(this, arguments);
   }
   function _toggleActivityDay() {
-    _toggleActivityDay = _asyncToGenerator(_regeneratorRuntime().mark(function _callee41(activity, day) {
+    _toggleActivityDay = _asyncToGenerator(_regeneratorRuntime().mark(function _callee44(activity, day) {
       var payload;
-      return _regeneratorRuntime().wrap(function _callee41$(_context41) {
-        while (1) switch (_context41.prev = _context41.next) {
+      return _regeneratorRuntime().wrap(function _callee44$(_context44) {
+        while (1) switch (_context44.prev = _context44.next) {
           case 0:
             payload = _objectSpread(_objectSpread({}, activity), {}, _defineProperty(_defineProperty(_defineProperty({}, "day_".concat(day), !activity["day_".concat(day)]), "proof_required", Boolean(activity.proof_required)), "requires_approval", Boolean(activity.requires_approval)));
-            _context41.next = 3;
+            _context44.next = 3;
             return api("/api/activities/".concat(activity.id), {
               method: "PUT",
               body: JSON.stringify(payload)
@@ -4822,24 +5216,24 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 4:
           case "end":
-            return _context41.stop();
+            return _context44.stop();
         }
-      }, _callee41);
+      }, _callee44);
     }));
     return _toggleActivityDay.apply(this, arguments);
   }
-  function addTodayTask(_x48) {
+  function addTodayTask(_x53) {
     return _addTodayTask.apply(this, arguments);
   }
   function _addTodayTask() {
-    _addTodayTask = _asyncToGenerator(_regeneratorRuntime().mark(function _callee42(event) {
+    _addTodayTask = _asyncToGenerator(_regeneratorRuntime().mark(function _callee45(event) {
       var form;
-      return _regeneratorRuntime().wrap(function _callee42$(_context42) {
-        while (1) switch (_context42.prev = _context42.next) {
+      return _regeneratorRuntime().wrap(function _callee45$(_context45) {
+        while (1) switch (_context45.prev = _context45.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
-            _context42.next = 4;
+            _context45.next = 4;
             return api("/api/today-task", {
               method: "POST",
               body: JSON.stringify(_objectSpread(_objectSpread({}, form), {}, {
@@ -4856,24 +5250,24 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 7:
           case "end":
-            return _context42.stop();
+            return _context45.stop();
         }
-      }, _callee42);
+      }, _callee45);
     }));
     return _addTodayTask.apply(this, arguments);
   }
-  function addParentChallenge(_x49) {
+  function addParentChallenge(_x54) {
     return _addParentChallenge.apply(this, arguments);
   }
   function _addParentChallenge() {
-    _addParentChallenge = _asyncToGenerator(_regeneratorRuntime().mark(function _callee43(event) {
+    _addParentChallenge = _asyncToGenerator(_regeneratorRuntime().mark(function _callee46(event) {
       var form;
-      return _regeneratorRuntime().wrap(function _callee43$(_context43) {
-        while (1) switch (_context43.prev = _context43.next) {
+      return _regeneratorRuntime().wrap(function _callee46$(_context46) {
+        while (1) switch (_context46.prev = _context46.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
-            _context43.next = 4;
+            _context46.next = 4;
             return api("/api/parent-challenges", {
               method: "POST",
               body: JSON.stringify(_objectSpread(_objectSpread({}, form), {}, {
@@ -4888,9 +5282,9 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 7:
           case "end":
-            return _context43.stop();
+            return _context46.stop();
         }
-      }, _callee43);
+      }, _callee46);
     }));
     return _addParentChallenge.apply(this, arguments);
   }
@@ -4898,15 +5292,15 @@ function ParentDashboard(_ref63) {
     return _exportBackup.apply(this, arguments);
   }
   function _exportBackup() {
-    _exportBackup = _asyncToGenerator(_regeneratorRuntime().mark(function _callee44() {
+    _exportBackup = _asyncToGenerator(_regeneratorRuntime().mark(function _callee47() {
       var backup, blob, url, link;
-      return _regeneratorRuntime().wrap(function _callee44$(_context44) {
-        while (1) switch (_context44.prev = _context44.next) {
+      return _regeneratorRuntime().wrap(function _callee47$(_context47) {
+        while (1) switch (_context47.prev = _context47.next) {
           case 0:
-            _context44.next = 2;
+            _context47.next = 2;
             return api("/api/backup");
           case 2:
-            backup = _context44.sent;
+            backup = _context47.sent;
             blob = new Blob([JSON.stringify(backup, null, 2)], {
               type: "application/json"
             });
@@ -4918,44 +5312,44 @@ function ParentDashboard(_ref63) {
             URL.revokeObjectURL(url);
           case 10:
           case "end":
-            return _context44.stop();
+            return _context47.stop();
         }
-      }, _callee44);
+      }, _callee47);
     }));
     return _exportBackup.apply(this, arguments);
   }
-  function restoreBackup(_x50) {
+  function restoreBackup(_x55) {
     return _restoreBackup.apply(this, arguments);
   }
   function _restoreBackup() {
-    _restoreBackup = _asyncToGenerator(_regeneratorRuntime().mark(function _callee45(event) {
+    _restoreBackup = _asyncToGenerator(_regeneratorRuntime().mark(function _callee48(event) {
       var _event$target$files3;
       var file, backup;
-      return _regeneratorRuntime().wrap(function _callee45$(_context45) {
-        while (1) switch (_context45.prev = _context45.next) {
+      return _regeneratorRuntime().wrap(function _callee48$(_context48) {
+        while (1) switch (_context48.prev = _context48.next) {
           case 0:
             file = (_event$target$files3 = event.target.files) === null || _event$target$files3 === void 0 ? void 0 : _event$target$files3[0];
             event.target.value = "";
             if (file) {
-              _context45.next = 4;
+              _context48.next = 4;
               break;
             }
-            return _context45.abrupt("return");
+            return _context48.abrupt("return");
           case 4:
             if (window.confirm("Restore this backup? This will replace the current children, activities, points, rewards, and reports.")) {
-              _context45.next = 6;
+              _context48.next = 6;
               break;
             }
-            return _context45.abrupt("return");
+            return _context48.abrupt("return");
           case 6:
-            _context45.prev = 6;
-            _context45.t0 = JSON;
-            _context45.next = 10;
+            _context48.prev = 6;
+            _context48.t0 = JSON;
+            _context48.next = 10;
             return file.text();
           case 10:
-            _context45.t1 = _context45.sent;
-            backup = _context45.t0.parse.call(_context45.t0, _context45.t1);
-            _context45.next = 14;
+            _context48.t1 = _context48.sent;
+            backup = _context48.t0.parse.call(_context48.t0, _context48.t1);
+            _context48.next = 14;
             return api("/api/restore", {
               method: "POST",
               body: JSON.stringify(backup)
@@ -4963,32 +5357,32 @@ function ParentDashboard(_ref63) {
           case 14:
             setNotice("Backup restored. Please login again if anything looks old.");
             load();
-            _context45.next = 21;
+            _context48.next = 21;
             break;
           case 18:
-            _context45.prev = 18;
-            _context45.t2 = _context45["catch"](6);
-            setNotice(_context45.t2.message || "Could not restore this backup file.");
+            _context48.prev = 18;
+            _context48.t2 = _context48["catch"](6);
+            setNotice(_context48.t2.message || "Could not restore this backup file.");
           case 21:
           case "end":
-            return _context45.stop();
+            return _context48.stop();
         }
-      }, _callee45, null, [[6, 18]]);
+      }, _callee48, null, [[6, 18]]);
     }));
     return _restoreBackup.apply(this, arguments);
   }
-  function saveParentAccount(_x51) {
+  function saveParentAccount(_x56) {
     return _saveParentAccount.apply(this, arguments);
   }
   function _saveParentAccount() {
-    _saveParentAccount = _asyncToGenerator(_regeneratorRuntime().mark(function _callee46(event) {
+    _saveParentAccount = _asyncToGenerator(_regeneratorRuntime().mark(function _callee49(event) {
       var form;
-      return _regeneratorRuntime().wrap(function _callee46$(_context46) {
-        while (1) switch (_context46.prev = _context46.next) {
+      return _regeneratorRuntime().wrap(function _callee49$(_context49) {
+        while (1) switch (_context49.prev = _context49.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
-            _context46.next = 4;
+            _context49.next = 4;
             return api("/api/parent-account", {
               method: "PUT",
               body: JSON.stringify(form)
@@ -4998,25 +5392,25 @@ function ParentDashboard(_ref63) {
             load();
           case 6:
           case "end":
-            return _context46.stop();
+            return _context49.stop();
         }
-      }, _callee46);
+      }, _callee49);
     }));
     return _saveParentAccount.apply(this, arguments);
   }
-  function saveManagedParent(_x52) {
+  function saveManagedParent(_x57) {
     return _saveManagedParent.apply(this, arguments);
   }
   function _saveManagedParent() {
-    _saveManagedParent = _asyncToGenerator(_regeneratorRuntime().mark(function _callee47(event) {
+    _saveManagedParent = _asyncToGenerator(_regeneratorRuntime().mark(function _callee50(event) {
       var form, url;
-      return _regeneratorRuntime().wrap(function _callee47$(_context47) {
-        while (1) switch (_context47.prev = _context47.next) {
+      return _regeneratorRuntime().wrap(function _callee50$(_context50) {
+        while (1) switch (_context50.prev = _context50.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
             url = editingParent !== null && editingParent !== void 0 && editingParent.id ? "/api/parents/".concat(editingParent.id) : "/api/parents";
-            _context47.next = 5;
+            _context50.next = 5;
             return api(url, {
               method: editingParent !== null && editingParent !== void 0 && editingParent.id ? "PUT" : "POST",
               body: JSON.stringify(form)
@@ -5028,20 +5422,20 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 9:
           case "end":
-            return _context47.stop();
+            return _context50.stop();
         }
-      }, _callee47);
+      }, _callee50);
     }));
     return _saveManagedParent.apply(this, arguments);
   }
-  function saveChild(_x53) {
+  function saveChild(_x58) {
     return _saveChild.apply(this, arguments);
   }
   function _saveChild() {
-    _saveChild = _asyncToGenerator(_regeneratorRuntime().mark(function _callee48(event) {
+    _saveChild = _asyncToGenerator(_regeneratorRuntime().mark(function _callee51(event) {
       var form, payload, url;
-      return _regeneratorRuntime().wrap(function _callee48$(_context48) {
-        while (1) switch (_context48.prev = _context48.next) {
+      return _regeneratorRuntime().wrap(function _callee51$(_context51) {
+        while (1) switch (_context51.prev = _context51.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
@@ -5049,7 +5443,7 @@ function ParentDashboard(_ref63) {
               avatar: form.avatar || "🐱"
             });
             url = editingChild !== null && editingChild !== void 0 && editingChild.id ? "/api/children/".concat(editingChild.id) : "/api/children";
-            _context48.next = 6;
+            _context51.next = 6;
             return api(url, {
               method: editingChild !== null && editingChild !== void 0 && editingChild.id ? "PUT" : "POST",
               body: JSON.stringify(payload)
@@ -5060,21 +5454,21 @@ function ParentDashboard(_ref63) {
             load();
           case 9:
           case "end":
-            return _context48.stop();
+            return _context51.stop();
         }
-      }, _callee48);
+      }, _callee51);
     }));
     return _saveChild.apply(this, arguments);
   }
-  function updateHifzParent(_x54, _x55) {
+  function updateHifzParent(_x59, _x60) {
     return _updateHifzParent.apply(this, arguments);
   }
   function _updateHifzParent() {
-    _updateHifzParent = _asyncToGenerator(_regeneratorRuntime().mark(function _callee49(page, changes) {
-      return _regeneratorRuntime().wrap(function _callee49$(_context49) {
-        while (1) switch (_context49.prev = _context49.next) {
+    _updateHifzParent = _asyncToGenerator(_regeneratorRuntime().mark(function _callee52(page, changes) {
+      return _regeneratorRuntime().wrap(function _callee52$(_context52) {
+        while (1) switch (_context52.prev = _context52.next) {
           case 0:
-            _context49.next = 2;
+            _context52.next = 2;
             return api("/api/hifz/parent-update", {
               method: "POST",
               body: JSON.stringify(_objectSpread({
@@ -5086,24 +5480,24 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 4:
           case "end":
-            return _context49.stop();
+            return _context52.stop();
         }
-      }, _callee49);
+      }, _callee52);
     }));
     return _updateHifzParent.apply(this, arguments);
   }
-  function sendPraise(_x56) {
+  function sendPraise(_x61) {
     return _sendPraise.apply(this, arguments);
   }
   function _sendPraise() {
-    _sendPraise = _asyncToGenerator(_regeneratorRuntime().mark(function _callee50(event) {
+    _sendPraise = _asyncToGenerator(_regeneratorRuntime().mark(function _callee53(event) {
       var form;
-      return _regeneratorRuntime().wrap(function _callee50$(_context50) {
-        while (1) switch (_context50.prev = _context50.next) {
+      return _regeneratorRuntime().wrap(function _callee53$(_context53) {
+        while (1) switch (_context53.prev = _context53.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
-            _context50.next = 4;
+            _context53.next = 4;
             return api("/api/praise", {
               method: "POST",
               body: JSON.stringify(_objectSpread(_objectSpread({}, form), {}, {
@@ -5116,24 +5510,24 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 7:
           case "end":
-            return _context50.stop();
+            return _context53.stop();
         }
-      }, _callee50);
+      }, _callee53);
     }));
     return _sendPraise.apply(this, arguments);
   }
-  function saveGameSettings(_x57) {
+  function saveGameSettings(_x62) {
     return _saveGameSettings.apply(this, arguments);
   }
   function _saveGameSettings() {
-    _saveGameSettings = _asyncToGenerator(_regeneratorRuntime().mark(function _callee51(event) {
+    _saveGameSettings = _asyncToGenerator(_regeneratorRuntime().mark(function _callee54(event) {
       var form;
-      return _regeneratorRuntime().wrap(function _callee51$(_context51) {
-        while (1) switch (_context51.prev = _context51.next) {
+      return _regeneratorRuntime().wrap(function _callee54$(_context54) {
+        while (1) switch (_context54.prev = _context54.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
-            _context51.next = 4;
+            _context54.next = 4;
             return api("/api/settings", {
               method: "POST",
               body: JSON.stringify(form)
@@ -5143,22 +5537,22 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 6:
           case "end":
-            return _context51.stop();
+            return _context54.stop();
         }
-      }, _callee51);
+      }, _callee54);
     }));
     return _saveGameSettings.apply(this, arguments);
   }
-  function saveStreakRecoverySettings(_x58, _x59) {
+  function saveStreakRecoverySettings(_x63, _x64) {
     return _saveStreakRecoverySettings.apply(this, arguments);
   }
   function _saveStreakRecoverySettings() {
-    _saveStreakRecoverySettings = _asyncToGenerator(_regeneratorRuntime().mark(function _callee52(row, changes) {
-      var _changes$enabled, _changes$maxShields, _changes$shields, _ref66, _changes$difficulty;
-      return _regeneratorRuntime().wrap(function _callee52$(_context52) {
-        while (1) switch (_context52.prev = _context52.next) {
+    _saveStreakRecoverySettings = _asyncToGenerator(_regeneratorRuntime().mark(function _callee55(row, changes) {
+      var _changes$enabled, _changes$maxShields, _changes$shields, _ref80, _changes$difficulty;
+      return _regeneratorRuntime().wrap(function _callee55$(_context55) {
+        while (1) switch (_context55.prev = _context55.next) {
           case 0:
-            _context52.next = 2;
+            _context55.next = 2;
             return api("/api/streak-recovery/settings", {
               method: "POST",
               body: JSON.stringify({
@@ -5166,7 +5560,7 @@ function ParentDashboard(_ref63) {
                 enabled: (_changes$enabled = changes.enabled) !== null && _changes$enabled !== void 0 ? _changes$enabled : Boolean(row.enabled),
                 maxShields: (_changes$maxShields = changes.maxShields) !== null && _changes$maxShields !== void 0 ? _changes$maxShields : Number(row.max_shields || 3),
                 shields: (_changes$shields = changes.shields) !== null && _changes$shields !== void 0 ? _changes$shields : Number(row.shields || 0),
-                difficulty: (_ref66 = (_changes$difficulty = changes.difficulty) !== null && _changes$difficulty !== void 0 ? _changes$difficulty : row.recovery_difficulty) !== null && _ref66 !== void 0 ? _ref66 : "normal"
+                difficulty: (_ref80 = (_changes$difficulty = changes.difficulty) !== null && _changes$difficulty !== void 0 ? _changes$difficulty : row.recovery_difficulty) !== null && _ref80 !== void 0 ? _ref80 : "normal"
               })
             });
           case 2:
@@ -5174,21 +5568,21 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 4:
           case "end":
-            return _context52.stop();
+            return _context55.stop();
         }
-      }, _callee52);
+      }, _callee55);
     }));
     return _saveStreakRecoverySettings.apply(this, arguments);
   }
-  function toggleQuranicVisibility(_x60, _x61) {
+  function toggleQuranicVisibility(_x65, _x66) {
     return _toggleQuranicVisibility.apply(this, arguments);
   }
   function _toggleQuranicVisibility() {
-    _toggleQuranicVisibility = _asyncToGenerator(_regeneratorRuntime().mark(function _callee53(child, visible) {
-      return _regeneratorRuntime().wrap(function _callee53$(_context53) {
-        while (1) switch (_context53.prev = _context53.next) {
+    _toggleQuranicVisibility = _asyncToGenerator(_regeneratorRuntime().mark(function _callee56(child, visible) {
+      return _regeneratorRuntime().wrap(function _callee56$(_context56) {
+        while (1) switch (_context56.prev = _context56.next) {
           case 0:
-            _context53.next = 2;
+            _context56.next = 2;
             return api("/api/quranic-visibility", {
               method: "POST",
               body: JSON.stringify({
@@ -5201,24 +5595,24 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 4:
           case "end":
-            return _context53.stop();
+            return _context56.stop();
         }
-      }, _callee53);
+      }, _callee56);
     }));
     return _toggleQuranicVisibility.apply(this, arguments);
   }
-  function awardBonusHasnat(_x62) {
+  function awardBonusHasnat(_x67) {
     return _awardBonusHasnat.apply(this, arguments);
   }
   function _awardBonusHasnat() {
-    _awardBonusHasnat = _asyncToGenerator(_regeneratorRuntime().mark(function _callee54(event) {
+    _awardBonusHasnat = _asyncToGenerator(_regeneratorRuntime().mark(function _callee57(event) {
       var form;
-      return _regeneratorRuntime().wrap(function _callee54$(_context54) {
-        while (1) switch (_context54.prev = _context54.next) {
+      return _regeneratorRuntime().wrap(function _callee57$(_context57) {
+        while (1) switch (_context57.prev = _context57.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
-            _context54.next = 4;
+            _context57.next = 4;
             return api("/api/bonus-hasnat", {
               method: "POST",
               body: JSON.stringify({
@@ -5233,24 +5627,24 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 7:
           case "end":
-            return _context54.stop();
+            return _context57.stop();
         }
-      }, _callee54);
+      }, _callee57);
     }));
     return _awardBonusHasnat.apply(this, arguments);
   }
-  function setChildProgress(_x63) {
+  function setChildProgress(_x68) {
     return _setChildProgress.apply(this, arguments);
   }
   function _setChildProgress() {
-    _setChildProgress = _asyncToGenerator(_regeneratorRuntime().mark(function _callee55(event) {
+    _setChildProgress = _asyncToGenerator(_regeneratorRuntime().mark(function _callee58(event) {
       var form;
-      return _regeneratorRuntime().wrap(function _callee55$(_context55) {
-        while (1) switch (_context55.prev = _context55.next) {
+      return _regeneratorRuntime().wrap(function _callee58$(_context58) {
+        while (1) switch (_context58.prev = _context58.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
-            _context55.next = 4;
+            _context58.next = 4;
             return api("/api/child-progress", {
               method: "POST",
               body: JSON.stringify({
@@ -5264,24 +5658,24 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 6:
           case "end":
-            return _context55.stop();
+            return _context58.stop();
         }
-      }, _callee55);
+      }, _callee58);
     }));
     return _setChildProgress.apply(this, arguments);
   }
-  function saveSportsVideo(_x64) {
+  function saveSportsVideo(_x69) {
     return _saveSportsVideo.apply(this, arguments);
   }
   function _saveSportsVideo() {
-    _saveSportsVideo = _asyncToGenerator(_regeneratorRuntime().mark(function _callee56(event) {
+    _saveSportsVideo = _asyncToGenerator(_regeneratorRuntime().mark(function _callee59(event) {
       var form;
-      return _regeneratorRuntime().wrap(function _callee56$(_context56) {
-        while (1) switch (_context56.prev = _context56.next) {
+      return _regeneratorRuntime().wrap(function _callee59$(_context59) {
+        while (1) switch (_context59.prev = _context59.next) {
           case 0:
             event.preventDefault();
             form = Object.fromEntries(new FormData(event.currentTarget));
-            _context56.next = 4;
+            _context59.next = 4;
             return api("/api/sports-videos", {
               method: "POST",
               body: JSON.stringify(_objectSpread(_objectSpread({}, form), {}, {
@@ -5295,9 +5689,9 @@ function ParentDashboard(_ref63) {
             load(childId);
           case 7:
           case "end":
-            return _context56.stop();
+            return _context59.stop();
         }
-      }, _callee56);
+      }, _callee59);
     }));
     return _saveSportsVideo.apply(this, arguments);
   }
@@ -5331,10 +5725,10 @@ function ParentDashboard(_ref63) {
   })), React.createElement("nav", {
     className: "admin-tabs",
     "aria-label": "Parent dashboard sections"
-  }, adminTabs.map(function (_ref64) {
-    var _ref65 = _slicedToArray(_ref64, 2),
-      id = _ref65[0],
-      label = _ref65[1];
+  }, adminTabs.map(function (_ref78) {
+    var _ref79 = _slicedToArray(_ref78, 2),
+      id = _ref79[0],
+      label = _ref79[1];
     return React.createElement("button", {
       className: adminTab === id ? "active" : "",
       key: id,
@@ -5501,7 +5895,39 @@ function ParentDashboard(_ref63) {
         return remove("activities", activity.id);
       }
     }, "Delete"));
-  })))), adminTab === "quizzes" && React.createElement("section", {
+  })))), adminTab === "quran" && React.createElement("section", {
+    className: "admin-grid"
+  }, React.createElement(Panel, {
+    title: "My Quran Learning Plan"
+  }, React.createElement(QuranAssignmentForm, {
+    childName: selectedChildName,
+    surahs: admin.quranSurahs || [],
+    assignments: (admin.quranReadingPlan || []).filter(function (row) {
+      return String(row.child_id) === String(childId);
+    }),
+    onSubmit: assignQuranSurah
+  })), React.createElement(Panel, {
+    title: "Pending Quran Activities"
+  }, React.createElement(QuranPendingApprovals, {
+    rows: (admin.quranReadingPending || []).filter(function (row) {
+      return String(row.child_id) === String(childId);
+    }),
+    onReview: reviewQuranRecitation
+  })), React.createElement(Panel, {
+    title: "Assigned Surahs"
+  }, React.createElement(QuranAssignmentList, {
+    rows: (admin.quranReadingPlan || []).filter(function (row) {
+      return String(row.child_id) === String(childId);
+    }),
+    onRemove: function onRemove(row) {
+      return remove("quran-reading", row.id);
+    }
+  })), React.createElement(Panel, {
+    title: "Quran Reports"
+  }, React.createElement(QuranReadingReports, {
+    reports: admin.quranReadingReports,
+    selectedChildId: childId
+  }))), adminTab === "quizzes" && React.createElement("section", {
     className: "admin-grid"
   }, React.createElement(Panel, {
     title: "100 Fragen \xFCber den Propheten Muhammad \uFDFA"
@@ -5648,9 +6074,9 @@ function ParentDashboard(_ref63) {
     reflections: admin.reflections || []
   }))));
 }
-function TodayOverview(_ref67) {
-  var _ref67$rows = _ref67.rows,
-    rows = _ref67$rows === void 0 ? [] : _ref67$rows;
+function TodayOverview(_ref81) {
+  var _ref81$rows = _ref81.rows,
+    rows = _ref81$rows === void 0 ? [] : _ref81$rows;
   return React.createElement("section", {
     className: "today-overview",
     "aria-label": "Today overview"
@@ -5671,10 +6097,10 @@ function TodayOverview(_ref67) {
     }, React.createElement("span", null, React.createElement("strong", null, row.daily_points), " daily Hasanat"), React.createElement("span", null, React.createElement("strong", null, row.completed_today), " completed"), React.createElement("span", null, React.createElement("strong", null, row.missed_today), " missed"), React.createElement("span", null, React.createElement("strong", null, row.pending_approvals), " approvals"), React.createElement("span", null, React.createElement("strong", null, row.pending_rewards), " rewards")));
   })));
 }
-function SmartInsights(_ref68) {
+function SmartInsights(_ref82) {
   var _insights$reward_requ, _insights$pending_app;
-  var _ref68$insights = _ref68.insights,
-    insights = _ref68$insights === void 0 ? {} : _ref68$insights;
+  var _ref82$insights = _ref82.insights,
+    insights = _ref82$insights === void 0 ? {} : _ref82$insights;
   var cards = [["Best activity today", insights.best_activity_today], ["Weakest/missed activity", insights.weakest_activity_today], ["Most active this week", insights.most_active_child_week], ["Needs attention", insights.child_needs_attention], ["Reward requests waiting", (_insights$reward_requ = insights.reward_requests_waiting) !== null && _insights$reward_requ !== void 0 ? _insights$reward_requ : 0], ["Pending approvals", (_insights$pending_app = insights.pending_approvals_waiting) !== null && _insights$pending_app !== void 0 ? _insights$pending_app : 0]];
   return React.createElement("section", {
     className: "smart-insights"
@@ -5684,27 +6110,27 @@ function SmartInsights(_ref68) {
     className: "eyebrow"
   }, "Smart Insights"), React.createElement("h2", null, "Quick family signals")), React.createElement("div", {
     className: "insight-grid"
-  }, cards.map(function (_ref69) {
-    var _ref70 = _slicedToArray(_ref69, 2),
-      label = _ref70[0],
-      value = _ref70[1];
+  }, cards.map(function (_ref83) {
+    var _ref84 = _slicedToArray(_ref83, 2),
+      label = _ref84[0],
+      value = _ref84[1];
     return React.createElement("article", {
       key: label
     }, React.createElement("span", null, label), React.createElement("strong", null, value || "Not enough data yet"));
   })));
 }
-function ParentHifzPanel(_ref71) {
+function ParentHifzPanel(_ref85) {
   var _hifz$completed_juz2;
-  var hifz = _ref71.hifz,
-    onUpdate = _ref71.onUpdate;
-  var _useState131 = useState(null),
-    _useState132 = _slicedToArray(_useState131, 2),
-    editing = _useState132[0],
-    setEditing = _useState132[1];
-  var _useState133 = useState({}),
-    _useState134 = _slicedToArray(_useState133, 2),
-    form = _useState134[0],
-    setForm = _useState134[1];
+  var hifz = _ref85.hifz,
+    onUpdate = _ref85.onUpdate;
+  var _useState135 = useState(null),
+    _useState136 = _slicedToArray(_useState135, 2),
+    editing = _useState136[0],
+    setEditing = _useState136[1];
+  var _useState137 = useState({}),
+    _useState138 = _slicedToArray(_useState137, 2),
+    form = _useState138[0],
+    setForm = _useState138[1];
   if (!hifz) return React.createElement("section", {
     className: "admin-grid"
   }, React.createElement(Panel, {
@@ -5729,19 +6155,19 @@ function ParentHifzPanel(_ref71) {
     return _saveEdit.apply(this, arguments);
   }
   function _saveEdit() {
-    _saveEdit = _asyncToGenerator(_regeneratorRuntime().mark(function _callee57() {
-      return _regeneratorRuntime().wrap(function _callee57$(_context57) {
-        while (1) switch (_context57.prev = _context57.next) {
+    _saveEdit = _asyncToGenerator(_regeneratorRuntime().mark(function _callee60() {
+      return _regeneratorRuntime().wrap(function _callee60$(_context60) {
+        while (1) switch (_context60.prev = _context60.next) {
           case 0:
-            _context57.next = 2;
+            _context60.next = 2;
             return onUpdate(editing, form);
           case 2:
             setEditing(null);
           case 3:
           case "end":
-            return _context57.stop();
+            return _context60.stop();
         }
-      }, _callee57);
+      }, _callee60);
     }));
     return _saveEdit.apply(this, arguments);
   }
@@ -5879,9 +6305,9 @@ function ParentHifzPanel(_ref71) {
     }
   }, "Cancel"))));
 }
-function ReflectionView(_ref72) {
-  var _ref72$reflections = _ref72.reflections,
-    reflections = _ref72$reflections === void 0 ? [] : _ref72$reflections;
+function ReflectionView(_ref86) {
+  var _ref86$reflections = _ref86.reflections,
+    reflections = _ref86$reflections === void 0 ? [] : _ref86$reflections;
   if (reflections.length === 0) return React.createElement("p", {
     className: "muted"
   }, "No reflections yet.");
@@ -5893,9 +6319,9 @@ function ReflectionView(_ref72) {
     }, React.createElement("span", null, avatarFor(item.avatar)), React.createElement("div", null, React.createElement("strong", null, item.child_name, " \xB7 ", item.reflection_date), React.createElement("p", null, "Enjoyed: ", item.enjoyed_activity, " \xB7 Feeling: ", item.feeling), item.note ? React.createElement("small", null, item.note) : null));
   }));
 }
-function ParentAccountForm(_ref73) {
-  var user = _ref73.user,
-    onSubmit = _ref73.onSubmit;
+function ParentAccountForm(_ref87) {
+  var user = _ref87.user,
+    onSubmit = _ref87.onSubmit;
   return React.createElement("form", {
     className: "editor",
     onSubmit: onSubmit
@@ -5910,9 +6336,9 @@ function ParentAccountForm(_ref73) {
     placeholder: "New password, optional"
   }), React.createElement("button", null, "Update parent login"));
 }
-function ParentCreateForm(_ref74) {
-  var item = _ref74.item,
-    onSubmit = _ref74.onSubmit;
+function ParentCreateForm(_ref88) {
+  var item = _ref88.item,
+    onSubmit = _ref88.onSubmit;
   return React.createElement("form", {
     className: "editor",
     onSubmit: onSubmit
@@ -5928,9 +6354,9 @@ function ParentCreateForm(_ref74) {
     required: !item
   }), React.createElement("button", null, item ? "Update parent" : "Create parent"));
 }
-function TodayTaskForm(_ref75) {
-  var childName = _ref75.childName,
-    onSubmit = _ref75.onSubmit;
+function TodayTaskForm(_ref89) {
+  var childName = _ref89.childName,
+    onSubmit = _ref89.onSubmit;
   return React.createElement("form", {
     className: "editor today-task-form",
     onSubmit: onSubmit
@@ -5969,10 +6395,10 @@ function TodayTaskForm(_ref75) {
     type: "checkbox"
   }), " Parent approval"), React.createElement("button", null, "Add for today"));
 }
-function WeeklyPlanner(_ref76) {
-  var activities = _ref76.activities,
-    onToggleDay = _ref76.onToggleDay,
-    onToggleGroup = _ref76.onToggleGroup;
+function WeeklyPlanner(_ref90) {
+  var activities = _ref90.activities,
+    onToggleDay = _ref90.onToggleDay,
+    onToggleGroup = _ref90.onToggleGroup;
   var days = [["Sun", 0], ["Mon", 1], ["Tue", 2], ["Wed", 3], ["Thu", 4], ["Fri", 5], ["Sat", 6]];
   return React.createElement("div", {
     className: "weekly-planner"
@@ -5982,10 +6408,10 @@ function WeeklyPlanner(_ref76) {
       key: activity.id
     }, React.createElement("div", null, React.createElement("strong", null, activity.title), React.createElement("span", null, activity.task_date ? "Today-only: ".concat(activity.task_date) : "".concat(activity.points, " Hasanat \xB7 ").concat(activity.frequency))), React.createElement("div", {
       className: "day-buttons"
-    }, days.map(function (_ref77) {
-      var _ref78 = _slicedToArray(_ref77, 2),
-        label = _ref78[0],
-        day = _ref78[1];
+    }, days.map(function (_ref91) {
+      var _ref92 = _slicedToArray(_ref91, 2),
+        label = _ref92[0],
+        day = _ref92[1];
       return React.createElement("button", {
         className: activity["day_".concat(day)] ? "" : "ghost",
         key: day,
@@ -6011,9 +6437,9 @@ function WeeklyPlanner(_ref76) {
     }, "Weekend")));
   }));
 }
-function ParentChallengeForm(_ref79) {
-  var children = _ref79.children,
-    onSubmit = _ref79.onSubmit;
+function ParentChallengeForm(_ref93) {
+  var children = _ref93.children,
+    onSubmit = _ref93.onSubmit;
   var todayValue = new Date().toISOString().slice(0, 10);
   return React.createElement("form", {
     className: "editor challenge-form",
@@ -6062,10 +6488,10 @@ function ParentChallengeForm(_ref79) {
     }, child.name);
   })), React.createElement("button", null, "Add challenge"));
 }
-function QuizEditorForm(_ref80) {
-  var item = _ref80.item,
-    children = _ref80.children,
-    onSubmit = _ref80.onSubmit;
+function QuizEditorForm(_ref94) {
+  var item = _ref94.item,
+    children = _ref94.children,
+    onSubmit = _ref94.onSubmit;
   var optionsText = Array.isArray(item === null || item === void 0 ? void 0 : item.options) ? item.options.join("\n") : "";
   var multipleText = Array.isArray(item === null || item === void 0 ? void 0 : item.multiple_correct_answers) ? item.multiple_correct_answers.join("\n") : "";
   return React.createElement("form", {
@@ -6079,17 +6505,17 @@ function QuizEditorForm(_ref80) {
   }), React.createElement("select", {
     name: "subject",
     defaultValue: (item === null || item === void 0 ? void 0 : item.subject) || "Reading"
-  }, ["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map(function (subject) {
+  }, ["Math", "German", "English", "Quran", "Quran Reading & Recitation", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map(function (subject) {
     return React.createElement("option", {
       key: subject
     }, subject);
   })), React.createElement("select", {
     name: "quiz_type",
     defaultValue: (item === null || item === void 0 ? void 0 : item.quiz_type) || "select_3"
-  }, quizTypes.map(function (_ref81) {
-    var _ref82 = _slicedToArray(_ref81, 2),
-      value = _ref82[0],
-      label = _ref82[1];
+  }, quizTypes.map(function (_ref95) {
+    var _ref96 = _slicedToArray(_ref95, 2),
+      value = _ref96[0],
+      label = _ref96[1];
     return React.createElement("option", {
       value: value,
       key: value
@@ -6221,9 +6647,9 @@ function QuizEditorForm(_ref80) {
     value: "inactive"
   }, "inactive")), React.createElement("button", null, item ? "Update quiz" : "Create quiz"));
 }
-function QuizResults(_ref83) {
-  var _ref83$results = _ref83.results,
-    results = _ref83$results === void 0 ? [] : _ref83$results;
+function QuizResults(_ref97) {
+  var _ref97$results = _ref97.results,
+    results = _ref97$results === void 0 ? [] : _ref97$results;
   if (!results.length) return React.createElement("p", {
     className: "muted"
   }, "No quiz attempts yet.");
@@ -6235,15 +6661,15 @@ function QuizResults(_ref83) {
     }, React.createElement("span", null, result.kid_name, " \xB7 ", result.title, React.createElement("small", null, result.completed_at, " \xB7 score ", result.score, " \xB7 attempts ", result.attempts, " \xB7 ", result.time_used_seconds, "s \xB7 coins ", result.coins_earned, " \xB7 XP ", result.xp_earned), result.feedback ? React.createElement("small", null, result.feedback) : null));
   }));
 }
-function QuizCategoryAssignments(_ref84) {
-  var _ref84$rows = _ref84.rows,
-    rows = _ref84$rows === void 0 ? [] : _ref84$rows,
-    category = _ref84.category,
-    onToggle = _ref84.onToggle,
-    onSettings = _ref84.onSettings,
-    onReset = _ref84.onReset,
-    onReviewSettings = _ref84.onReviewSettings,
-    onReviewReset = _ref84.onReviewReset;
+function QuizCategoryAssignments(_ref98) {
+  var _ref98$rows = _ref98.rows,
+    rows = _ref98$rows === void 0 ? [] : _ref98$rows,
+    category = _ref98.category,
+    onToggle = _ref98.onToggle,
+    onSettings = _ref98.onSettings,
+    onReset = _ref98.onReset,
+    onReviewSettings = _ref98.onReviewSettings,
+    onReviewReset = _ref98.onReviewReset;
   return React.createElement("div", {
     className: "quiz-category-admin"
   }, React.createElement("p", {
@@ -6309,10 +6735,10 @@ function QuizCategoryAssignments(_ref84) {
     }, "Reset daily review")));
   })));
 }
-function GameSettingsForm(_ref85) {
-  var _ref85$settings = _ref85.settings,
-    settings = _ref85$settings === void 0 ? {} : _ref85$settings,
-    onSubmit = _ref85.onSubmit;
+function GameSettingsForm(_ref99) {
+  var _ref99$settings = _ref99.settings,
+    settings = _ref99$settings === void 0 ? {} : _ref99$settings,
+    onSubmit = _ref99.onSubmit;
   return React.createElement("form", {
     className: "editor",
     onSubmit: onSubmit
@@ -6341,12 +6767,12 @@ function GameSettingsForm(_ref85) {
     defaultChecked: settings.sound_enabled !== "false"
   }), " Sound effects enabled by default"), React.createElement("button", null, "Save game settings"));
 }
-function StreakRecoveryAdmin(_ref86) {
-  var _ref86$rows = _ref86.rows,
-    rows = _ref86$rows === void 0 ? [] : _ref86$rows,
-    _ref86$history = _ref86.history,
-    history = _ref86$history === void 0 ? [] : _ref86$history,
-    onSave = _ref86.onSave;
+function StreakRecoveryAdmin(_ref100) {
+  var _ref100$rows = _ref100.rows,
+    rows = _ref100$rows === void 0 ? [] : _ref100$rows,
+    _ref100$history = _ref100.history,
+    history = _ref100$history === void 0 ? [] : _ref100$history,
+    onSave = _ref100.onSave;
   return React.createElement("div", {
     className: "streak-admin"
   }, React.createElement("p", {
@@ -6415,10 +6841,10 @@ function StreakRecoveryAdmin(_ref86) {
     className: "muted"
   }, "No streak events recorded yet."))));
 }
-function QuranicVisibilityForm(_ref87) {
-  var _ref87$rows = _ref87.rows,
-    rows = _ref87$rows === void 0 ? [] : _ref87$rows,
-    onToggle = _ref87.onToggle;
+function QuranicVisibilityForm(_ref101) {
+  var _ref101$rows = _ref101.rows,
+    rows = _ref101$rows === void 0 ? [] : _ref101$rows,
+    onToggle = _ref101.onToggle;
   return React.createElement("div", {
     className: "mini-list"
   }, rows.map(function (row) {
@@ -6435,9 +6861,186 @@ function QuranicVisibilityForm(_ref87) {
     }), "Show Quranic Motivation"));
   }));
 }
-function BonusHasnatForm(_ref88) {
-  var childName = _ref88.childName,
-    onSubmit = _ref88.onSubmit;
+function QuranAssignmentForm(_ref102) {
+  var childName = _ref102.childName,
+    _ref102$surahs = _ref102.surahs,
+    surahs = _ref102$surahs === void 0 ? [] : _ref102$surahs,
+    _ref102$assignments = _ref102.assignments,
+    assignments = _ref102$assignments === void 0 ? [] : _ref102$assignments,
+    onSubmit = _ref102.onSubmit;
+  var assignedIds = new Set(assignments.map(function (row) {
+    return Number(row.surah_id);
+  }));
+  var shortSurahs = surahs.filter(function (surah) {
+    return Number(surah.surah_number) >= 78;
+  });
+  return React.createElement("form", {
+    className: "editor quran-assignment-form",
+    onSubmit: onSubmit
+  }, React.createElement("p", {
+    className: "muted"
+  }, "Assign one or more Surahs to ", childName || "the selected child", ". Children only see assigned Surahs."), React.createElement("label", null, "Quick single Surah", React.createElement("select", {
+    name: "surahId",
+    defaultValue: "1"
+  }, surahs.map(function (surah) {
+    return React.createElement("option", {
+      value: surah.surah_number,
+      key: surah.surah_number
+    }, surah.surah_number, ". ", surah.surah_name_english, " \xB7 ", surah.ayah_count, " Ayahs \xB7 ", surah.possible_hasanat, " Hasanat");
+  }))), React.createElement("details", null, React.createElement("summary", null, "Choose several short Surahs"), React.createElement("div", {
+    className: "quran-check-grid"
+  }, shortSurahs.map(function (surah) {
+    return React.createElement("label", {
+      className: assignedIds.has(Number(surah.surah_number)) ? "check assigned" : "check",
+      key: surah.surah_number
+    }, React.createElement("input", {
+      name: "surahIds",
+      type: "checkbox",
+      value: surah.surah_number,
+      disabled: assignedIds.has(Number(surah.surah_number))
+    }), React.createElement("span", null, surah.surah_number, ". ", surah.surah_name_english), React.createElement("small", {
+      dir: "rtl",
+      lang: "ar"
+    }, surah.surah_name_arabic));
+  }))), React.createElement("div", {
+    className: "form-row"
+  }, React.createElement("label", null, "Order ", React.createElement("input", {
+    name: "sortOrder",
+    type: "number",
+    min: "0",
+    defaultValue: assignments.length + 1
+  })), React.createElement("label", null, "Target date ", React.createElement("input", {
+    name: "targetDate",
+    type: "date"
+  })), React.createElement("label", null, "Priority", React.createElement("select", {
+    name: "priority",
+    defaultValue: "normal"
+  }, React.createElement("option", {
+    value: "normal"
+  }, "Normal"), React.createElement("option", {
+    value: "high"
+  }, "High priority")))), React.createElement("textarea", {
+    name: "privateNotes",
+    placeholder: "Private parent notes, for example: practise after Maghrib"
+  }), React.createElement("button", null, "Assign Surah"));
+}
+function QuranPendingApprovals(_ref103) {
+  var _ref103$rows = _ref103.rows,
+    rows = _ref103$rows === void 0 ? [] : _ref103$rows,
+    onReview = _ref103.onReview;
+  if (!rows.length) return React.createElement("p", {
+    className: "muted"
+  }, "No Quran recitations waiting for approval.");
+  return React.createElement("div", {
+    className: "quran-parent-list"
+  }, rows.map(function (row) {
+    return React.createElement("form", {
+      className: "quran-parent-item",
+      key: row.id,
+      onSubmit: function onSubmit(event) {
+        return onReview(row, "approve", event);
+      }
+    }, React.createElement("div", null, React.createElement("strong", null, row.child_name, ": ", row.surah_number, ". ", row.surah_name_english), React.createElement("small", {
+      dir: "rtl",
+      lang: "ar"
+    }, row.surah_name_arabic), React.createElement("span", null, row.ayah_count, " Ayahs \xB7 awards ", row.possible_hasanat, " Hasanat after approval")), React.createElement("textarea", {
+      name: "feedback",
+      placeholder: "Feedback for the child"
+    }), React.createElement("input", {
+      name: "encouragement",
+      placeholder: "Encouragement, for example: Beautiful effort, keep going"
+    }), React.createElement("div", {
+      className: "activity-admin-actions"
+    }, React.createElement("button", {
+      type: "submit"
+    }, "Approve"), React.createElement("button", {
+      className: "ghost",
+      type: "button",
+      onClick: function onClick(event) {
+        return onReview(row, "repeat", {
+          preventDefault: function preventDefault() {},
+          currentTarget: event.currentTarget.closest("form")
+        });
+      }
+    }, "Ask to repeat")));
+  }));
+}
+function QuranAssignmentList(_ref104) {
+  var _ref104$rows = _ref104.rows,
+    rows = _ref104$rows === void 0 ? [] : _ref104$rows,
+    onRemove = _ref104.onRemove;
+  if (!rows.length) return React.createElement("p", {
+    className: "muted"
+  }, "No Surahs assigned yet.");
+  return React.createElement("div", {
+    className: "quran-parent-list"
+  }, rows.map(function (row) {
+    return React.createElement("article", {
+      className: "quran-parent-item ".concat(row.status),
+      key: row.id
+    }, React.createElement("div", null, React.createElement("strong", null, row.sort_order || 0, ". ", row.surah_number, ". ", row.surah_name_english), React.createElement("small", {
+      dir: "rtl",
+      lang: "ar"
+    }, row.surah_name_arabic), React.createElement("span", null, row.ayah_count, " Ayahs \xB7 ", row.possible_hasanat, " possible Hasanat \xB7 ", row.status), row.target_date ? React.createElement("span", null, "Target: ", row.target_date) : null, row.private_notes ? React.createElement("p", {
+      className: "muted"
+    }, row.private_notes) : null), row.status === "approved" ? React.createElement("span", {
+      className: "success-pill"
+    }, "Approved \xB7 ", row.hasanat_awarded, " Hasanat") : React.createElement("button", {
+      className: "ghost",
+      onClick: function onClick() {
+        return onRemove(row);
+      }
+    }, "Remove"));
+  }));
+}
+function QuranReadingReports(_ref105) {
+  var reports = _ref105.reports,
+    selectedChildId = _ref105.selectedChildId;
+  var rows = (reports === null || reports === void 0 ? void 0 : reports.children) || [];
+  var childRows = selectedChildId ? rows.filter(function (row) {
+    return String(row.child_id) === String(selectedChildId);
+  }) : rows;
+  return React.createElement("div", {
+    className: "quran-report-box"
+  }, childRows.length ? childRows.map(function (row) {
+    return React.createElement("div", {
+      className: "quran-report-summary",
+      key: row.child_id
+    }, React.createElement(Stat, {
+      label: "Assigned Surahs",
+      value: row.assigned_surahs
+    }), React.createElement(Stat, {
+      label: "Completed Surahs",
+      value: row.completed_surahs
+    }), React.createElement(Stat, {
+      label: "Pending Approval",
+      value: row.pending_approval
+    }), React.createElement(Stat, {
+      label: "Ayahs Recited",
+      value: row.total_ayahs_recited
+    }), React.createElement(Stat, {
+      label: "Quran Hasanat",
+      value: row.total_hasanat_earned
+    }));
+  }) : React.createElement("p", {
+    className: "muted"
+  }, "No Quran report data yet."), React.createElement("h3", null, "Weekly Progress"), ((reports === null || reports === void 0 ? void 0 : reports.weekly) || []).slice(0, 6).map(function (row) {
+    return React.createElement(Bar, {
+      key: "".concat(row.child_name, "-").concat(row.week),
+      label: "".concat(row.child_name, " \xB7 ").concat(row.week),
+      value: Number(row.completed || 0) * 20
+    });
+  }), React.createElement("h3", null, "Monthly Progress"), ((reports === null || reports === void 0 ? void 0 : reports.monthly) || []).slice(0, 6).map(function (row) {
+    return React.createElement(Bar, {
+      key: "".concat(row.child_name, "-").concat(row.month),
+      label: "".concat(row.child_name, " \xB7 ").concat(row.month),
+      value: Number(row.completed || 0) * 20
+    });
+  }));
+}
+function BonusHasnatForm(_ref106) {
+  var childName = _ref106.childName,
+    onSubmit = _ref106.onSubmit;
   return React.createElement("form", {
     className: "editor",
     onSubmit: onSubmit
@@ -6455,13 +7058,13 @@ function BonusHasnatForm(_ref88) {
     placeholder: "Reason, for example: Excellent sports effort"
   }), React.createElement("button", null, "Award bonus"));
 }
-function SetChildProgressForm(_ref89) {
-  var childName = _ref89.childName,
-    _ref89$hasanat = _ref89.hasanat,
-    hasanat = _ref89$hasanat === void 0 ? 0 : _ref89$hasanat,
-    _ref89$streak = _ref89.streak,
-    streak = _ref89$streak === void 0 ? 0 : _ref89$streak,
-    onSubmit = _ref89.onSubmit;
+function SetChildProgressForm(_ref107) {
+  var childName = _ref107.childName,
+    _ref107$hasanat = _ref107.hasanat,
+    hasanat = _ref107$hasanat === void 0 ? 0 : _ref107$hasanat,
+    _ref107$streak = _ref107.streak,
+    streak = _ref107$streak === void 0 ? 0 : _ref107$streak,
+    onSubmit = _ref107.onSubmit;
   return React.createElement("form", {
     className: "editor progress-editor",
     onSubmit: onSubmit
@@ -6483,9 +7086,9 @@ function SetChildProgressForm(_ref89) {
     required: true
   })), React.createElement("button", null, "Save exact values"));
 }
-function SportsReportsPanel(_ref90) {
-  var _ref90$rows = _ref90.rows,
-    rows = _ref90$rows === void 0 ? [] : _ref90$rows;
+function SportsReportsPanel(_ref108) {
+  var _ref108$rows = _ref108.rows,
+    rows = _ref108$rows === void 0 ? [] : _ref108$rows;
   if (!rows.length) return React.createElement("p", {
     className: "muted"
   }, "No sports report data yet.");
@@ -6497,12 +7100,12 @@ function SportsReportsPanel(_ref90) {
     }, React.createElement("span", null, row.child_name), React.createElement("small", null, row.completed, " completed \xB7 ", row.duration, " min \xB7 ", row.hasnat, " Hasanat"));
   }));
 }
-function SportsVideoLibrary(_ref91) {
-  var _ref91$videos = _ref91.videos,
-    videos = _ref91$videos === void 0 ? [] : _ref91$videos,
-    _ref91$activities = _ref91.activities,
-    activities = _ref91$activities === void 0 ? [] : _ref91$activities,
-    _onSubmit = _ref91.onSubmit;
+function SportsVideoLibrary(_ref109) {
+  var _ref109$videos = _ref109.videos,
+    videos = _ref109$videos === void 0 ? [] : _ref109$videos,
+    _ref109$activities = _ref109.activities,
+    activities = _ref109$activities === void 0 ? [] : _ref109$activities,
+    _onSubmit = _ref109.onSubmit;
   var sportsActivities = activities.filter(function (activity) {
     return activity.subject === "Sports & Physical Development";
   });
@@ -6511,10 +7114,10 @@ function SportsVideoLibrary(_ref91) {
     var key = ((_activity$task_data = activity.task_data) === null || _activity$task_data === void 0 ? void 0 : _activity$task_data.exerciseKey) || classSlug(activity.title);
     return [key, "".concat(activity.title, " (").concat(key, ")")];
   })).entries());
-  var _useState135 = useState(""),
-    _useState136 = _slicedToArray(_useState135, 2),
-    videoData = _useState136[0],
-    setVideoData = _useState136[1];
+  var _useState139 = useState(""),
+    _useState140 = _slicedToArray(_useState139, 2),
+    videoData = _useState140[0],
+    setVideoData = _useState140[1];
   function readVideo(file) {
     if (!file) return;
     var reader = new FileReader();
@@ -6538,10 +7141,10 @@ function SportsVideoLibrary(_ref91) {
     required: true
   }, React.createElement("option", {
     value: ""
-  }, "Choose exercise"), exerciseOptions.map(function (_ref92) {
-    var _ref93 = _slicedToArray(_ref92, 2),
-      value = _ref93[0],
-      label = _ref93[1];
+  }, "Choose exercise"), exerciseOptions.map(function (_ref110) {
+    var _ref111 = _slicedToArray(_ref110, 2),
+      value = _ref111[0],
+      label = _ref111[1];
     return React.createElement("option", {
       value: value,
       key: value
@@ -6612,9 +7215,9 @@ function SportsVideoLibrary(_ref91) {
     }, React.createElement("span", null, video.enabled ? "✅" : "⏸️", " ", video.title, " \xB7 ", video.exercise_key, " \xB7 ", video.source_type, React.createElement("small", null, video.duration_seconds, "s \xB7 ", video.difficulty)));
   })));
 }
-function PraiseForm(_ref94) {
-  var childName = _ref94.childName,
-    onSubmit = _ref94.onSubmit;
+function PraiseForm(_ref112) {
+  var childName = _ref112.childName,
+    onSubmit = _ref112.onSubmit;
   return React.createElement("form", {
     className: "editor",
     onSubmit: onSubmit
@@ -6627,9 +7230,9 @@ function PraiseForm(_ref94) {
     required: true
   }), React.createElement("button", null, "Send praise"));
 }
-function PraiseList(_ref95) {
-  var _ref95$messages = _ref95.messages,
-    messages = _ref95$messages === void 0 ? [] : _ref95$messages;
+function PraiseList(_ref113) {
+  var _ref113$messages = _ref113.messages,
+    messages = _ref113$messages === void 0 ? [] : _ref113$messages;
   if (!messages.length) return React.createElement("p", {
     className: "muted"
   }, "No praise messages yet.");
@@ -6641,9 +7244,9 @@ function PraiseList(_ref95) {
     }, React.createElement("span", null, item.child_name, " \xB7 ", item.message, React.createElement("small", null, item.status, " \xB7 ", item.created_at)));
   }));
 }
-function MoodReport(_ref96) {
-  var _ref96$moods = _ref96.moods,
-    moods = _ref96$moods === void 0 ? [] : _ref96$moods;
+function MoodReport(_ref114) {
+  var _ref114$moods = _ref114.moods,
+    moods = _ref114$moods === void 0 ? [] : _ref114$moods;
   if (!moods.length) return React.createElement("p", {
     className: "muted"
   }, "No mood check-ins yet.");
@@ -6663,10 +7266,10 @@ function MoodReport(_ref96) {
     }, React.createElement("span", null, avatarFor(item.avatar), " ", item.child_name, " \xB7 ", icon[item.mood] || "💭", " ", item.mood, React.createElement("small", null, item.mood_date)));
   }));
 }
-function ChildAccountForm(_ref97) {
-  var item = _ref97.item,
-    users = _ref97.users,
-    onSubmit = _ref97.onSubmit;
+function ChildAccountForm(_ref115) {
+  var item = _ref115.item,
+    users = _ref115.users,
+    onSubmit = _ref115.onSubmit;
   var childUser = item ? users.find(function (user) {
     return user.child_id === item.id;
   }) : null;
@@ -6693,11 +7296,11 @@ function ChildAccountForm(_ref97) {
     }, avatar);
   })), React.createElement("button", null, item ? "Update child" : "Add child"));
 }
-function EditorForm(_ref98) {
+function EditorForm(_ref116) {
   var _item$task_data, _item$task_data2, _item$task_data3, _item$task_data4, _item$task_data5;
-  var item = _ref98.item,
-    type = _ref98.type,
-    onSubmit = _ref98.onSubmit;
+  var item = _ref116.item,
+    type = _ref116.type,
+    onSubmit = _ref116.onSubmit;
   var isReward = type === "reward";
   return React.createElement("form", {
     className: "editor",
@@ -6728,7 +7331,7 @@ function EditorForm(_ref98) {
   }), React.createElement("select", {
     name: "subject",
     defaultValue: (item === null || item === void 0 ? void 0 : item.subject) || "Reading"
-  }, ["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map(function (subject) {
+  }, ["Math", "German", "English", "Quran", "Quran Reading & Recitation", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map(function (subject) {
     return React.createElement("option", {
       key: subject
     }, subject);
@@ -6790,10 +7393,10 @@ function EditorForm(_ref98) {
     defaultChecked: Boolean(item === null || item === void 0 ? void 0 : item.show_weekends)
   }), " Weekends"), React.createElement("div", {
     className: "day-checkboxes"
-  }, [["Sun", 0], ["Mon", 1], ["Tue", 2], ["Wed", 3], ["Thu", 4], ["Fri", 5], ["Sat", 6]].map(function (_ref99) {
-    var _ref100 = _slicedToArray(_ref99, 2),
-      label = _ref100[0],
-      day = _ref100[1];
+  }, [["Sun", 0], ["Mon", 1], ["Tue", 2], ["Wed", 3], ["Thu", 4], ["Fri", 5], ["Sat", 6]].map(function (_ref117) {
+    var _ref118 = _slicedToArray(_ref117, 2),
+      label = _ref118[0],
+      day = _ref118[1];
     return React.createElement("label", {
       className: "check",
       key: day
@@ -6820,9 +7423,9 @@ function EditorForm(_ref98) {
     defaultChecked: Boolean(item === null || item === void 0 ? void 0 : item.requires_approval)
   }), " Approval")), React.createElement("button", null, item ? "Update" : "Add"));
 }
-function ReportView(_ref101) {
+function ReportView(_ref119) {
   var _reports$best, _reports$sports, _reports$sports2, _reports$sports3, _reports$sports4, _reports$sports5, _reports$sports6, _reports$sports7;
-  var reports = _ref101.reports;
+  var reports = _ref119.reports;
   return React.createElement("div", {
     className: "reports"
   }, React.createElement("p", null, React.createElement("strong", null, "Best activity:"), " ", ((_reports$best = reports.best) === null || _reports$best === void 0 ? void 0 : _reports$best.title) || "Not enough data yet"), React.createElement("p", null, React.createElement("strong", null, "Missed today:"), " ", reports.missed.map(function (item) {
@@ -6853,28 +7456,28 @@ function ReportView(_ref101) {
     }, row.title, " \xB7 ", row.points_spent, " Hasanat");
   }));
 }
-function Panel(_ref102) {
-  var title = _ref102.title,
-    children = _ref102.children;
+function Panel(_ref120) {
+  var title = _ref120.title,
+    children = _ref120.children;
   return React.createElement("section", {
     className: "panel"
   }, React.createElement("h2", null, title), children);
 }
-function Stat(_ref103) {
-  var label = _ref103.label,
-    value = _ref103.value,
-    icon = _ref103.icon,
-    pulse = _ref103.pulse,
-    _ref103$power = _ref103.power,
-    power = _ref103$power === void 0 ? 1 : _ref103$power;
+function Stat(_ref121) {
+  var label = _ref121.label,
+    value = _ref121.value,
+    icon = _ref121.icon,
+    pulse = _ref121.pulse,
+    _ref121$power = _ref121.power,
+    power = _ref121$power === void 0 ? 1 : _ref121$power;
   return React.createElement("article", {
     className: "stat"
   }, React.createElement("span", null, label), React.createElement("strong", null, React.createElement("span", {
     className: pulse ? "stat-icon pulse-fire fire-power-".concat(power) : "stat-icon"
   }, icon), value));
 }
-function Progress(_ref104) {
-  var value = _ref104.value;
+function Progress(_ref122) {
+  var value = _ref122.value;
   return React.createElement("div", {
     className: "progress"
   }, React.createElement("span", {
@@ -6883,9 +7486,9 @@ function Progress(_ref104) {
     }
   }));
 }
-function QuranDashboardProgress(_ref105) {
+function QuranDashboardProgress(_ref123) {
   var _quran$surahs;
-  var quran = _ref105.quran;
+  var quran = _ref123.quran;
   if (!(quran !== null && quran !== void 0 && (_quran$surahs = quran.surahs) !== null && _quran$surahs !== void 0 && _quran$surahs.length)) return null;
   return React.createElement("div", {
     className: "quran-dashboard-progress",
@@ -6903,9 +7506,9 @@ function QuranDashboardProgress(_ref105) {
     });
   })));
 }
-function MilestoneProgress(_ref106) {
-  var entries = _ref106.entries,
-    value = _ref106.value;
+function MilestoneProgress(_ref124) {
+  var entries = _ref124.entries,
+    value = _ref124.value;
   var milestones = entries || [];
   return React.createElement("div", {
     className: "milestone-progress",
@@ -6927,9 +7530,9 @@ function MilestoneProgress(_ref106) {
     }, complete ? "✓" : index + 1);
   })));
 }
-function Bar(_ref107) {
-  var label = _ref107.label,
-    value = _ref107.value;
+function Bar(_ref125) {
+  var label = _ref125.label,
+    value = _ref125.value;
   return React.createElement("div", {
     className: "bar"
   }, React.createElement("span", null, label), React.createElement(Progress, {

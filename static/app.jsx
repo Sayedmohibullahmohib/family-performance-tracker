@@ -540,6 +540,20 @@ function ChildDashboard({ api }) {
     }
   }
 
+  async function submitQuranRecitation(assignment) {
+    try {
+      const next = await api("/api/quran-reading/submit", {
+        method: "POST",
+        body: JSON.stringify({ assignmentId: assignment.id })
+      });
+      setData(next);
+      setMessage(next.quranReadingMessage || "Waiting for parent approval.");
+      celebrate("success", "Recitation sent to parent!");
+    } catch (err) {
+      setMessage(err.message);
+    }
+  }
+
   async function updateHifzPage(page, changes) {
     try {
       const next = await api("/api/hifz/update", {
@@ -649,6 +663,49 @@ function ChildDashboard({ api }) {
   const progressPercent = Math.min(100, Math.round((completedToday / totalToday) * 100));
   const focusEntry = progressMilestones.find((entry) => entry.key === focusEntryKey);
   const nextJourneyEntry = progressMilestones.find((entry) => !journeyEntryComplete(entry));
+  const quranNext = data.quranReading?.current_surah && !["submitted", "approved"].includes(data.quranReading.current_surah.status)
+    ? data.quranReading.current_surah
+    : null;
+  const sportsToday = (data.activities || []).find((activity) => activity.subject === "Sports & Physical Development" && !["completed", "approved"].includes(activity.status));
+  const nextGoal = quranNext
+    ? {
+      icon: "📖",
+      title: `Read Surah ${quranNext.surah_name_english}`,
+      sentence: `${quranNext.ayah_count} Ayahs. Parent approval awards ${quranNext.possible_hasanat} Hasanat.`,
+      reward: `+${quranNext.possible_hasanat} Hasanat`,
+      action: () => setChildTab("missions")
+    }
+    : data.seerahReview?.status !== "completed" && data.seerahReview?.enabled !== false
+      ? {
+        icon: "❓",
+        title: "Daily Seerah Review Quiz",
+        sentence: "Practise what you already learned.",
+        reward: "+20 bonus Hasanat",
+        action: () => setChildTab("quizzes")
+      }
+      : sportsToday
+        ? {
+          icon: "🏃",
+          title: sportsToday.title,
+          sentence: `${sportsToday.duration_minutes || 10} minutes. Move safely and do your best.`,
+          reward: `+${sportsToday.points} Hasanat`,
+          action: () => setChildTab("missions")
+        }
+        : nextJourneyEntry
+          ? {
+            icon: icons[nextJourneyEntry.activity?.title] || "🎯",
+            title: nextJourneyEntry.title,
+            sentence: "One clear task. Give it your best.",
+            reward: `+${nextJourneyEntry.activity?.points || 0} Hasanat`,
+            action: () => openTask(nextJourneyEntry)
+          }
+          : {
+            icon: "🏆",
+            title: "Amazing! Today is complete",
+            sentence: "You finished your main missions.",
+            reward: "Great job",
+            action: () => maybeShowDailyComplete(data)
+          };
 
   function openTask(entry = nextJourneyEntry) {
     if (!entry) {
@@ -698,10 +755,9 @@ function ChildDashboard({ api }) {
           onReflect={saveReflection}
         />
       )}
-      <Mascot message={message} />
-      <section className="hero child-hero">
+      <section className="hero child-hero simple-child-hero">
         <div>
-          <p className="eyebrow">{calendar.weekday} · {calendar.gregorian} · {calendar.islamic}</p>
+          <p className="eyebrow">{calendar.weekday} · {calendar.gregorian}</p>
           <div className="child-title-row">
             <details className="avatar-menu">
               <summary aria-label="Choose your icon">
@@ -732,94 +788,45 @@ function ChildDashboard({ api }) {
                 ))}
               </div>
             </details>
-            <h1>Hi {data.child.name}, {message}</h1>
+            <h1>Hi {data.child.name}</h1>
           </div>
-          <p>You are close to your reward!</p>
+          <p>{message}</p>
         </div>
-        <div className="score-card">
-          <span>Total Hasanat · Level {level.level}</span>
-          <strong className={pointPulse ? "point-bounce" : ""}><CoinIcon />{data.points.total}</strong>
-          <Progress value={progressToReward} />
+        <div className="simple-top-metrics">
+          <span><CoinIcon /> {data.points.total} Hasanat</span>
+          <span>🔥 {data.streak} days</span>
+          <span>🏆 Level {level.level}</span>
         </div>
       </section>
 
       {childTab === "today" && (
-        <div className="child-tab-panel" id="child-today-panel">
+        <div className="child-tab-panel simple-page" id="child-today-panel">
           {data.quranicMotivationVisible ? <QuranicMotivationCard /> : null}
-          <PraiseBanner messages={data.praiseMessages || []} onSeen={markPraiseSeen} />
 
-          <section className="today-progress-card" aria-label="Today’s progress">
-            <div>
-              <p className="eyebrow">Today’s Progress</p>
-              <h2>{completedToday} / {totalToday} activities</h2>
-              <p>{progressMessage(completedToday, totalToday)}</p>
-            </div>
-            <strong>{progressPercent}%</strong>
-            <MilestoneProgress entries={progressMilestones} value={progressPercent} />
-          </section>
+          <ContinueGoalCard goal={nextGoal} progress={progressPercent} completed={completedToday} total={totalToday} />
+        </div>
+      )}
 
-          <StreakRecoveryDashboard
+      {childTab === "missions" && (
+        <div className="child-tab-panel simple-page" id="child-missions-panel">
+          <PageContinueHeader title="Missions" subtitle="Choose one mission group." goal={nextGoal} />
+          <MissionCategoryHub
+            activities={data.activities}
+            quranReading={data.quranReading}
+            sports={data.sports}
+            onFocus={openTask}
+            onQuranSubmit={submitQuranRecitation}
+            onSportsComplete={complete}
             recovery={data.streakRecovery}
             onStartQuiz={startRescueQuiz}
             onAnswerQuiz={answerRescueQuiz}
           />
-
-          <section className="next-task-card" aria-label="Next task">
-            <div className="next-task-copy">
-              <span className="next-task-icon" aria-hidden="true">{nextJourneyEntry ? icons[nextJourneyEntry.activity?.title] || "🎯" : "🏆"}</span>
-              <div>
-                <p className="eyebrow">{nextJourneyEntry ? "Next activity" : "Today complete"}</p>
-                <h2>{nextJourneyEntry?.title || "Amazing work!"}</h2>
-                <p>{nextJourneyEntry ? "Open one task at a time and give it your best." : "You finished all your activities today."}</p>
-              </div>
-            </div>
-            <button className="continue-task-button" type="button" onClick={() => openTask()}>
-              {nextJourneyEntry ? "Continue Next Task" : "Celebrate Today"}
-            </button>
-          </section>
-
-          <section className="nudge-list" aria-label="Helpful reminders">
-            {nudgeMessages.slice(0, 2).map((item) => <p key={item}>{item}</p>)}
-          </section>
-
-          <SeerahReviewSummaryCard
-            review={data.seerahReview}
-            onStart={startSeerahReview}
-            onOpen={() => setChildTab("quizzes")}
-          />
-
-          {data.activityOfTheDay && (
-            <section className={data.todayChallengeCompleted ? "daily-challenge earned" : "daily-challenge"}>
-              <div className="flag-pole" aria-hidden="true" />
-              <div className="challenge-icon">{data.todayChallengeCompleted ? "✅" : icons[data.activityOfTheDay.title] || "🎯"}</div>
-              <div>
-                <p className="eyebrow">Activity of the day</p>
-                <h2>{data.activityOfTheDay.title}</h2>
-                <p>{data.todayChallengeCompleted ? "Completed today. Great job!" : `Badge of the Week progress: ${challengeProgress}/5`}</p>
-              </div>
-            </section>
-          )}
-
-          <section className="dashboard-section" id="today-tasks">
-            <div className="section-heading">
-              <p className="eyebrow">Today’s Tasks</p>
-              <h2>Choose your next activity</h2>
-              <p className="muted">Unfinished activities stay at the top. Finished activities move below.</p>
-            </div>
-            <ActivityJourney activities={data.activities} onFocus={openTask} />
-          </section>
-
-          <EarlyBirdCard earlyBird={data.earlyBird} onCheckIn={checkEarlyBird} />
         </div>
       )}
 
       {childTab === "quizzes" && (
-        <div className="child-tab-panel" id="child-quizzes-panel">
-          <header className="tab-page-heading">
-            <p className="eyebrow">Learn and practise</p>
-            <h2>Quizzes</h2>
-            <p>Work through one question at a time.</p>
-          </header>
+        <div className="child-tab-panel simple-page" id="child-quizzes-panel">
+          <PageContinueHeader title="Quizzes" subtitle="One question at a time." goal={nextGoal} />
           <SeerahDailyReview review={data.seerahReview} onStart={startSeerahReview} onAnswer={answerSeerahReview} />
           <SeerahQuizJourney
             quizzes={(data.quizzes || []).filter((quiz) => quiz.category_key === "prophet-muhammad-100-de")}
@@ -831,100 +838,39 @@ function ChildDashboard({ api }) {
       )}
 
       {childTab === "rewards" && (
-        <div className="child-tab-panel" id="child-rewards-panel">
-          <header className="tab-page-heading">
-            <p className="eyebrow">Celebrate your effort</p>
-            <h2>Rewards and Badges</h2>
-            <p>See what you earned and what you are close to unlocking.</p>
-          </header>
-          <section className="split secondary-split">
-            <div id="rewards-section">
-              <AchievementsPanel achievements={data.achievements} badges={data.badges} futureBadges={data.futureBadges} />
-              <BadgeCollection childName={data.child.name} badges={data.badges} futureBadges={data.futureBadges} />
-            </div>
-            <div>
-              <h2 className="section-title">Reward Shop</h2>
-              <div className="reward-list">
-                {data.rewards.map((reward) => (
-                  <article className={`reward ${reward.status}`} key={reward.id}>
-                    <div className="reward-icon">{rewardIcons[reward.title] || rewardIcons.default}</div>
-                    <div>
-                      <h3>{reward.title} <span className="rarity-label">{reward.required_points >= 150 ? "legendary" : reward.required_points >= 90 ? "rare" : "common"}</span> {reward.is_discounted ? <span className="discount-badge">{reward.discount_percent}% off</span> : null}</h3>
-                      <p>{reward.description}</p>
-                      {reward.is_discounted ? (
-                        <strong><span className="old-price">{reward.required_points}</span><CoinIcon />{reward.discounted_points} Hasanat · {reward.status}</strong>
-                      ) : (
-                        <strong><CoinIcon />{reward.required_points} Hasanat · {reward.status}</strong>
-                      )}
-                      <RewardProgress reward={reward} points={data.points.total} />
-                    </div>
-                    <button disabled={reward.status !== "available"} onClick={() => redeem(reward)}>{reward.status === "requested" ? "Requested" : "Request"}</button>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </section>
+        <div className="child-tab-panel simple-page" id="child-rewards-panel">
+          <PageContinueHeader title="Rewards" subtitle="Choose a reward when it is unlocked." goal={nextGoal} />
+          <SimpleRewardShop rewards={data.rewards} points={data.points.total} onRedeem={redeem} />
         </div>
       )}
 
-      {childTab === "progress" && (
-        <div className="child-tab-panel" id="child-progress-panel">
-          <header className="tab-page-heading">
-            <p className="eyebrow">Your growth</p>
-            <h2>My Progress</h2>
-            <p>Review your Hasanat, streak, learning, and family ranking.</p>
-          </header>
-          <section className="stats progress-summary" aria-label="My progress">
-            <Stat label="Daily Hasanat" value={data.points.daily} icon={<CoinIcon />} />
-            <Stat label="Weekly Hasanat" value={data.points.weekly} icon={<CoinIcon />} />
-            <Stat label="Day streak" value={`${data.streak} ${data.streak === 1 ? "day" : "days"}`} icon="🔥" pulse={data.streak > 0} power={Math.min(3, Math.floor(data.streak / 3) + 1)} />
-            <Stat label="Level" value={level.level} icon="🏆" />
-          </section>
-          <section className="stats currency-strip" aria-label="Game currencies">
-            <Stat label="XP" value={data.wallet?.xp || data.points.total} icon="⚡" />
-            <Stat label="Hasanat" value={data.wallet?.coins || data.points.total} icon={<CoinIcon />} />
-            <Stat label="Gems" value={data.wallet?.gems || 0} icon="💠" />
-            <Stat label="Keys" value={data.wallet?.keys || 0} icon="🗝️" />
-            <Stat label="Tickets" value={data.wallet?.treasure_tickets || 0} icon="🎟️" />
-          </section>
-          <section className="top-ranking-board">
-            <Leaderboard children={data.leaderboard} currentChildId={data.child.id} />
-          </section>
-          <QuranDashboardProgress quran={data.quran} />
-          <SportsDashboard sports={data.sports} activities={data.activities.filter((activity) => activity.subject === "Sports & Physical Development")} onComplete={complete} />
-          <QuranMemorizationPanel
-            quran={data.quran}
-            filter={quranFilter}
-            sort={quranSort}
-            onFilter={setQuranFilter}
-            onSort={setQuranSort}
-            onMemorize={memorizeSurah}
-            onRevise={reviseSurah}
-            onFavorite={toggleFavoriteSurah}
-          />
-          <CollapsibleSection title="Daily Missions">
-            <section className="game-grid compact-grid">
-              <MissionBoard missions={data.missions} />
-            </section>
+      {childTab === "profile" && (
+        <div className="child-tab-panel simple-page" id="child-profile-panel">
+          <PageContinueHeader title="Profile" subtitle="Your progress and badges." goal={nextGoal} />
+          <ProfileOverview data={data} level={level} />
+          <PraiseBanner messages={data.praiseMessages || []} onSeen={markPraiseSeen} />
+          <SimpleProgressRace children={data.leaderboard} currentChildId={data.child.id} />
+          <BadgeCollection childName={data.child.name} badges={data.badges} futureBadges={data.futureBadges} />
+          <CollapsibleSection title="Quran">
+            <QuranReadingPanel quranReading={data.quranReading} onSubmit={submitQuranRecitation} />
+            <QuranDashboardProgress quran={data.quran} />
           </CollapsibleSection>
-          <CollapsibleSection title="Family & Ranking">
-            <section className="split secondary-split">
-              <div><ParentChallengeBoard challenges={data.parentChallenges} /></div>
-              <div>
-                <ProgressRace children={data.leaderboard} currentChildId={data.child.id} />
-                <RedemptionBoard children={data.redemptionBoard} currentChildId={data.child.id} />
-              </div>
-            </section>
+          <CollapsibleSection title="Sports">
+            <SportsDashboard sports={data.sports} activities={data.activities.filter((activity) => activity.subject === "Sports & Physical Development")} onComplete={complete} />
+          </CollapsibleSection>
+          <CollapsibleSection title="Family and Ranking">
+            <RedemptionBoard children={data.redemptionBoard} currentChildId={data.child.id} />
           </CollapsibleSection>
         </div>
       )}
 
       <nav className="child-bottom-nav" aria-label="Child dashboard navigation">
         {[
-          ["today", "☀️", "Today"],
+          ["today", "🏠", "Today"],
+          ["missions", "🎯", "Missions"],
           ["quizzes", "❓", "Quizzes"],
-          ["rewards", "🎁", "Rewards"],
-          ["progress", "📈", "My Progress"]
+          ["rewards", "🏆", "Rewards"],
+          ["profile", "👤", "Profile"]
         ].map(([key, icon, label]) => (
           <button
             className={childTab === key ? "active" : ""}
@@ -942,6 +888,195 @@ function ChildDashboard({ api }) {
         ))}
       </nav>
     </main>
+  );
+}
+
+function ContinueGoalCard({ goal, progress, completed, total }) {
+  return (
+    <section className="continue-goal-card" aria-label="Today’s mission">
+      <span className="continue-icon" aria-hidden="true">{goal.icon}</span>
+      <div>
+        <p className="eyebrow">Today’s Mission</p>
+        <h2>{goal.title}</h2>
+        <p>{goal.sentence}</p>
+        <strong>{goal.reward}</strong>
+      </div>
+      <Progress value={progress} />
+      <small>{completed}/{total} complete</small>
+      <button className="continue-task-button" type="button" onClick={goal.action}>Continue</button>
+    </section>
+  );
+}
+
+function PageContinueHeader({ title, subtitle, goal }) {
+  return (
+    <header className="simple-page-header">
+      <div>
+        <p className="eyebrow">{subtitle}</p>
+        <h2>{title}</h2>
+      </div>
+      <button className="continue-mini-button" type="button" onClick={goal.action}>
+        {goal.icon} Continue
+      </button>
+    </header>
+  );
+}
+
+function missionCategoryFor(activity) {
+  const text = `${activity.title || ""} ${activity.subject || ""}`.toLowerCase();
+  if (text.includes("quran")) return "Islam";
+  if (activity.is_prayer || text.includes("prayer") || text.includes("fajr") || text.includes("isha") || text.includes("dhuhr") || text.includes("asr") || text.includes("maghrib")) return "Prayer";
+  if (text.includes("sport") || text.includes("fitness") || activity.subject === "Sports & Physical Development") return "Sports";
+  if (text.includes("help") || text.includes("mother") || text.includes("clean") || text.includes("bedroom") || text.includes("teamwork")) return "Family Help";
+  return "Learning";
+}
+
+function MissionCategoryHub({ activities = [], quranReading, sports, onFocus, onQuranSubmit, onSportsComplete, recovery, onStartQuiz, onAnswerQuiz }) {
+  const [openCategory, setOpenCategory] = useState("Quran Reading");
+  const unfinished = activities.filter((activity) => !["completed", "approved"].includes(activity.status));
+  const categories = [
+    ["Islam", "🌙", unfinished.filter((activity) => missionCategoryFor(activity) === "Islam")],
+    ["Quran Reading", "📖", quranReading?.assignments || []],
+    ["Prayer", "🕌", unfinished.filter((activity) => missionCategoryFor(activity) === "Prayer")],
+    ["Sports", "🏃", unfinished.filter((activity) => missionCategoryFor(activity) === "Sports")],
+    ["Family Help", "🤝", unfinished.filter((activity) => missionCategoryFor(activity) === "Family Help")],
+    ["Learning", "✏️", unfinished.filter((activity) => missionCategoryFor(activity) === "Learning")]
+  ];
+  const selected = categories.find(([name]) => name === openCategory) || categories[0];
+  const sportsActivities = selected[0] === "Sports" ? unfinished.filter((activity) => activity.subject === "Sports & Physical Development") : [];
+  return (
+    <section className="mission-hub">
+      <div className="mission-category-grid">
+        {categories.map(([name, icon, items]) => (
+          <button className={openCategory === name ? "active" : ""} key={name} type="button" onClick={() => setOpenCategory(name)}>
+            <span>{icon}</span>
+            <strong>{name}</strong>
+            <small>{items.length} task{items.length === 1 ? "" : "s"}</small>
+          </button>
+        ))}
+      </div>
+      <div className="mission-focus-list">
+        <h3>{selected[1]} {selected[0]}</h3>
+        {selected[0] === "Quran Reading" ? (
+          <QuranReadingPanel quranReading={quranReading} onSubmit={onQuranSubmit} />
+        ) : selected[0] === "Sports" ? (
+          <SimpleSportsToday sports={sports} activities={sportsActivities} onComplete={onSportsComplete} />
+        ) : selected[2].length ? (
+          <ActivityJourney activities={selected[2]} onFocus={onFocus} />
+        ) : (
+          <p className="muted">No open missions in this category today.</p>
+        )}
+      </div>
+      <StreakRecoveryRescue recovery={recovery} onStartQuiz={onStartQuiz} onAnswerQuiz={onAnswerQuiz} />
+    </section>
+  );
+}
+
+function SimpleSportsToday({ sports, activities = [], onComplete }) {
+  const activity = activities.find((item) => !["completed", "approved"].includes(item.status));
+  if (!activity) return <p className="muted">No sports exercise assigned for today.</p>;
+  return (
+    <section className="simple-sports-card">
+      <span aria-hidden="true">🏃</span>
+      <div>
+        <h3>{activity.title}</h3>
+        <p>{activity.duration_minutes || 10} minutes · +{activity.points} Hasanat</p>
+      </div>
+      <button onClick={() => onComplete(activity)}>Start</button>
+    </section>
+  );
+}
+
+function StreakRecoveryRescue({ recovery, onStartQuiz, onAnswerQuiz }) {
+  if (!recovery || recovery.recovery_status !== "active") return null;
+  return (
+    <section className="streak-rescue-card">
+      <div>
+        <p className="eyebrow">🔥 Save Your Streak</p>
+        <h2>You missed {recovery.missed_days} day{Number(recovery.missed_days) === 1 ? "" : "s"}.</h2>
+        <p>Complete {recovery.recovery_required} recovery activities.</p>
+      </div>
+      <Progress value={Math.round((Number(recovery.recovery_completed || 0) / Math.max(1, Number(recovery.recovery_required || 1))) * 100)} />
+      <small>Progress: {recovery.recovery_completed}/{recovery.recovery_required}</small>
+      <StreakRecoveryDashboard recovery={recovery} onStartQuiz={onStartQuiz} onAnswerQuiz={onAnswerQuiz} />
+    </section>
+  );
+}
+
+function rewardCategoryFor(reward) {
+  const title = String(reward.title || "").toLowerCase();
+  if (title.includes("ipad") || title.includes("ps5") || title.includes("park")) return "Fun";
+  if (title.includes("chess") || title.includes("book")) return "Learning";
+  if (title.includes("ice") || title.includes("restaurant")) return "Treats";
+  if (title.includes("swim") || title.includes("family")) return "Family";
+  return "Special";
+}
+
+function SimpleRewardShop({ rewards = [], points, onRedeem }) {
+  const [category, setCategory] = useState("Fun");
+  const categories = ["Fun", "Learning", "Treats", "Family", "Special"];
+  const visible = rewards.filter((reward) => rewardCategoryFor(reward) === category).slice(0, 6);
+  return (
+    <section className="simple-reward-shop">
+      <div className="segmented-control">
+        {categories.map((item) => <button className={category === item ? "active" : ""} key={item} onClick={() => setCategory(item)}>{item}</button>)}
+      </div>
+      <div className="simple-reward-grid">
+        {visible.map((reward) => (
+          <article className={`simple-reward-card ${reward.status}`} key={reward.id}>
+            <span>{rewardIcons[reward.title] || rewardIcons.default}</span>
+            <h3>{reward.title}</h3>
+            <p><CoinIcon /> {reward.is_discounted ? reward.discounted_points : reward.required_points} Hasanat</p>
+            <button disabled={reward.status !== "available"} onClick={() => onRedeem(reward)}>
+              {reward.status === "requested" ? "Requested" : "Request"}
+            </button>
+          </article>
+        ))}
+      </div>
+      <p className="muted">You have {points} Hasanat.</p>
+    </section>
+  );
+}
+
+function ProfileOverview({ data, level }) {
+  const overall = Math.min(100, Math.round((Number(data.points.total || 0) % 1000) / 10));
+  return (
+    <section className="profile-overview">
+      <Stat label="Level" value={level.level} icon="🏆" />
+      <Stat label="Current streak" value={`${data.streak} days`} icon="🔥" pulse={data.streak > 0} />
+      <Stat label="Total Hasanat" value={data.points.total} icon={<CoinIcon />} />
+      <Stat label="Badges earned" value={(data.badges || []).length} icon="🏅" />
+      <div className="profile-progress">
+        <strong>Overall progress</strong>
+        <Progress value={overall} />
+      </div>
+      <details>
+        <summary>More numbers</summary>
+        <section className="stats currency-strip">
+          <Stat label="XP" value={data.wallet?.xp || data.points.total} icon="⚡" />
+          <Stat label="Gems" value={data.wallet?.gems || 0} icon="💠" />
+          <Stat label="Keys" value={data.wallet?.keys || 0} icon="🗝️" />
+          <Stat label="Tickets" value={data.wallet?.treasure_tickets || 0} icon="🎟️" />
+          <Stat label="Weekly Hasanat" value={data.points.weekly} icon={<CoinIcon />} />
+        </section>
+      </details>
+    </section>
+  );
+}
+
+function SimpleProgressRace({ children = [], currentChildId }) {
+  const maxPoints = Math.max(1, ...children.map((child) => Number(child.total_points || 0)));
+  return (
+    <section className="simple-race-board">
+      <h2>Family Progress Race</h2>
+      {children.map((child) => (
+        <article className={Number(child.id) === Number(currentChildId) ? "current" : ""} key={child.id}>
+          <AvatarDisplay value={child.avatar} className="leader-avatar" label={`${child.name} avatar`} />
+          <strong>{child.name}</strong>
+          <div><span style={{ width: `${Math.min(100, Math.round((Number(child.total_points || 0) / maxPoints) * 100))}%` }} /></div>
+        </article>
+      ))}
+    </section>
   );
 }
 
@@ -2220,6 +2355,86 @@ function QuranMemorizationPanel({ quran, filter, sort, onFilter, onSort, onMemor
   );
 }
 
+function QuranReadingJourneyCard({ quranReading, onSubmit }) {
+  if (!quranReading?.assignments?.length) return null;
+  const current = quranReading.current_surah;
+  return (
+    <section className="quran-reading-card" aria-label="My Quran Journey">
+      <div>
+        <p className="eyebrow">📖 My Quran Journey</p>
+        <h2>{current ? `${current.surah_number}. ${current.surah_name_english}` : "All assigned Surahs completed"}</h2>
+        {current?.surah_name_arabic ? <p className="arabic-surah" dir="rtl" lang="ar">{current.surah_name_arabic}</p> : null}
+        <p>{quranReading.total_completed} / {quranReading.total_assigned} assigned Surahs completed · {quranReading.total_quran_hasanat} Quran Hasanat</p>
+      </div>
+      <Progress value={quranReading.total_assigned ? Math.round((quranReading.total_completed / quranReading.total_assigned) * 100) : 0} />
+      {current ? (
+        <div className="quran-reading-actions">
+          <span>{current.ayah_count} Ayahs · {current.possible_hasanat} Hasanat after parent approval</span>
+          <button
+            disabled={current.status === "submitted" || current.status === "approved"}
+            onClick={() => onSubmit(current)}
+          >
+            {current.status === "submitted" ? "Waiting for Parent Approval" : current.status === "approved" ? "Approved" : "I Have Finished My Recitation"}
+          </button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function QuranReadingPanel({ quranReading, onSubmit }) {
+  if (!quranReading?.assignments?.length) return null;
+  return (
+    <section className="quran-reading-panel" aria-label="Quran Reading and Recitation">
+      <div className="section-heading">
+        <p className="eyebrow">📖 Quran Reading & Recitation</p>
+        <h2>Assigned Surahs from your parent</h2>
+        <p className="muted">Recite your assigned Surah, then send it for parent approval.</p>
+      </div>
+      <div className="quran-reading-stats">
+        <Stat label="Assigned" value={quranReading.total_assigned} icon="📚" />
+        <Stat label="Completed" value={quranReading.total_completed} icon="✅" />
+        <Stat label="Pending Approval" value={quranReading.pending_approval} icon="🟡" />
+        <Stat label="Ayahs Completed" value={quranReading.total_ayahs_completed} icon="📖" />
+        <Stat label="Quran Hasanat" value={quranReading.total_quran_hasanat} icon={<CoinIcon />} />
+      </div>
+      <Progress value={quranReading.progress_percentage} />
+      <div className="quran-reading-grid">
+        {quranReading.assignments.map((item) => (
+          <article className={`quran-reading-surah ${item.status}`} key={item.id}>
+            <div className="surah-head">
+              <span>{item.surah_number}</span>
+              <div>
+                <h3 dir="rtl" lang="ar">{item.surah_name_arabic}</h3>
+                <small>{item.surah_name_english} · {item.ayah_count} Ayahs</small>
+              </div>
+            </div>
+            <Progress value={item.progress_percentage} />
+            <div className="surah-meta">
+              <span>Assigned by Parent</span>
+              <span>{item.parent_approval_status.replaceAll("_", " ")}</span>
+              <span><CoinIcon /> {item.hasanat_earned} earned</span>
+            </div>
+            {item.parent_feedback ? <p className="muted"><strong>Parent feedback:</strong> {item.parent_feedback}</p> : null}
+            {item.encouragement ? <p className="quran-encouragement">{item.encouragement}</p> : null}
+            <button
+              disabled={item.status === "submitted" || item.status === "approved"}
+              onClick={() => onSubmit(item)}
+            >
+              {item.status === "submitted" ? "Waiting for Parent Approval" : item.status === "approved" ? "Approved" : "I Have Finished My Recitation"}
+            </button>
+          </article>
+        ))}
+      </div>
+      <div className="hifz-badges">
+        {(quranReading.badges || []).map((badge) => (
+          <span className={badge.earned ? "earned" : ""} key={badge.title}>{badge.icon} {badge.title}</span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function HifzTracker({ hifz, onUpdate }) {
   const todayPage = hifz.today;
   const [notes, setNotes] = useState(todayPage?.notes || "");
@@ -3024,6 +3239,7 @@ function ParentDashboard({ api }) {
     ["approvals", "Approvals"],
     ["children", "Children & Accounts"],
     ["activities", "Activities"],
+    ["quran", "Quran Plan"],
     ["quizzes", "Quizzes"],
     ["game", "Game Controls"],
     ["planner", "Weekly Planner"],
@@ -3179,6 +3395,42 @@ function ParentDashboard({ api }) {
   async function approve(logId, approved) {
     await api("/api/approvals", { method: "POST", body: JSON.stringify({ logId, approved }) });
     load();
+  }
+
+  async function assignQuranSurah(event) {
+    event.preventDefault();
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    const selectedSurahs = Array.from(event.currentTarget.querySelectorAll("input[name='surahIds']:checked")).map((input) => Number(input.value));
+    await api("/api/quran-reading/assign", {
+      method: "POST",
+      body: JSON.stringify({
+        childId,
+        surahIds: selectedSurahs.length ? selectedSurahs : [Number(form.surahId)],
+        targetDate: form.targetDate || null,
+        priority: form.priority || "normal",
+        sortOrder: Number(form.sortOrder || 0),
+        privateNotes: form.privateNotes || ""
+      })
+    });
+    event.currentTarget.reset();
+    setNotice("Quran Surah assignment saved.");
+    load(childId);
+  }
+
+  async function reviewQuranRecitation(row, action, event) {
+    event?.preventDefault?.();
+    const form = event?.currentTarget ? Object.fromEntries(new FormData(event.currentTarget)) : {};
+    await api("/api/quran-reading/review", {
+      method: "POST",
+      body: JSON.stringify({
+        assignmentId: row.id,
+        action,
+        feedback: form.feedback || "",
+        encouragement: form.encouragement || ""
+      })
+    });
+    setNotice(action === "approve" ? "Quran recitation approved and Hasanat awarded." : "Quran recitation sent back for repetition.");
+    load(childId);
   }
 
   async function approveReward(redemptionId, approved) {
@@ -3570,6 +3822,34 @@ function ParentDashboard({ api }) {
                 </div>
               ))}
             </div>
+          </Panel>
+        </section>
+      )}
+
+      {adminTab === "quran" && (
+        <section className="admin-grid">
+          <Panel title="My Quran Learning Plan">
+            <QuranAssignmentForm
+              childName={selectedChildName}
+              surahs={admin.quranSurahs || []}
+              assignments={(admin.quranReadingPlan || []).filter((row) => String(row.child_id) === String(childId))}
+              onSubmit={assignQuranSurah}
+            />
+          </Panel>
+          <Panel title="Pending Quran Activities">
+            <QuranPendingApprovals
+              rows={(admin.quranReadingPending || []).filter((row) => String(row.child_id) === String(childId))}
+              onReview={reviewQuranRecitation}
+            />
+          </Panel>
+          <Panel title="Assigned Surahs">
+            <QuranAssignmentList
+              rows={(admin.quranReadingPlan || []).filter((row) => String(row.child_id) === String(childId))}
+              onRemove={(row) => remove("quran-reading", row.id)}
+            />
+          </Panel>
+          <Panel title="Quran Reports">
+            <QuranReadingReports reports={admin.quranReadingReports} selectedChildId={childId} />
           </Panel>
         </section>
       )}
@@ -3971,7 +4251,7 @@ function QuizEditorForm({ item, children, onSubmit }) {
       <h3>{item ? "Edit quiz" : "New quiz activity"}</h3>
       <input name="title" placeholder="Quiz title" defaultValue={item?.title || ""} required />
       <select name="subject" defaultValue={item?.subject || "Reading"}>
-        {["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map((subject) => <option key={subject}>{subject}</option>)}
+        {["Math", "German", "English", "Quran", "Quran Reading & Recitation", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map((subject) => <option key={subject}>{subject}</option>)}
       </select>
       <select name="quiz_type" defaultValue={item?.quiz_type || "select_3"}>
         {quizTypes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
@@ -4181,6 +4461,119 @@ function QuranicVisibilityForm({ rows = [], onToggle }) {
   );
 }
 
+function QuranAssignmentForm({ childName, surahs = [], assignments = [], onSubmit }) {
+  const assignedIds = new Set(assignments.map((row) => Number(row.surah_id)));
+  const shortSurahs = surahs.filter((surah) => Number(surah.surah_number) >= 78);
+  return (
+    <form className="editor quran-assignment-form" onSubmit={onSubmit}>
+      <p className="muted">Assign one or more Surahs to {childName || "the selected child"}. Children only see assigned Surahs.</p>
+      <label>
+        Quick single Surah
+        <select name="surahId" defaultValue="1">
+          {surahs.map((surah) => (
+            <option value={surah.surah_number} key={surah.surah_number}>
+              {surah.surah_number}. {surah.surah_name_english} · {surah.ayah_count} Ayahs · {surah.possible_hasanat} Hasanat
+            </option>
+          ))}
+        </select>
+      </label>
+      <details>
+        <summary>Choose several short Surahs</summary>
+        <div className="quran-check-grid">
+          {shortSurahs.map((surah) => (
+            <label className={assignedIds.has(Number(surah.surah_number)) ? "check assigned" : "check"} key={surah.surah_number}>
+              <input name="surahIds" type="checkbox" value={surah.surah_number} disabled={assignedIds.has(Number(surah.surah_number))} />
+              <span>{surah.surah_number}. {surah.surah_name_english}</span>
+              <small dir="rtl" lang="ar">{surah.surah_name_arabic}</small>
+            </label>
+          ))}
+        </div>
+      </details>
+      <div className="form-row">
+        <label>Order <input name="sortOrder" type="number" min="0" defaultValue={assignments.length + 1} /></label>
+        <label>Target date <input name="targetDate" type="date" /></label>
+        <label>Priority
+          <select name="priority" defaultValue="normal">
+            <option value="normal">Normal</option>
+            <option value="high">High priority</option>
+          </select>
+        </label>
+      </div>
+      <textarea name="privateNotes" placeholder="Private parent notes, for example: practise after Maghrib" />
+      <button>Assign Surah</button>
+    </form>
+  );
+}
+
+function QuranPendingApprovals({ rows = [], onReview }) {
+  if (!rows.length) return <p className="muted">No Quran recitations waiting for approval.</p>;
+  return (
+    <div className="quran-parent-list">
+      {rows.map((row) => (
+        <form className="quran-parent-item" key={row.id} onSubmit={(event) => onReview(row, "approve", event)}>
+          <div>
+            <strong>{row.child_name}: {row.surah_number}. {row.surah_name_english}</strong>
+            <small dir="rtl" lang="ar">{row.surah_name_arabic}</small>
+            <span>{row.ayah_count} Ayahs · awards {row.possible_hasanat} Hasanat after approval</span>
+          </div>
+          <textarea name="feedback" placeholder="Feedback for the child" />
+          <input name="encouragement" placeholder="Encouragement, for example: Beautiful effort, keep going" />
+          <div className="activity-admin-actions">
+            <button type="submit">Approve</button>
+            <button className="ghost" type="button" onClick={(event) => onReview(row, "repeat", { preventDefault() {}, currentTarget: event.currentTarget.closest("form") })}>Ask to repeat</button>
+          </div>
+        </form>
+      ))}
+    </div>
+  );
+}
+
+function QuranAssignmentList({ rows = [], onRemove }) {
+  if (!rows.length) return <p className="muted">No Surahs assigned yet.</p>;
+  return (
+    <div className="quran-parent-list">
+      {rows.map((row) => (
+        <article className={`quran-parent-item ${row.status}`} key={row.id}>
+          <div>
+            <strong>{row.sort_order || 0}. {row.surah_number}. {row.surah_name_english}</strong>
+            <small dir="rtl" lang="ar">{row.surah_name_arabic}</small>
+            <span>{row.ayah_count} Ayahs · {row.possible_hasanat} possible Hasanat · {row.status}</span>
+            {row.target_date ? <span>Target: {row.target_date}</span> : null}
+            {row.private_notes ? <p className="muted">{row.private_notes}</p> : null}
+          </div>
+          {row.status === "approved" ? (
+            <span className="success-pill">Approved · {row.hasanat_awarded} Hasanat</span>
+          ) : (
+            <button className="ghost" onClick={() => onRemove(row)}>Remove</button>
+          )}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function QuranReadingReports({ reports, selectedChildId }) {
+  const rows = reports?.children || [];
+  const childRows = selectedChildId ? rows.filter((row) => String(row.child_id) === String(selectedChildId)) : rows;
+  return (
+    <div className="quran-report-box">
+      {childRows.length ? childRows.map((row) => (
+        <div className="quran-report-summary" key={row.child_id}>
+          <Stat label="Assigned Surahs" value={row.assigned_surahs} />
+          <Stat label="Completed Surahs" value={row.completed_surahs} />
+          <Stat label="Pending Approval" value={row.pending_approval} />
+          <Stat label="Ayahs Recited" value={row.total_ayahs_recited} />
+          <Stat label="Quran Hasanat" value={row.total_hasanat_earned} />
+        </div>
+      )) : <p className="muted">No Quran report data yet.</p>}
+      <h3>Weekly Progress</h3>
+      {(reports?.weekly || []).slice(0, 6).map((row) => <Bar key={`${row.child_name}-${row.week}`} label={`${row.child_name} · ${row.week}`} value={Number(row.completed || 0) * 20} />)}
+      <h3>Monthly Progress</h3>
+      {(reports?.monthly || []).slice(0, 6).map((row) => <Bar key={`${row.child_name}-${row.month}`} label={`${row.child_name} · ${row.month}`} value={Number(row.completed || 0) * 20} />)}
+    </div>
+  );
+}
+
 function BonusHasnatForm({ childName, onSubmit }) {
   return (
     <form className="editor" onSubmit={onSubmit}>
@@ -4350,7 +4743,7 @@ function EditorForm({ item, type, onSubmit }) {
         <>
           <input name="duration_minutes" type="number" min="0" placeholder="Timer minutes" defaultValue={item?.duration_minutes || 0} />
           <select name="subject" defaultValue={item?.subject || "Reading"}>
-            {["Math", "German", "English", "Quran", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map((subject) => <option key={subject}>{subject}</option>)}
+            {["Math", "German", "English", "Quran", "Quran Reading & Recitation", "Reading", "Fitness", "Housework", "Teamwork", "Sports & Physical Development"].map((subject) => <option key={subject}>{subject}</option>)}
           </select>
           <select name="task_type" defaultValue={item?.task_type || "standard"}>
             <option value="standard">Standard task</option>

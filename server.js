@@ -63,6 +63,10 @@ function boolInt(value) {
   return value ? 1 : 0;
 }
 
+function hashCode(value) {
+  return String(value || "").split("").reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
+}
+
 function hashPassword(password, salt = randomBytes(16).toString("hex")) {
   const hash = pbkdf2Sync(password, salt, 120000, 32, "sha256").toString("hex");
   return `${salt}:${hash}`;
@@ -230,6 +234,44 @@ const QURAN_SURAHS = [
   [109, "Al-Kafirun", "Makkah", 6], [110, "An-Nasr", "Madinah", 3], [111, "Al-Masad", "Makkah", 5], [112, "Al-Ikhlas", "Makkah", 4],
   [113, "Al-Falaq", "Makkah", 5], [114, "An-Nas", "Makkah", 6]
 ].map(([id, surah_name, revelation_place, total_verses]) => ({ id, surah_name, revelation_place, total_verses }));
+
+const QURAN_SURAH_ARABIC_NAMES = [
+  "الفاتحة", "البقرة", "آل عمران", "النساء", "المائدة", "الأنعام", "الأعراف", "الأنفال", "التوبة", "يونس",
+  "هود", "يوسف", "الرعد", "إبراهيم", "الحجر", "النحل", "الإسراء", "الكهف", "مريم", "طه",
+  "الأنبياء", "الحج", "المؤمنون", "النور", "الفرقان", "الشعراء", "النمل", "القصص", "العنكبوت", "الروم",
+  "لقمان", "السجدة", "الأحزاب", "سبأ", "فاطر", "يس", "الصافات", "ص", "الزمر", "غافر",
+  "فصلت", "الشورى", "الزخرف", "الدخان", "الجاثية", "الأحقاف", "محمد", "الفتح", "الحجرات", "ق",
+  "الذاريات", "الطور", "النجم", "القمر", "الرحمن", "الواقعة", "الحديد", "المجادلة", "الحشر", "الممتحنة",
+  "الصف", "الجمعة", "المنافقون", "التغابن", "الطلاق", "التحريم", "الملك", "القلم", "الحاقة", "المعارج",
+  "نوح", "الجن", "المزمل", "المدثر", "القيامة", "الإنسان", "المرسلات", "النبأ", "النازعات", "عبس",
+  "التكوير", "الإنفطار", "المطففين", "الإنشقاق", "البروج", "الطارق", "الأعلى", "الغاشية", "الفجر", "البلد",
+  "الشمس", "الليل", "الضحى", "الشرح", "التين", "العلق", "القدر", "البينة", "الزلزلة", "العاديات",
+  "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش", "الماعون", "الكوثر", "الكافرون", "النصر",
+  "المسد", "الإخلاص", "الفلق", "الناس"
+];
+
+function quranSurahMeta(surahId) {
+  const surah = QURAN_SURAHS.find((item) => Number(item.id) === Number(surahId));
+  if (!surah) return null;
+  return {
+    surah_number: Number(surah.id),
+    surah_name_arabic: QURAN_SURAH_ARABIC_NAMES[Number(surah.id) - 1] || surah.surah_name,
+    surah_name_english: surah.surah_name,
+    ayah_count: Number(surah.total_verses),
+    possible_hasanat: Number(surah.total_verses) * 10
+  };
+}
+
+const QURAN_READING_BADGES = [
+  { title: "First Surah Completed", icon: "📖", target: 1 },
+  { title: "10 Surahs Completed", icon: "🌟", target: 10 },
+  { title: "25 Surahs Completed", icon: "🏅", target: 25 },
+  { title: "50 Surahs Completed", icon: "🏆", target: 50 },
+  { title: "100 Surahs Completed", icon: "💎", target: 100 },
+  { title: "Juz Amma Champion", icon: "🌙", target: "juz-amma" },
+  { title: "Quran Reading Star", icon: "⭐", target: 5 },
+  { title: "Ayah Master", icon: "✨", target: "ayah-master" }
+];
 
 const QURAN_JUZ_RANGES = [
   [1, [[1, 1, 7], [2, 1, 141]]], [2, [[2, 142, 252]]], [3, [[2, 253, 286], [3, 1, 92]]], [4, [[3, 93, 200], [4, 1, 23]]],
@@ -501,6 +543,27 @@ function initDb() {
       surah_id INTEGER NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY(child_id, surah_id),
+      FOREIGN KEY(child_id) REFERENCES children(id)
+    );
+    CREATE TABLE IF NOT EXISTS quran_reading_assignments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      child_id INTEGER NOT NULL,
+      surah_id INTEGER NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      target_date TEXT,
+      priority TEXT DEFAULT 'normal',
+      private_notes TEXT DEFAULT '',
+      status TEXT DEFAULT 'assigned' CHECK(status IN ('assigned','submitted','approved','repeat')),
+      child_submitted_at TEXT,
+      parent_feedback TEXT DEFAULT '',
+      encouragement TEXT DEFAULT '',
+      approved_at TEXT,
+      approved_by INTEGER,
+      hasanat_awarded INTEGER DEFAULT 0,
+      created_by INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(child_id, surah_id),
       FOREIGN KEY(child_id) REFERENCES children(id)
     );
     CREATE TABLE IF NOT EXISTS hifz_plan (
@@ -1690,6 +1753,129 @@ function quranStreakFor(childId) {
   return streak;
 }
 
+function quranReadingRows(childId) {
+  return db(sql`
+    SELECT *
+    FROM quran_reading_assignments
+    WHERE child_id = ${childId}
+    ORDER BY sort_order ASC, id ASC;
+  `).map((row) => {
+    const meta = quranSurahMeta(row.surah_id) || {};
+    return {
+      ...row,
+      ...meta,
+      assigned_by_parent: true,
+      parent_approval_status: row.status,
+      progress_percentage: row.status === "approved" ? 100 : row.status === "submitted" ? 75 : row.status === "repeat" ? 35 : 25,
+      hasanat_earned: Number(row.hasanat_awarded || 0)
+    };
+  });
+}
+
+function quranReadingStats(childId) {
+  const assignments = quranReadingRows(childId);
+  const completed = assignments.filter((row) => row.status === "approved");
+  const pending = assignments.filter((row) => row.status === "submitted");
+  const current = assignments.find((row) => ["assigned", "repeat", "submitted"].includes(row.status)) || assignments[0] || null;
+  const nextAssigned = assignments.find((row) => row.status === "assigned" && Number(row.id) !== Number(current?.id)) || null;
+  const completedSurahIds = new Set(completed.map((row) => Number(row.surah_id)));
+  const totalAyahsCompleted = completed.reduce((sum, row) => sum + Number(row.ayah_count || 0), 0);
+  const totalHasanat = completed.reduce((sum, row) => sum + Number(row.hasanat_awarded || 0), 0);
+  const juzAmmaIds = QURAN_SURAHS.filter((surah) => surah.id >= 78).map((surah) => surah.id);
+  const juzAmmaComplete = juzAmmaIds.every((id) => completedSurahIds.has(Number(id)));
+  const badges = QURAN_READING_BADGES.map((badge) => {
+    const earned = badge.target === "juz-amma"
+      ? juzAmmaComplete
+      : badge.target === "ayah-master"
+        ? totalAyahsCompleted >= 500
+        : completed.length >= Number(badge.target);
+    return { ...badge, earned };
+  });
+  return {
+    feature_name: "Quran Reading & Recitation",
+    assignments,
+    current_surah: current,
+    next_surah: nextAssigned,
+    total_assigned: assignments.length,
+    total_completed: completed.length,
+    total_surahs: 114,
+    pending_approval: pending.length,
+    total_ayahs_completed: totalAyahsCompleted,
+    total_quran_hasanat: totalHasanat,
+    total_quran_ayahs: 6236,
+    progress_percentage: Math.round((completed.length / 114) * 100),
+    ayah_progress_percentage: Math.round((totalAyahsCompleted / 6236) * 100),
+    recent_achievements: badges.filter((badge) => badge.earned).slice(0, 4),
+    badges
+  };
+}
+
+function awardQuranReadingBadges(childId) {
+  const stats = quranReadingStats(childId);
+  for (const badge of stats.badges.filter((item) => item.earned)) {
+    exec(sql`
+      INSERT OR IGNORE INTO badges (child_id, badge_date, activity_id, title, icon)
+      VALUES (${childId}, ${today()}, ${-900000 - Math.abs(hashCode(badge.title)) % 9999}, ${badge.title}, ${badge.icon});
+    `);
+  }
+}
+
+function quranReadingParentRows(user) {
+  const childScope = visibleChildWhere(user, "c");
+  return db(`
+    SELECT qra.*, c.name AS child_name
+    FROM quran_reading_assignments qra
+    JOIN children c ON c.id = qra.child_id
+    WHERE ${childScope}
+    ORDER BY c.name ASC, qra.sort_order ASC, qra.id ASC;
+  `).map((row) => ({ ...row, ...(quranSurahMeta(row.surah_id) || {}) }));
+}
+
+function quranReadingParentReports(user) {
+  const rows = quranReadingParentRows(user);
+  const byChild = new Map();
+  for (const row of rows) {
+    if (!byChild.has(row.child_id)) {
+      byChild.set(row.child_id, {
+        child_id: row.child_id,
+        child_name: row.child_name,
+        assigned_surahs: 0,
+        completed_surahs: 0,
+        pending_approval: 0,
+        total_ayahs_recited: 0,
+        total_hasanat_earned: 0
+      });
+    }
+    const item = byChild.get(row.child_id);
+    item.assigned_surahs += 1;
+    if (row.status === "submitted") item.pending_approval += 1;
+    if (row.status === "approved") {
+      item.completed_surahs += 1;
+      item.total_ayahs_recited += Number(row.ayah_count || 0);
+      item.total_hasanat_earned += Number(row.hasanat_awarded || 0);
+    }
+  }
+  const weekly = db(`
+    SELECT c.name AS child_name, date(qra.approved_at, 'weekday 0', '-6 days') AS week, COUNT(*) AS completed
+    FROM quran_reading_assignments qra
+    JOIN children c ON c.id = qra.child_id
+    WHERE qra.status = 'approved' AND qra.approved_at IS NOT NULL AND ${visibleChildWhere(user, "c")}
+    GROUP BY c.id, week
+    ORDER BY week DESC, c.name ASC
+    LIMIT 20;
+  `);
+  const monthly = db(`
+    SELECT c.name AS child_name, substr(qra.approved_at, 1, 7) AS month, COUNT(*) AS completed
+    FROM quran_reading_assignments qra
+    JOIN children c ON c.id = qra.child_id
+    WHERE qra.status = 'approved' AND qra.approved_at IS NOT NULL AND ${visibleChildWhere(user, "c")}
+    GROUP BY c.id, month
+    ORDER BY month DESC, c.name ASC
+    LIMIT 20;
+  `);
+  return { children: Array.from(byChild.values()), weekly, monthly };
+}
+
 function parseJsonArray(value) {
   if (Array.isArray(value)) return value;
   try {
@@ -2205,6 +2391,7 @@ function restoreBackup(backup) {
       DELETE FROM quran_memorization_logs;
       DELETE FROM quran_juz_awards;
       DELETE FROM quran_surah_progress;
+      DELETE FROM quran_reading_assignments;
       DELETE FROM hifz_plan;
     DELETE FROM daily_challenge_completions;
     DELETE FROM badges;
@@ -2263,6 +2450,7 @@ function restoreBackup(backup) {
   insertRows("quran_surah_progress", backup.quran_surah_progress, ["child_id", "surah_id", "memorized_verses", "surah_bonus_awarded", "updated_at"]);
   insertRows("quran_juz_awards", backup.quran_juz_awards, ["child_id", "juz_number", "awarded_at"]);
   insertRows("quran_memorization_logs", backup.quran_memorization_logs, ["id", "child_id", "surah_id", "log_date", "verses_added", "created_at"]);
+  insertRows("quran_reading_assignments", backup.quran_reading_assignments || [], ["id", "child_id", "surah_id", "sort_order", "target_date", "priority", "private_notes", "status", "child_submitted_at", "parent_feedback", "encouragement", "approved_at", "approved_by", "hasanat_awarded", "created_by", "created_at", "updated_at"]);
   insertRows("hifz_plan", backup.hifz_plan, ["id", "user_id", "plan_date", "day_name", "page_number", "juz_number", "page_in_juz", "surah_number", "surah_name", "surah_name_arabic", "surah_name_english", "ayah_range", "memorization_task", "revision_task", "memorized", "revised", "weekly_review_done", "juz_review_done", "parent_reviewed", "notes", "parent_notes", "points_earned", "badges_earned", "streak_count", "completed_at", "created_at", "updated_at"]);
   exec("PRAGMA foreign_keys = ON;");
   ensureActivityAssignments();
@@ -2943,6 +3131,7 @@ function dashboardFor(childId) {
       reflection: null,
       earlyBird: { rows: [] },
       quran: null,
+      quranReading: { assignments: [], total_assigned: 0, total_completed: 0, pending_approval: 0, total_quran_hasanat: 0 },
       hifz: null,
       quizzes: [],
       wallet: { xp: 0, coins: 0, gems: 0, keys: 0, treasure_tickets: 0 },
@@ -3064,6 +3253,7 @@ function dashboardFor(childId) {
   const earlyBird = earlyBirdBoard(date, childId);
   const personalBest = personalBestFor(childId);
   const quran = isHifzChild(child) ? quranProgressFor(childId) : null;
+  const quranReading = quranReadingStats(childId);
   const quizzes = quizzesForKid(childId);
   const seerahQuiz = seerahQuizProgressFor(childId);
   const seerahReview = seerahReviewFor(childId, date);
@@ -3091,6 +3281,7 @@ function dashboardFor(childId) {
     reflection,
     earlyBird,
     quran,
+    quranReading,
     hifz: null,
     quizzes,
     seerahQuiz,
@@ -3343,6 +3534,10 @@ async function api(req, res, path) {
     const quizScope = isAdmin(user) ? "1 = 1" : `q.created_by_parent_id = ${Number(user.id)}`;
     return send(res, 200, {
       children: db(`SELECT * FROM children c WHERE ${childScope} ORDER BY id;`),
+      quranSurahs: QURAN_SURAHS.map((surah) => quranSurahMeta(surah.id)),
+      quranReadingPlan: quranReadingParentRows(user),
+      quranReadingPending: quranReadingParentRows(user).filter((row) => row.status === "submitted"),
+      quranReadingReports: quranReadingParentReports(user),
       quranicVisibility: db(`SELECT c.id AS child_id, c.name, COALESCE(q.visible, 1) AS visible FROM children c LEFT JOIN child_quranic_settings q ON q.child_id = c.id WHERE ${childScope} ORDER BY c.name;`),
       sportsVideos: db("SELECT * FROM sports_videos ORDER BY exercise_key;"),
       sportsReports: db(`
@@ -3991,6 +4186,7 @@ async function api(req, res, path) {
       DELETE FROM quran_memorization_logs WHERE child_id = ${id};
       DELETE FROM quran_juz_awards WHERE child_id = ${id};
       DELETE FROM quran_surah_progress WHERE child_id = ${id};
+      DELETE FROM quran_reading_assignments WHERE child_id = ${id};
       DELETE FROM hifz_plan WHERE user_id = ${id};
       DELETE FROM quiz_attempts WHERE kid_id = ${id};
       DELETE FROM quiz_category_assignments WHERE child_id = ${id};
@@ -4117,6 +4313,108 @@ async function api(req, res, path) {
     }
     if (activity.subject === SPORTS_SUBJECT && log.status === "approved") awardSportsBonusesIfNeeded(childId);
     return send(res, 200, dashboardFor(childId));
+  }
+  if (method === "POST" && path === "/api/quran-reading/assign") {
+    const user = requireParent(req);
+    const childId = Number(body.childId);
+    requireChildAccess(user, childId);
+    const surahIds = Array.isArray(body.surahIds) ? body.surahIds : [body.surahId];
+    const targetDate = body.targetDate || null;
+    const priority = ["normal", "high"].includes(body.priority) ? body.priority : "normal";
+    const notes = String(body.privateNotes || "").slice(0, 1000);
+    const baseOrder = Number(body.sortOrder || 0);
+    let added = 0;
+    for (const rawId of surahIds) {
+      const surah = quranSurahMeta(Number(rawId));
+      if (!surah) continue;
+      exec(sql`
+        INSERT INTO quran_reading_assignments (
+          child_id, surah_id, sort_order, target_date, priority, private_notes, status, created_by
+        )
+        VALUES (${childId}, ${surah.surah_number}, ${baseOrder + added}, ${targetDate}, ${priority}, ${notes}, 'assigned', ${user.id})
+        ON CONFLICT(child_id, surah_id) DO UPDATE SET
+          sort_order = excluded.sort_order,
+          target_date = excluded.target_date,
+          priority = excluded.priority,
+          private_notes = excluded.private_notes,
+          status = CASE WHEN quran_reading_assignments.status = 'approved' THEN 'approved' ELSE 'assigned' END,
+          updated_at = CURRENT_TIMESTAMP;
+      `);
+      added += 1;
+    }
+    return send(res, 200, { ok: true, added });
+  }
+  if (method === "POST" && path === "/api/quran-reading/submit") {
+    const user = requireUser(req);
+    if (user.role !== "child") return send(res, 403, { error: "Only children can submit Quran recitation." });
+    const row = db(sql`
+      SELECT * FROM quran_reading_assignments
+      WHERE id = ${Number(body.assignmentId)} AND child_id = ${Number(user.child_id)}
+      LIMIT 1;
+    `)[0];
+    if (!row) return send(res, 404, { error: "Assigned Surah not found." });
+    if (row.status === "approved") return send(res, 400, { error: "This Surah is already approved." });
+    exec(sql`
+      UPDATE quran_reading_assignments
+      SET status = 'submitted', child_submitted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${row.id};
+    `);
+    const nextDashboard = dashboardFor(Number(user.child_id));
+    nextDashboard.quranReadingMessage = "Your recitation is waiting for parent approval.";
+    return send(res, 200, nextDashboard);
+  }
+  if (method === "POST" && path === "/api/quran-reading/review") {
+    const user = requireParent(req);
+    const action = body.action === "approve" ? "approve" : "repeat";
+    const row = db(sql`
+      SELECT qra.*, c.name AS child_name
+      FROM quran_reading_assignments qra
+      JOIN children c ON c.id = qra.child_id
+      WHERE qra.id = ${Number(body.assignmentId)}
+      LIMIT 1;
+    `)[0];
+    if (!row) return send(res, 404, { error: "Quran assignment not found." });
+    requireChildAccess(user, Number(row.child_id));
+    const feedback = String(body.feedback || "").slice(0, 1000);
+    const encouragement = String(body.encouragement || "").slice(0, 1000);
+    if (action === "approve") {
+      const meta = quranSurahMeta(row.surah_id);
+      const hasanat = Number(meta?.possible_hasanat || 0);
+      const alreadyAwarded = Number(row.hasanat_awarded || 0);
+      exec(sql`
+        UPDATE quran_reading_assignments
+        SET status = 'approved',
+          parent_feedback = ${feedback},
+          encouragement = ${encouragement},
+          approved_at = CURRENT_TIMESTAMP,
+          approved_by = ${user.id},
+          hasanat_awarded = ${hasanat},
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${row.id};
+      `);
+      const delta = hasanat - alreadyAwarded;
+      if (delta > 0) addPoints(Number(row.child_id), delta, "quran_reading", row.id, `${meta?.surah_name_english || "Quran"} recitation approved`);
+      awardQuranReadingBadges(Number(row.child_id));
+    } else {
+      exec(sql`
+        UPDATE quran_reading_assignments
+        SET status = 'repeat',
+          parent_feedback = ${feedback},
+          encouragement = ${encouragement},
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${row.id};
+      `);
+    }
+    return send(res, 200, { ok: true });
+  }
+  if (method === "DELETE" && path.startsWith("/api/quran-reading/")) {
+    const user = requireParent(req);
+    const row = db(sql`SELECT * FROM quran_reading_assignments WHERE id = ${Number(path.split("/").pop())};`)[0];
+    if (!row) return send(res, 404, { error: "Quran assignment not found." });
+    requireChildAccess(user, Number(row.child_id));
+    if (row.status === "approved" && Number(row.hasanat_awarded || 0) > 0) return send(res, 400, { error: "Approved Quran records are kept for reports." });
+    exec(sql`DELETE FROM quran_reading_assignments WHERE id = ${row.id};`);
+    return send(res, 200, { ok: true });
   }
   if (method === "POST" && path === "/api/quran/memorize") {
     const childId = childIdFor(req, body.childId);
@@ -4663,6 +4961,7 @@ async function api(req, res, path) {
       quran_surah_progress: db("SELECT * FROM quran_surah_progress ORDER BY child_id, surah_id;"),
       quran_juz_awards: db("SELECT * FROM quran_juz_awards ORDER BY child_id, juz_number;"),
       quran_memorization_logs: db("SELECT * FROM quran_memorization_logs ORDER BY id;"),
+      quran_reading_assignments: db("SELECT * FROM quran_reading_assignments ORDER BY child_id, sort_order, id;"),
       hifz_plan: db("SELECT * FROM hifz_plan ORDER BY user_id, page_number;")
     });
   }
